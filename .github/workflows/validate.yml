@@ -41,6 +41,9 @@ jobs:
       - name: Hook regression tests
         run: bash tests/hooks.sh
 
+      - name: Status line rendering tests
+        run: bash tests/statusline.sh
+
       # Informational: distribution copy that claims something cannot happen
       # needs a citation or a mechanism (see CLAUDE.md). Most hits are
       # disclaimers, so this lists them for review instead of failing.

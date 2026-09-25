@@ -1,0 +1,19 @@
+{
+  "name": "ogxo-statusline",
+  "version": "0.1.0",
+  "description": "A two-line status line for Claude Code: model, context use, git branch and changes, session time, thinking and effort, and prompt-cache hit ratio, plus 5-hour, 7-day, and spend-limit usage bars. Reads only the session data Claude Code passes on stdin; /ogxo-statusline:setup installs it into your settings. Requires jq.",
+  "author": {
+    "name": "ogxo",
+    "url": "https://github.com/ogxo-io"
+  },
+  "homepage": "https://github.com/ogxo-io/plugins",
+  "repository": "https://github.com/ogxo-io/plugins",
+  "license": "MIT",
+  "keywords": [
+    "statusline",
+    "status-line",
+    "rate-limits",
+    "context-window",
+    "git"
+  ]
+}

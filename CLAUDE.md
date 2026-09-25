@@ -10,12 +10,14 @@ Marketplace name: `ogxo` → plugins install as `<plugin>@ogxo`.
 
 ## Status
 
-- The catalog has nine entries, all vendored under `plugins/`: **thryx**, and
-  eight content-only plugins — **ogxo-review**, **ogxo-git** (0.2.0),
+- The catalog has ten entries, all vendored under `plugins/`: **thryx**, and
+  nine content-only plugins — **ogxo-review**, **ogxo-git** (0.2.0),
   **ogxo-debug**, **ogxo-decide** (0.3.0), **ogxo-design**, **ogxo-guards**,
-  **ogxo-format**, **ogxo-specialists** (0.1.0). The hook plugins require `jq`; each hook prints a
-  notice and does nothing when it is missing. This repo is the source of truth
-  for them. The user decides when to commit; never `git add` or commit on your
+  **ogxo-format**, **ogxo-specialists**, **ogxo-statusline** (0.1.0). The hook
+  plugins require `jq`; each hook prints a notice and does nothing when it is
+  missing. ogxo-statusline can't set `statusLine` itself (plugins can't); its
+  setup skill copies the script to `~/.claude/` and edits the user's settings.
+  This repo is the source of truth for them. The user decides when to commit; never `git add` or commit on your
   own.
 
 ## Conventions (decided with the user)
