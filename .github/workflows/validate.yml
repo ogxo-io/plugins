@@ -10,13 +10,17 @@ permissions:
 
 jobs:
   plugins:
-    runs-on: ubuntu-latest
+    # Pinned so a runner image change lands deliberately, like the validator pin below.
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
         with:
-          node-version: 22
+          # The job only reads the repository, so no git credential is left on disk.
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
 
       # Pinned so validator rule changes land deliberately; bump when upgrading.
       - name: Install Claude Code
@@ -46,6 +50,12 @@ jobs:
 
       - name: Grok status line and config editor tests
         run: bash tests/statusline-grok.sh
+
+      - name: Bundle covers every plugin
+        run: bash tests/bundle.sh
+
+      - name: Install script tests
+        run: bash tests/install.sh
 
       # Informational: distribution copy that claims something cannot happen
       # needs a citation or a mechanism (see CLAUDE.md). Most hits are

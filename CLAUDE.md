@@ -10,10 +10,15 @@ Marketplace name: `ogxo` → plugins install as `<plugin>@ogxo`.
 
 ## Status
 
-- The catalog has ten entries, all vendored under `plugins/`: **thryx**, and
+- The catalog has eleven entries, all vendored under `plugins/`: **thryx**,
   nine content-only plugins — **ogxo-review**, **ogxo-git**, **ogxo-debug**,
   **ogxo-decide**, **ogxo-design**, **ogxo-guards**, **ogxo-format**,
-  **ogxo-specialists**, **ogxo-statusline**. Versions live in each
+  **ogxo-specialists**, **ogxo-statusline** — and **ogxo**, the bundle: a
+  plugin with no components whose `dependencies` are every other plugin
+  except thryx and ogxo-format. A new plugin goes into the bundle's
+  `dependencies` with a bundle version bump, or into the excluded list in
+  `tests/bundle.sh`; CI fails until one of the two happens. `install.sh
+  --all` installs the bundle. Versions live in each
   `plugin.json` and its catalog entry, not here; CI fails when the two
   disagree. The hook
   plugins require `jq`; each hook prints a notice and does nothing when it is

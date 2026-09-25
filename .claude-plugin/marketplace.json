@@ -11,6 +11,22 @@
   },
   "plugins": [
     {
+      "name": "ogxo",
+      "description": "The ogxo plugin set in one install: code review, git and GitHub workflows, browser debugging, decision and planning skills, color-system design, safety hooks, specialist subagents, and the status line. Installing it installs each of those plugins; thryx (needs a Thryx account) and ogxo-format (rewrites every file Claude edits) are left out and install on their own.",
+      "version": "0.1.0",
+      "author": {
+        "name": "ogxo",
+        "url": "https://github.com/ogxo-io"
+      },
+      "homepage": "https://github.com/ogxo-io/plugins",
+      "category": "productivity",
+      "keywords": [
+        "bundle",
+        "ogxo"
+      ],
+      "source": "./plugins/ogxo"
+    },
+    {
       "name": "thryx",
       "description": "Thryx project management over MCP: issues, projects, cycles, milestones, and documents in your Thryx workspace.",
       "version": "0.1.2",

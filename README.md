@@ -2,22 +2,41 @@
 
 Marketplace for ogxo tools in Claude Code, Grok Build, and Codex.
 
+## Install
+
+The recommended way is the **ogxo bundle**: one plugin that installs the rest.
+
 ```bash
 claude plugin marketplace add ogxo-io/plugins
-claude plugin install thryx@ogxo
-claude plugin install ogxo-review@ogxo
-claude plugin install ogxo-git@ogxo
-claude plugin install ogxo-debug@ogxo
-claude plugin install ogxo-decide@ogxo
-claude plugin install ogxo-design@ogxo
-claude plugin install ogxo-guards@ogxo
-claude plugin install ogxo-format@ogxo
-claude plugin install ogxo-specialists@ogxo
-claude plugin install ogxo-statusline@ogxo
+claude plugin install ogxo@ogxo
 ```
+
+It installs every plugin in the table below except two, which you add by name when you want them: **thryx** needs a Thryx account (`THRYX_WORKSPACE` and `THRYX_TOKEN`), and **ogxo-format** reformats every file Claude edits. When a plugin joins the set, updating the bundle installs it. To remove everything, uninstall `ogxo@ogxo` and then run `claude plugin prune`. **ogxo-statusline** turns on with `/ogxo-statusline:setup`.
+
+To pick plugins yourself instead, install them by name:
+
+```bash
+claude plugin marketplace add ogxo-io/plugins
+for plugin in ogxo-git ogxo-review thryx; do
+  claude plugin install "$plugin@ogxo"
+done
+```
+
+Or use the install script, which adds the marketplace (or updates it when it's already added) and installs or updates each plugin. `--all` installs the bundle; `--include-thryx` and `--include-format` add those two on top.
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ogxo-io/plugins/main/install.sh | bash -s -- --list
+curl -fsSL https://raw.githubusercontent.com/ogxo-io/plugins/main/install.sh | bash -s -- ogxo-git ogxo-review
+curl -fsSL https://raw.githubusercontent.com/ogxo-io/plugins/main/install.sh | bash -s -- --all
+```
+
+[`install.sh`](install.sh) only runs `claude plugin` commands and needs `jq`; read it before piping it to bash.
+
+## Plugins
 
 | Plugin | What it is | Status |
 |---|---|---|
+| `ogxo` | The bundle: installs every plugin below except `thryx` and `ogxo-format`. No skills or hooks of its own. | 0.1.0 |
 | `thryx` | Hosted Thryx MCP server, vendored in this repo (`plugins/thryx`): issues, projects, cycles, milestones, and documents in your Thryx workspace. | 0.1.2 |
 | `ogxo-review` | Multi-agent code review: `/ogxo-review:full-review` cross-correlates reviewers and filters false positives; `/ogxo-review:code-review-git` posts line-level findings as a GitHub PR review. Bundles the code-review-agent, security-auditor, code-metrics-analyst, and dependency-auditor agents; `/ogxo-review:security-check` for a focused security pass. | 0.2.0 |
 | `ogxo-git` | Conventional Commit messages, PR titles/descriptions with template detection, resolving PR review threads (its workflow instructs it to present its analysis and wait for approval before replying or resolving), `/ogxo-git:catchup` to restore branch context, plus release, quick-fix, and ship-feature workflows and changelog/release-notes skills. | 0.2.1 |
