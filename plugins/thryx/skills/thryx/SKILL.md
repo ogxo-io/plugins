@@ -1,6 +1,6 @@
 ---
 name: thryx
-description: Use when working with a Thryx workspace over MCP - finding or updating your own tickets, moving a ticket's status, linking a pull request, searching or creating issues, triage, status or standup, planning cycles or sprints, tracking milestones, reading or writing project documents (decisions and ADRs, PRDs and specs, runbooks such as the release process). Also use when the user says thryx, or names a ticket key from their Thryx workspace.
+description: Use when working with a Thryx workspace over MCP - finding or updating your own tickets, moving a ticket's status, filing follow-up tickets for work found mid-task, linking a pull request, searching or creating issues, triage, status or standup, planning cycles or sprints, tracking milestones, reading or writing project documents (decisions and ADRs, PRDs and specs, runbooks such as the release process). Also use when the user says thryx, or names a ticket key from their Thryx workspace.
 ---
 
 # Thryx — driving the workspace without flailing
@@ -44,6 +44,27 @@ assignee, set `assignee_email` to the user. No call tells you whose token
 this is, and `list_members` lists everyone, so if you do not know the
 user's email, ask once and reuse it. If someone else already holds the
 ticket, say who and ask before reassigning it.
+
+**Work found mid-task.** Implementing a ticket turns up things it did not
+ask for: a bug next door, debt in the code you are touching, a missing
+piece. Don't widen the change to fix them without asking, and don't
+leave them in chat, where they are lost when the session ends. If the
+current ticket can't be finished without it, stop and say so now.
+Otherwise note it and keep going, and at the next natural pause propose a
+follow-up ticket for each, all in one message. For each follow-up:
+
+- search first, as for any new ticket;
+- pick `issue_type` from what it is (`bug`, `technical_debt`, `feature`);
+- suggest the current ticket's epic as `parent_issue_key`, and Triage
+  with no cycle and no assignee unless the user says otherwise (see
+  "Settle where a new ticket goes");
+- write the description for someone who has only that ticket: what is
+  wrong, where it was seen, and what ticket turned it up.
+
+Once they are filed, link each one to the current ticket with
+`link_issues` (`blocked_by` from the current ticket when it can't finish
+without it, `related` otherwise), and name them in a comment on the
+current ticket.
 
 **Running the project.** Use the server's prompts below by name — they are
 the maintained procedures. For what they do not cover, `project_brief`
