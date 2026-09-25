@@ -11,9 +11,11 @@ Marketplace name: `ogxo` → plugins install as `<plugin>@ogxo`.
 ## Status
 
 - The catalog has ten entries, all vendored under `plugins/`: **thryx**, and
-  nine content-only plugins — **ogxo-review**, **ogxo-git** (0.2.0),
-  **ogxo-debug**, **ogxo-decide** (0.3.0), **ogxo-design**, **ogxo-guards**,
-  **ogxo-format**, **ogxo-specialists**, **ogxo-statusline** (0.2.0). The hook
+  nine content-only plugins — **ogxo-review**, **ogxo-git**, **ogxo-debug**,
+  **ogxo-decide**, **ogxo-design**, **ogxo-guards**, **ogxo-format**,
+  **ogxo-specialists**, **ogxo-statusline**. Versions live in each
+  `plugin.json` and its catalog entry, not here; CI fails when the two
+  disagree. The hook
   plugins require `jq`; each hook prints a notice and does nothing when it is
   missing. ogxo-statusline installs through a setup skill because the status
   line setting lives in the user's own config: setup copies the script to

@@ -1,6 +1,6 @@
 ---
 description: Restore context by reading all files changed on the current branch
-allowed-tools: Bash(git symbolic-ref:*), Bash(git diff:*), Read, Glob, Grep
+allowed-tools: Bash(git symbolic-ref:*), Bash(git rev-parse:*), Bash(git diff:*), Read, Glob, Grep
 argument-hint: "[path]"
 ---
 
@@ -23,12 +23,21 @@ Follow these steps to restore context:
 Detect the default branch and list all files changed on the current branch:
 
 ```bash
-# Get the default branch (main or master)
-DEFAULT_BRANCH=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's@^refs/remotes/origin/@@' || echo "main")
+# Base: the remote's default branch, else origin/main, else origin/master.
+# Each step tests the resolved ref rather than a command's exit code, since a
+# pipeline or an empty diff exits 0 and would stop a `||` chain.
+BASE=$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null)
+for candidate in "$BASE" origin/main origin/master; do
+  [ -n "$candidate" ] && git rev-parse --verify --quiet "$candidate^{commit}" >/dev/null && { BASE=$candidate; break; }
+  BASE=""
+done
+[ -n "$BASE" ] || { echo "No origin default branch found; ask which branch to compare against." >&2; exit 1; }
 
-# List all changed files compared to default branch
-git diff --name-only "origin/${DEFAULT_BRANCH}...HEAD" 2>/dev/null || git diff --name-only origin/main...HEAD 2>/dev/null || git diff --name-only origin/master...HEAD
+# List all changed files compared to the base
+git diff --name-only "$BASE...HEAD"
 ```
+
+An empty list means the branch has no changes against `$BASE`; say that rather than reading it as a failure.
 
 If `$ARGUMENTS` is provided, filter the changed files to only those matching the specified file or directory path.
 

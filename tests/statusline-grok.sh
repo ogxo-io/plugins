@@ -315,5 +315,64 @@ else
   printf 'FAIL: tilde command matches\n%s\n' "$out"
 fi
 
+# cfg_case <description> <config.toml content> <action> <expected status> <check...>
+# Runs one configure-grok.py action on a fresh home and records whether the
+# printed status and every extra check (a bash condition) hold.
+cfg_case() {
+  local desc=$1 content=$2 action=$3 want=$4
+  shift 4
+  local h out cond
+  h=$(mktemp -d)
+  printf '%s' "$content" >"$h/config.toml"
+  out=$(python3 "$cfgpy" "$action" --home "$h" 2>&1)
+  local good=true
+  [[ "$out" == *"status=$want"* ]] || good=false
+  for cond in "$@"; do
+    CFG="$h/config.toml" bash -c "$cond" || good=false
+  done
+  if $good; then
+    pass=$((pass + 1))
+  else
+    fail=$((fail + 1))
+    printf 'FAIL: %s\n%s\n---\n%s\n' "$desc" "$out" "$(cat "$h/config.toml" 2>/dev/null)"
+  fi
+  rm -rf "$h"
+}
+
+parses='python3 -c "import sys, tomllib; tomllib.load(open(sys.argv[1], \"rb\"))" "$CFG" 2>/dev/null || ! python3 -c "import tomllib" 2>/dev/null'
+one_table='[ "$(grep -c "status_line" "$CFG")" -eq 1 ]'
+
+cfg_case "spaced header is the same table" $'[ ui.status_line ]\ntype = "command"\ncommand = "~/other.sh"\n' \
+  install installed "$parses" "$one_table"
+cfg_case "quoted-key header is the same table" $'[ui."status_line"]\ntype = "command"\ncommand = "~/other.sh"\n' \
+  install installed "$parses" "$one_table"
+cfg_case "header with a trailing comment is the same table" $'[ui.status_line] # mine\ntype = "command"\ncommand = "~/other.sh"\n' \
+  install installed "$parses" "$one_table"
+cfg_case "uninstall keeps comments above the next table" $'[ui.status_line]\ntype = "command"\ncommand = "PLACEHOLDER"\n\n# model settings below\n[model]\nname = "grok-4"\n' \
+  check other
+cfg_case "sub-table under status_line is refused as inline" $'[ui.status_line.extra]\na = 1\n' \
+  install inline 'grep -q "^\[ui.status_line.extra\]$" "$CFG"'
+cfg_case "array of status_line tables is refused as inline" $'[[ui.status_line]]\na = 1\n' \
+  install inline
+
+if python3 -c 'import tomllib' 2>/dev/null; then
+  cfg_case "invalid TOML is refused and left unchanged" $'[model\nname = 1\n' \
+    install refused '[ "$(cat "$CFG")" = "$(printf "[model\nname = 1\n")" ]'
+fi
+
+# Uninstall with the expected command, so the table is ours to remove.
+h=$(mktemp -d)
+expected=$(python3 "$cfgpy" check --home "$h" | sed -n 's/^command_expected=//p')
+printf '[ui.status_line]\ntype = "command"\ncommand = "%s"\n\n# model settings below\n[model]\nname = "grok-4"\n' "$expected" >"$h/config.toml"
+out=$(python3 "$cfgpy" uninstall --home "$h")
+if [[ "$out" == *"status=removed"* ]] && grep -q '^# model settings below$' "$h/config.toml" \
+  && ! grep -q 'status_line' "$h/config.toml" && [ "$(head -c1 "$h/config.toml")" != $'\n' ]; then
+  pass=$((pass + 1))
+else
+  fail=$((fail + 1))
+  printf 'FAIL: uninstall keeps the comment above the next table\n%s\n---\n%s\n' "$out" "$(cat "$h/config.toml")"
+fi
+rm -rf "$h"
+
 echo "statusline-grok tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

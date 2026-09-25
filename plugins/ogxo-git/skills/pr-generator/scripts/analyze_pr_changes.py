@@ -15,18 +15,41 @@ from typing import Dict, List, Optional, Tuple
 from collections import Counter
 
 
-def run_git_command(command: List[str]) -> str:
-    """Run a git command and return its output."""
-    try:
-        result = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        return result.stdout.strip()
-    except subprocess.CalledProcessError as e:
+class GitError(Exception):
+    """A git command the analysis depends on failed."""
+
+
+def run_git_command(command: List[str], required: bool = False) -> str:
+    """Run a git command and return its output.
+
+    A probe (required=False) returns "" when git fails, which callers read
+    as "not there". A required command raises GitError instead, so a failed
+    diff or log is reported rather than read as "no changes".
+    """
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        if required:
+            detail = result.stderr.strip() or f"exit {result.returncode}"
+            raise GitError(f"{' '.join(command)}: {detail}")
         return ""
+    return result.stdout.strip()
+
+
+def ref_exists(ref: str) -> bool:
+    """Whether a ref resolves to a commit."""
+    return bool(run_git_command(['git', 'rev-parse', '--verify', '--quiet', f'{ref}^{{commit}}']))
+
+
+def resolve_base_ref(base: str) -> str:
+    """The ref to compare against for a base branch name.
+
+    The remote's copy comes first: a local branch of the same name can be
+    missing in a fresh clone, or stale and still missing merged commits.
+    """
+    for candidate in (f'origin/{base}', base):
+        if ref_exists(candidate):
+            return candidate
+    raise GitError(f"base branch '{base}' was found neither as origin/{base} nor locally; pass --base")
 
 
 def get_current_branch() -> str:
@@ -56,8 +79,7 @@ def get_base_branch() -> str:
         return default
 
     # Check if main exists
-    main_exists = run_git_command(['git', 'rev-parse', '--verify', 'main'])
-    if main_exists:
+    if ref_exists('origin/main') or ref_exists('main'):
         return 'main'
 
     # Fall back to master
@@ -98,23 +120,25 @@ def get_commits_between_branches(base_branch: str) -> List[Dict]:
     """Get all commits between current branch and base branch."""
     current_branch = get_current_branch()
 
-    # Get commit hashes and messages
+    # Fields are separated by \x1f and commits by \x1e: a commit body spans
+    # several lines, so neither newlines nor a text marker can delimit them.
     log_output = run_git_command([
         'git', 'log',
         f'{base_branch}..{current_branch}',
-        '--pretty=format:%H|||%s|||%b|||%an|||%ae|||%ad',
+        '--pretty=format:%H%x1f%s%x1f%b%x1f%an%x1f%ae%x1f%ad%x1e',
         '--date=iso'
-    ])
+    ], required=True)
 
     if not log_output:
         return []
 
     commits = []
-    for line in log_output.split('\n'):
-        if not line:
+    for record in log_output.split('\x1e'):
+        record = record.strip('\n')
+        if not record:
             continue
 
-        parts = line.split('|||')
+        parts = record.split('\x1f')
         if len(parts) >= 6:
             commit_hash, subject, body, author_name, author_email, date = parts[:6]
             full_message = f"{subject}\n\n{body}".strip()
@@ -146,7 +170,7 @@ def get_file_changes(base_branch: str) -> Dict[str, List[str]]:
         'git', 'diff',
         f'{base_branch}...{current_branch}',
         '--name-status'
-    ])
+    ], required=True)
 
     changes = {
         'added': [],
@@ -222,7 +246,7 @@ def get_change_statistics(base_branch: str) -> Dict[str, int]:
         'git', 'diff',
         f'{base_branch}...{current_branch}',
         '--stat'
-    ])
+    ], required=True)
 
     insertions = 0
     deletions = 0
@@ -309,8 +333,13 @@ def check_branch_status() -> Dict:
 
 def analyze_pr_changes(base_branch: Optional[str] = None) -> Dict:
     """Main function to analyze all PR-related changes."""
+    if not run_git_command(['git', 'rev-parse', '--is-inside-work-tree']):
+        raise GitError('not inside a git repository')
+
     if base_branch is None:
-        base_branch = get_base_branch()
+        base_branch = resolve_base_ref(get_base_branch())
+    elif not ref_exists(base_branch):
+        base_branch = resolve_base_ref(base_branch)
 
     current_branch = get_current_branch()
     issue_key = extract_issue_key(current_branch)

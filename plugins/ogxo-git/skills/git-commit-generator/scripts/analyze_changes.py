@@ -12,22 +12,28 @@ import sys
 import re
 from typing import Dict, List, Optional
 
-def run_git_command(command: List[str]) -> str:
-    """Run a git command and return its output."""
-    try:
-        result = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        return result.stdout.strip()
-    except subprocess.CalledProcessError as e:
+class GitError(Exception):
+    """A git command the analysis depends on failed."""
+
+def run_git_command(command: List[str], required: bool = True) -> str:
+    """Run a git command and return its output.
+
+    A required command raises GitError when git fails, so an error is
+    reported instead of being read as "nothing staged". Probes pass
+    required=False and get "" back.
+    """
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        if required:
+            detail = result.stderr.strip() or f"exit {result.returncode}"
+            raise GitError(f"{' '.join(command)}: {detail}")
         return ""
+    return result.stdout.strip()
 
 def get_current_branch() -> str:
-    """Get the current git branch name."""
-    return run_git_command(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
+    """Get the current git branch name, including a branch with no commits yet."""
+    return (run_git_command(['git', 'symbolic-ref', '--short', 'HEAD'], required=False)
+            or run_git_command(['git', 'rev-parse', '--short', 'HEAD'], required=False))
 
 def extract_issue_key(branch_name: str) -> Optional[str]:
     """Extract a Thryx issue key from the branch name, e.g. PROJ-123."""
@@ -77,7 +83,8 @@ def get_staged_diff() -> str:
 
 def get_recent_commits(count: int = 5) -> List[str]:
     """Get recent commit messages for style reference."""
-    output = run_git_command(['git', 'log', f'-{count}', '--pretty=format:%s'])
+    # A repository with no commits yet has no log, which is not an error here.
+    output = run_git_command(['git', 'log', f'-{count}', '--pretty=format:%s'], required=False)
     return [msg for msg in output.split('\n') if msg]
 
 def categorize_files(files: List[str]) -> Dict[str, List[str]]:
@@ -109,6 +116,8 @@ def categorize_files(files: List[str]) -> Dict[str, List[str]]:
 
 def analyze_changes() -> Dict:
     """Analyze all git changes and return structured data."""
+    if not run_git_command(['git', 'rev-parse', '--is-inside-work-tree'], required=False):
+        raise GitError('not inside a git repository')
     branch = get_current_branch()
     staged_files = get_staged_files()
 

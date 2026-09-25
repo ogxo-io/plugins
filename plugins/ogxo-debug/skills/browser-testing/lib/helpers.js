@@ -3,7 +3,13 @@
 
 const os = require('os');
 const path = require('path');
-const { chromium, firefox, webkit } = require('playwright');
+// Playwright is loaded on first use, not at require time, so helpers that
+// don't drive a browser (detectDevServers) work before the one-time setup.
+let playwright = null;
+function loadPlaywright() {
+  if (!playwright) playwright = require('playwright');
+  return playwright;
+}
 
 /**
  * Launch browser with standard configuration
@@ -18,6 +24,7 @@ async function launchBrowser(browserType = 'chromium', options = {}) {
     args: process.env.PW_NO_SANDBOX === '1' ? ['--no-sandbox', '--disable-setuid-sandbox'] : []
   };
   
+  const { chromium, firefox, webkit } = loadPlaywright();
   const browsers = { chromium, firefox, webkit };
   const browser = browsers[browserType];
   

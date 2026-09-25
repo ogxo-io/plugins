@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 """Insert, replace, or remove the [ui.status_line] table in Grok's user config.
 
-Other lines stay as they are. The script refuses when status_line is set with
-inline keys, or when the table appears more than once, and leaves the file
-unchanged in those cases.
+Other lines stay as they are, including comments and blank lines that sit
+above the next table. The table is found by its parsed key, so spellings such
+as `[ ui.status_line ]` or `[ui."status_line"]` count. The script refuses when
+status_line is set with inline keys or sub-tables, when the table appears more
+than once, or when the file is not valid TOML, and leaves the file unchanged in
+those cases. When tomllib is available (Python 3.11+), the edited text is
+parsed before it is written, and a result that does not parse, or does not
+hold the intended table, is refused rather than written.
 
 The config path is $GROK_HOME/config.toml, or ~/.grok/config.toml. A symlink
 is followed and the target is the file that is edited. --home selects another
@@ -17,7 +22,14 @@ import os
 import sys
 from pathlib import Path
 
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python < 3.11: skip the parse check
+    tomllib = None
+
 HEADER = "[ui.status_line]"
+KEY = ("ui", "status_line")
+BARE_KEY_CHARS = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-")
 
 
 def grok_home(explicit: str | None) -> Path:
@@ -67,12 +79,73 @@ def split_lines(text: str) -> list[str]:
     return text.splitlines(keepends=True)
 
 
+def parse_dotted_key(text: str) -> tuple[str, ...] | None:
+    """Split a TOML dotted key into its parts; None when it is not one."""
+    parts: list[str] = []
+    i, n = 0, len(text)
+    while True:
+        while i < n and text[i] in " \t":
+            i += 1
+        if i >= n:
+            return None
+        if text[i] in "\"'":
+            quote = text[i]
+            i += 1
+            buf: list[str] = []
+            while i < n and text[i] != quote:
+                if quote == '"' and text[i] == "\\" and i + 1 < n:
+                    buf.append(text[i + 1])
+                    i += 2
+                    continue
+                buf.append(text[i])
+                i += 1
+            if i >= n:
+                return None
+            i += 1
+            parts.append("".join(buf))
+        else:
+            start = i
+            while i < n and text[i] in BARE_KEY_CHARS:
+                i += 1
+            if i == start:
+                return None
+            parts.append(text[start:i])
+        while i < n and text[i] in " \t":
+            i += 1
+        if i >= n:
+            return tuple(parts)
+        if text[i] != ".":
+            return None
+        i += 1
+
+
+def header_key(line: str) -> tuple[str, tuple[str, ...]] | None:
+    """("table" | "array", key) for a table header line, else None."""
+    stripped = line.strip()
+    if not stripped.startswith("["):
+        return None
+    kind, open_len, close = ("array", 2, "]]") if stripped.startswith("[[") else ("table", 1, "]")
+    close_at = stripped.find(close, open_len)
+    while close_at != -1:
+        rest = stripped[close_at + len(close):].strip()
+        if rest == "" or rest.startswith("#"):
+            key = parse_dotted_key(stripped[open_len:close_at])
+            return (kind, key) if key else None
+        close_at = stripped.find(close, close_at + 1)
+    return None
+
+
 def is_table_header(line: str) -> bool:
-    return line.lstrip().startswith("[")
+    return header_key(line) is not None
+
+
+def is_trailing_trivia(line: str) -> bool:
+    body = line.strip()
+    return body == "" or body.startswith("#")
 
 
 def find_table(lines: list[str]) -> tuple[int, int] | None:
-    starts = [i for i, line in enumerate(lines) if line.strip() == HEADER]
+    starts = [i for i, line in enumerate(lines) if header_key(line) == ("table", KEY)]
     if not starts:
         return None
     if len(starts) > 1:
@@ -83,22 +156,30 @@ def find_table(lines: list[str]) -> tuple[int, int] | None:
         if is_table_header(lines[i]):
             end = i
             break
+    # Blank lines and comments just above the next table belong to it, so
+    # they are neither replaced on install nor deleted on uninstall.
+    if end < len(lines):
+        while end > start + 1 and is_trailing_trivia(lines[end - 1]):
+            end -= 1
     return start, end
 
 
 def find_inline(lines: list[str]) -> list[str]:
     hits: list[str] = []
-    header = ""
+    header: tuple[str, ...] = ()
     for line in lines:
         stripped = line.strip()
-        if stripped.startswith("[") and stripped.endswith("]") and not stripped.startswith("[["):
-            header = stripped
-        if stripped.startswith("[") and HEADER in stripped and stripped != HEADER:
-            hits.append(stripped)
+        parsed = header_key(line)
+        if parsed is not None:
+            kind, key = parsed
+            header = key
+            # A sub-table or array under ui.status_line also sets it.
+            if key[: len(KEY)] == KEY and (kind == "array" or len(key) > len(KEY)):
+                hits.append(stripped)
             continue
-        if stripped.startswith("ui.status_line"):
+        if stripped.startswith("ui.status_line") or stripped.startswith("ui . status_line"):
             hits.append(stripped)
-        elif header == "[ui]" and (
+        elif header == ("ui",) and (
             stripped.startswith("status_line.")
             or stripped.startswith("status_line ")
             or stripped.startswith("status_line=")
@@ -212,6 +293,36 @@ def write_file(path: Path, text: str) -> None:
     path.write_text(text)
 
 
+def parse_check(original: str, updated: str, command: str | None) -> str | None:
+    """Why the edit must not be written, or None when it is safe.
+
+    command is the table install writes; None means uninstall, which must
+    leave no status_line behind. Without tomllib the check is skipped.
+    """
+    if tomllib is None:
+        return None
+    try:
+        tomllib.loads(original)
+    except tomllib.TOMLDecodeError as exc:
+        return f"config.toml is not valid TOML ({exc}); fix it before running setup"
+    try:
+        data = tomllib.loads(updated)
+    except tomllib.TOMLDecodeError as exc:
+        return f"the edited file would not parse ({exc})"
+    table = data.get("ui", {}).get("status_line")
+    if command is None:
+        return None if table is None else "status_line is still set after the edit"
+    want = {"type": "command", "command": command, "padding": 0, "refresh_interval": 60}
+    return None if table == want else "the edited file does not hold the intended table"
+
+
+def refuse(edit: Path, reason: str) -> int:
+    print(f"config={edit}")
+    print("status=refused")
+    print(f"reason={reason}")
+    return 3
+
+
 def load(config: Path) -> tuple[Path, list[str]]:
     edit = edit_path(config) if config.exists() or config.is_symlink() else config
     text = edit.read_text() if edit.is_file() else ""
@@ -267,6 +378,9 @@ def cmd_install(config: Path, expected: str, command: str) -> int:
         updated = "".join(lines[:start] + new_table + rest)
         if updated and not updated.endswith("\n"):
             updated += "\n"
+    reason = parse_check("".join(lines), updated, command)
+    if reason:
+        return refuse(edit, reason)
     backup(edit)
     write_file(edit, updated)
     print(f"config={edit}")
@@ -296,6 +410,11 @@ def cmd_uninstall(config: Path, expected: str) -> int:
         return 1 if status == "other" else 2
     start, end = info["start"], info["end"]
     updated = "".join(lines[:start] + lines[end:])
+    if start == 0:
+        updated = updated.lstrip("\n")
+    reason = parse_check("".join(lines), updated, None)
+    if reason:
+        return refuse(edit, reason)
     backup(edit)
     if updated.strip() == "":
         edit.unlink()

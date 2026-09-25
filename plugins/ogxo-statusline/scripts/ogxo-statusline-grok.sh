@@ -49,31 +49,29 @@ fi
 # ── Colors ──────────────────────────────────────────────
 case "$palette" in
     truecolor)
-        blue='\033[38;2;0;153;255m'
-        orange='\033[38;2;255;176;85m'
-        green='\033[38;2;0;175;80m'
-        cyan='\033[38;2;86;182;194m'
-        red='\033[38;2;255;85;85m'
-        yellow='\033[38;2;230;200;0m'
-        white='\033[38;2;220;220;220m'
-        magenta='\033[38;2;180;140;255m'
-        dim='\033[2m'
-        reset='\033[0m'
+        blue=$'\033[38;2;0;153;255m'
+        orange=$'\033[38;2;255;176;85m'
+        green=$'\033[38;2;0;175;80m'
+        cyan=$'\033[38;2;86;182;194m'
+        red=$'\033[38;2;255;85;85m'
+        yellow=$'\033[38;2;230;200;0m'
+        white=$'\033[38;2;220;220;220m'
+        dim=$'\033[2m'
+        reset=$'\033[0m'
         ;;
     basic)
-        blue='\033[34m'
-        orange='\033[33m'
-        green='\033[32m'
-        cyan='\033[36m'
-        red='\033[31m'
-        yellow='\033[93m'
-        white='\033[37m'
-        magenta='\033[35m'
-        dim='\033[2m'
-        reset='\033[0m'
+        blue=$'\033[34m'
+        orange=$'\033[33m'
+        green=$'\033[32m'
+        cyan=$'\033[36m'
+        red=$'\033[31m'
+        yellow=$'\033[93m'
+        white=$'\033[37m'
+        dim=$'\033[2m'
+        reset=$'\033[0m'
         ;;
     *)
-        blue='' orange='' green='' cyan='' red='' yellow='' white='' magenta='' dim='' reset=''
+        blue='' orange='' green='' cyan='' red='' yellow='' white='' dim='' reset=''
         ;;
 esac
 
@@ -119,10 +117,10 @@ format_tokens() {
 
 color_for_pct() {
     local pct=$1
-    if [ "$pct" -ge 90 ]; then printf '%b' "$red"
-    elif [ "$pct" -ge 70 ]; then printf '%b' "$yellow"
-    elif [ "$pct" -ge 50 ]; then printf '%b' "$orange"
-    else printf '%b' "$green"
+    if [ "$pct" -ge 90 ]; then printf '%s' "$red"
+    elif [ "$pct" -ge 70 ]; then printf '%s' "$yellow"
+    elif [ "$pct" -ge 50 ]; then printf '%s' "$orange"
+    else printf '%s' "$green"
     fi
 }
 
@@ -229,5 +227,5 @@ if [ -n "$cost_usd" ] && [ "$cost_mode" != never ]; then
     line1+="${sep}${white}$(awk -v c="$cost_usd" 'BEGIN { printf "$%.2f", c }')${reset}"
 fi
 
-printf '%b' "$line1"
+printf '%s' "$line1"
 exit 0

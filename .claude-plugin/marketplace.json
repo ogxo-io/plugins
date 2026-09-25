@@ -13,7 +13,7 @@
     {
       "name": "thryx",
       "description": "Thryx project management over MCP: issues, projects, cycles, milestones, and documents in your Thryx workspace.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -51,7 +51,7 @@
     {
       "name": "ogxo-git",
       "description": "Git and GitHub workflow skills: Conventional Commit messages, PR titles and descriptions with template detection, resolving PR review threads (its workflow instructs it to present its analysis and wait for approval before replying or resolving), and a catchup command to restore branch context. Also release, quick-fix, and ship-feature workflows, and changelog-generator and release-notes skills.",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -69,8 +69,8 @@
     },
     {
       "name": "ogxo-debug",
-      "description": "Debug a running web app by driving the browser: reproduce the symptom, read console and network errors, fix, and verify in the page. Also css-alignment-debug, which injects temporary outline overlays and reads a screenshot of the rendered page for layout bugs that won't resolve from reading source. Also browser-testing: Playwright test scripts with dev-server detection; Playwright installs into the plugin's data directory on first use.",
-      "version": "0.3.0",
+      "description": "Debug a running web app by driving the browser: reproduce the symptom, read console and network errors, fix, and verify in the page. Also css-alignment-debug, which injects temporary outline overlays and reads a screenshot of the rendered page for layout bugs that won't resolve from reading source. Also browser-testing: Playwright test scripts with dev-server detection; Playwright installs into the plugin's data directory during a one-time setup.",
+      "version": "0.3.1",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -146,7 +146,7 @@
     {
       "name": "ogxo-format",
       "description": "Formatting hooks after every Edit/Write: format the changed file with prettier, gofmt, rustfmt, or black when found, whether or not the project uses that formatter; report trailing whitespace back to Claude; and check YAML syntax. Requires jq.",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -184,7 +184,7 @@
     {
       "name": "ogxo-statusline",
       "description": "Status line for Claude Code and Grok Build: model, context use, git branch and changes, session time, effort, output tokens, and session cost. Claude Code also shows thinking, prompt-cache state, and 5-hour, 7-day, and spend-limit bars. Grok Build uses the live context window, session output and cache-read share, and the active turn. /ogxo-statusline:setup writes Claude settings; /ogxo-statusline:setup-grok writes [ui.status_line] in the Grok user config. Requires jq.",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"

@@ -9,11 +9,14 @@ argument-hint: "[--uninstall]"
 
 Grok reads `[ui.status_line]` from the user config file (`$GROK_HOME/config.toml` when `GROK_HOME` is set, otherwise `~/.grok/config.toml`). A repository `.grok/config.toml` does not supply this table. The plugin install path changes on every update, so setup copies the script to a stable path next to that config and points `command` at the copy.
 
-The script source is `${CLAUDE_PLUGIN_ROOT}/scripts/ogxo-statusline-grok.sh`. Grok sets `GROK_PLUGIN_ROOT` to the same directory for hooks. If neither variable was substituted, use the base directory printed when this skill loaded and go two levels up to the plugin root.
+Resolve the plugin root and the Grok home once, and use both in every step below:
 
-The config editor is `${CLAUDE_PLUGIN_ROOT}/scripts/configure-grok.py`. It rewrites only the `[ui.status_line]` table. Run it with `python3`.
+```bash
+root="${CLAUDE_PLUGIN_ROOT:-${GROK_PLUGIN_ROOT:-}}"
+home="${GROK_HOME:-$HOME/.grok}"
+```
 
-Resolve the home once and use it for every step below: `home="${GROK_HOME:-$HOME/.grok}"`. The script copy is `"$home/ogxo-statusline.sh"`. If `config.toml` there is a symlink, the editor follows it and edits the target. Do not edit a repository `.grok/config.toml`.
+If neither plugin-root variable is set, set `root` to the base directory printed when this skill loaded, two levels up. The script source is `"$root/scripts/ogxo-statusline-grok.sh"`, and the config editor is `"$root/scripts/configure-grok.py"`, which rewrites only the `[ui.status_line]` table and runs with `python3`. Check `"$root/scripts/configure-grok.py"` exists before step 3; if it doesn't, the root is wrong, so stop and say so. The script copy is `"$home/ogxo-statusline.sh"`. If `config.toml` there is a symlink, the editor follows it and edits the target. Do not edit a repository `.grok/config.toml`.
 
 ## Install or update
 
@@ -24,6 +27,7 @@ Resolve the home once and use it for every step below: `home="${GROK_HOME:-$HOME
    - `status=absent`: write the table. Invoking this skill is the request to install.
    - `status=other`: show the printed table and ask before replacing it.
    - `status=inline` or `status=ambiguous`: stop. Show the printed lines. Do not edit the file.
+   - `status=refused` (from install or uninstall): the script did not write, because the file isn't valid TOML or the edit would not have produced the intended table. Show the `reason` line and stop.
 4. When writing, run `python3 "$root/scripts/configure-grok.py" install`. The script copies the current file to `config.toml.bak` beside the file it edits, then writes:
 
    ```toml

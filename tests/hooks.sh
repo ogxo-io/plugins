@@ -80,7 +80,9 @@ check 0 "large-file-guard: 1,048,576 characters" "$large" "$tmp/big"
 echo '{"tool_input": {}}' >"$tmp/payload"
 check 0 "large-file-guard: no content" "$large" "$tmp/payload"
 
-trailing=$(hook_cmd "$format" "ogxo-format/trailing-whitespace")
+# One hook formats, then checks, in that order; the checks must never race the formatter.
+format_hook=$(hook_cmd "$format" "ogxo-format: jq not found")
+trailing=$format_hook
 printf 'x = 1 \n' >"$tmp/dirty.py"
 printf 'x = 1\n' >"$tmp/clean.py"
 printf 'line with hard break  \nnext\n' >"$tmp/doc.md"
@@ -89,7 +91,7 @@ path_case 0 "$trailing" trailing-whitespace "$tmp/clean.py"
 path_case 0 "$trailing" trailing-whitespace "$tmp/doc.md"
 
 if python3 -c 'import yaml' 2>/dev/null; then
-  yaml_check=$(hook_cmd "$format" "ogxo-format/yaml-validate")
+  yaml_check=$format_hook
   printf 'a: [1, 2\n' >"$tmp/bad.yaml"
   printf 'a: 1\n---\nb: 2\n' >"$tmp/multi.yaml"
   printf 'Value: !Ref Bucket\n' >"$tmp/tag.yaml"
