@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "thryx": {
+      "type": "http",
+      "url": "https://app.thryx.io/api/v1/mcp/${THRYX_WORKSPACE}",
+      "headers": { "Authorization": "Bearer ${THRYX_TOKEN}" }
+    }
+  }
+}

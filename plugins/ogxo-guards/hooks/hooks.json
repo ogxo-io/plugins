@@ -1,0 +1,34 @@
+{
+  "description": "Safety hooks: reject a `git add` whose command text names a .env/credentials/.secret/.pem file, reject Edit/Write calls on lock files and on node_modules/, vendor/, and .git/ paths, and reject single file writes over 1,048,576 characters. Pattern-based, so it does not catch everything; see the README. Requires jq.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v jq >/dev/null 2>&1 || { echo \"ogxo-guards/env-file-guard: jq not found; this hook is inactive. Install jq to enable it.\" >&2; exit 1; }; cmd=$(jq -r '.tool_input.command // empty'); printf '%s' \"$cmd\" | grep -qE '(^|[;&|([:space:]])git([[:space:]]+-[Cc][[:space:]]+[^[:space:]]+)*[[:space:]]+(add|stage)([[:space:]]|$)' || exit 0; if printf '%s' \"$cmd\" | grep -qE '\\.env(\\.[[:alnum:]_-]+)?([^[:alnum:]_.-]|$)|credentials|\\.secret|\\.pem([^[:alnum:]_.-]|$)'; then echo \"BLOCKED: git add includes a sensitive file (.env/credentials/secret/pem). Review and stage it manually if intended.\" >&2; exit 2; fi"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v jq >/dev/null 2>&1 || { echo \"ogxo-guards/file-protection: jq not found; this hook is inactive. Install jq to enable it.\" >&2; exit 1; }; f=$(jq -r '.tool_input.file_path // empty'); [ -n \"$f\" ] || exit 0; case \"$f\" in */node_modules/*|*/vendor/*|*/.git/*|*package-lock.json|*yarn.lock|*pnpm-lock.yaml|*bun.lockb|*Cargo.lock|*go.sum|*Gemfile.lock|*poetry.lock|*uv.lock) echo \"BLOCKED: $f is a generated or vendored file. Change the source (e.g. package.json) and regenerate instead.\" >&2; exit 2 ;; esac"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v jq >/dev/null 2>&1 || { echo \"ogxo-guards/large-file-guard: jq not found; this hook is inactive. Install jq to enable it.\" >&2; exit 1; }; sz=$(jq -r '.tool_input.content // \"\" | length'); if [ \"${sz:-0}\" -gt 1048576 ]; then echo \"BLOCKED: Write of ${sz} characters exceeds the 1MB limit. Generate large files with a script instead.\" >&2; exit 2; fi"
+          }
+        ]
+      }
+    ]
+  }
+}

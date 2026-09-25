@@ -1,0 +1,18 @@
+{
+  "name": "ogxo-guards",
+  "version": "0.1.0",
+  "description": "Safety hooks: reject a `git add` whose command text names a .env/credentials/.secret/.pem file, reject Edit/Write calls on lock files and on node_modules/, vendor/, and .git/ paths, and reject single file writes over 1,048,576 characters. Pattern-based, so it does not catch everything; see the README. Requires jq.",
+  "author": {
+    "name": "ogxo",
+    "url": "https://github.com/ogxo-io"
+  },
+  "homepage": "https://github.com/ogxo-io/plugins",
+  "repository": "https://github.com/ogxo-io/plugins",
+  "license": "MIT",
+  "keywords": [
+    "hooks",
+    "safety",
+    "secrets",
+    "guardrails"
+  ]
+}

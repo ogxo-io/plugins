@@ -1,0 +1,19 @@
+{
+  "name": "ogxo-format",
+  "version": "0.1.0",
+  "description": "Formatting hooks after every Edit/Write: format the changed file with prettier, gofmt, rustfmt, or black when found, whether or not the project uses that formatter; report trailing whitespace back to Claude; and check YAML syntax. Requires jq.",
+  "author": {
+    "name": "ogxo",
+    "url": "https://github.com/ogxo-io"
+  },
+  "homepage": "https://github.com/ogxo-io/plugins",
+  "repository": "https://github.com/ogxo-io/plugins",
+  "license": "MIT",
+  "keywords": [
+    "hooks",
+    "formatting",
+    "prettier",
+    "yaml",
+    "code-quality"
+  ]
+}

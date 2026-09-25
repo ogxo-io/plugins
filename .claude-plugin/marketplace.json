@@ -1,0 +1,166 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "ogxo",
+  "owner": {
+    "name": "ogxo",
+    "url": "https://github.com/ogxo-io"
+  },
+  "metadata": {
+    "description": "ogxo plugins for Claude Code, Grok Build, and Codex: Thryx project management, multi-agent code review, git/GitHub workflow skills, live browser debugging, and war-room decision support.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "thryx",
+      "description": "Thryx project management over MCP: issues, projects, cycles, milestones, and documents in your Thryx workspace.",
+      "version": "0.1.0",
+      "author": {
+        "name": "ogxo",
+        "url": "https://github.com/ogxo-io"
+      },
+      "homepage": "https://app.thryx.io",
+      "category": "productivity",
+      "keywords": [
+        "mcp",
+        "project-management",
+        "issues",
+        "sprints",
+        "planning"
+      ],
+      "source": "./plugins/thryx"
+    },
+    {
+      "name": "ogxo-review",
+      "description": "Multi-agent code review: full-review cross-correlates several reviewers and filters false positives; code-review-git posts line-level findings as a GitHub PR review. Bundles the code-review-agent, security-auditor, and code-metrics-analyst agents. Also security-check, a focused security review of a branch, and the dependency-auditor agent.",
+      "version": "0.2.0",
+      "author": {
+        "name": "ogxo",
+        "url": "https://github.com/ogxo-io"
+      },
+      "homepage": "https://github.com/ogxo-io/plugins",
+      "category": "development",
+      "keywords": [
+        "code-review",
+        "security",
+        "github",
+        "pull-request",
+        "agents"
+      ],
+      "source": "./plugins/ogxo-review"
+    },
+    {
+      "name": "ogxo-git",
+      "description": "Git and GitHub workflow skills: Conventional Commit messages, PR titles and descriptions with template detection, resolving PR review threads (its workflow instructs it to present its analysis and wait for approval before replying or resolving), and a catchup command to restore branch context. Also release, quick-fix, and ship-feature workflows, and changelog-generator and release-notes skills.",
+      "version": "0.2.0",
+      "author": {
+        "name": "ogxo",
+        "url": "https://github.com/ogxo-io"
+      },
+      "homepage": "https://github.com/ogxo-io/plugins",
+      "category": "development",
+      "keywords": [
+        "git",
+        "github",
+        "commits",
+        "pull-request",
+        "code-review"
+      ],
+      "source": "./plugins/ogxo-git"
+    },
+    {
+      "name": "ogxo-debug",
+      "description": "Debug a running web app by driving the browser: reproduce the symptom, read console and network errors, fix, and verify in the page. Also css-alignment-debug, which injects temporary outline overlays and reads a screenshot of the rendered page for layout bugs that won't resolve from reading source. Also browser-testing: Playwright test scripts with dev-server detection; Playwright installs into the plugin's data directory on first use.",
+      "version": "0.3.0",
+      "author": {
+        "name": "ogxo",
+        "url": "https://github.com/ogxo-io"
+      },
+      "homepage": "https://github.com/ogxo-io/plugins",
+      "category": "development",
+      "keywords": [
+        "debugging",
+        "browser",
+        "frontend",
+        "devtools",
+        "playwright"
+      ],
+      "source": "./plugins/ogxo-debug"
+    },
+    {
+      "name": "ogxo-decide",
+      "description": "War room: multi-persona deliberation for hard-to-reverse decisions, with game-theory lenses, a red-team pass, and a portfolio of options instead of a single winner. Also prd-create (section-by-section PRDs with pressure-testing, optionally saved to Thryx as a document plus epic and stories), task-architect (turns an idea into an agent-ready prompt), and the architecture-advisor agent. Also diagram-generator: Mermaid diagrams from a description or from the codebase.",
+      "version": "0.3.0",
+      "author": {
+        "name": "ogxo",
+        "url": "https://github.com/ogxo-io"
+      },
+      "homepage": "https://github.com/ogxo-io/plugins",
+      "category": "productivity",
+      "keywords": [
+        "decision-making",
+        "architecture",
+        "strategy",
+        "red-team",
+        "agents"
+      ],
+      "source": "./plugins/ogxo-decide"
+    },
+    {
+      "name": "ogxo-design",
+      "description": "Recolor: audit an app's color usage, then implement a cohesive, accessible, token-based color system grounded in color theory, with contrast ratios computed by a bundled script.",
+      "version": "0.1.0",
+      "author": {
+        "name": "ogxo",
+        "url": "https://github.com/ogxo-io"
+      },
+      "homepage": "https://github.com/ogxo-io/plugins",
+      "category": "design",
+      "keywords": [
+        "design",
+        "color",
+        "accessibility",
+        "wcag",
+        "design-tokens",
+        "dark-mode"
+      ],
+      "source": "./plugins/ogxo-design"
+    },
+    {
+      "name": "ogxo-guards",
+      "description": "Safety hooks: reject a `git add` whose command text names a .env/credentials/.secret/.pem file, reject Edit/Write calls on lock files and on node_modules/, vendor/, and .git/ paths, and reject single file writes over 1,048,576 characters. Pattern-based, so it does not catch everything; see the README. Requires jq.",
+      "version": "0.1.0",
+      "author": {
+        "name": "ogxo",
+        "url": "https://github.com/ogxo-io"
+      },
+      "homepage": "https://github.com/ogxo-io/plugins",
+      "category": "security",
+      "keywords": [
+        "hooks",
+        "safety",
+        "secrets",
+        "guardrails"
+      ],
+      "source": "./plugins/ogxo-guards"
+    },
+    {
+      "name": "ogxo-format",
+      "description": "Formatting hooks after every Edit/Write: format the changed file with prettier, gofmt, rustfmt, or black when found, whether or not the project uses that formatter; report trailing whitespace back to Claude; and check YAML syntax. Requires jq.",
+      "version": "0.1.0",
+      "author": {
+        "name": "ogxo",
+        "url": "https://github.com/ogxo-io"
+      },
+      "homepage": "https://github.com/ogxo-io/plugins",
+      "category": "development",
+      "keywords": [
+        "hooks",
+        "formatting",
+        "prettier",
+        "yaml",
+        "code-quality"
+      ],
+      "source": "./plugins/ogxo-format"
+    }
+  ]
+}

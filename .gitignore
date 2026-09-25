@@ -1,0 +1,10 @@
+.DS_Store
+.claude/settings.local.json
+.superpowers/
+.env
+
+# Internal design notes and implementation plans (not published)
+docs/superpowers/
+
+# Scratch scripts written by the browser-testing runner
+.temp-execution-*

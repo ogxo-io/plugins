@@ -1,0 +1,19 @@
+{
+  "name": "ogxo-debug",
+  "version": "0.3.0",
+  "description": "Debug a running web app by driving the browser: reproduce the symptom, read console and network errors, fix, and verify in the page. Also css-alignment-debug, which injects temporary outline overlays and reads a screenshot of the rendered page for layout bugs that won't resolve from reading source. Also browser-testing: Playwright test scripts with dev-server detection; Playwright installs into the plugin's data directory during a one-time setup.",
+  "author": {
+    "name": "ogxo",
+    "url": "https://github.com/ogxo-io"
+  },
+  "homepage": "https://github.com/ogxo-io/plugins",
+  "repository": "https://github.com/ogxo-io/plugins",
+  "license": "MIT",
+  "keywords": [
+    "debugging",
+    "browser",
+    "frontend",
+    "devtools",
+    "playwright"
+  ]
+}

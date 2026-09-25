@@ -1,0 +1,34 @@
+{
+  "name": "browser-testing-skill",
+  "version": "1.0.0",
+  "description": "Playwright dependencies for the browser-testing skill in the ogxo-debug plugin",
+  "author": "ogxo",
+  "main": "scripts/run-playwright.js",
+  "scripts": {
+    "setup": "npm install && npx playwright install chromium",
+    "install-all-browsers": "npx playwright install chromium firefox webkit",
+    "test": "npx playwright test",
+    "test:ui": "npx playwright test --ui",
+    "test:debug": "npx playwright test --debug"
+  },
+  "keywords": [
+    "playwright",
+    "testing",
+    "browser-automation",
+    "e2e-testing",
+    "accessibility",
+    "visual-regression",
+    "claude-skill"
+  ],
+  "dependencies": {
+    "playwright": "^1.56.1",
+    "@axe-core/playwright": "^4.11.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}

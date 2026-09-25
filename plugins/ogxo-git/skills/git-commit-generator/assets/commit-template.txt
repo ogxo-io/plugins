@@ -1,0 +1,17 @@
+type(scope): brief description (max 50 chars)
+
+[Body paragraph explaining WHY this change was made and WHAT the impact is.
+Wrap lines at 72 characters for better readability in git log.]
+
+[Additional paragraphs if needed, separated by blank lines.
+Use bullet points for multiple related changes:
+- First change or improvement
+- Second change or improvement
+- Third change or improvement]
+
+[Optional footers:]
+Closes #issue-number
+Fixes #issue-number
+Related to #issue-number
+BREAKING CHANGE: description of breaking change
+Co-authored-by: Name <email>

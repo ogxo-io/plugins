@@ -1,0 +1,19 @@
+{
+  "name": "ogxo-review",
+  "version": "0.2.0",
+  "description": "Multi-agent code review: full-review cross-correlates several reviewers and filters false positives; code-review-git posts line-level findings as a GitHub PR review. Bundles the code-review-agent, security-auditor, and code-metrics-analyst agents. Also security-check, a focused security review of a branch, and the dependency-auditor agent.",
+  "author": {
+    "name": "ogxo",
+    "url": "https://github.com/ogxo-io"
+  },
+  "homepage": "https://github.com/ogxo-io/plugins",
+  "repository": "https://github.com/ogxo-io/plugins",
+  "license": "MIT",
+  "keywords": [
+    "code-review",
+    "security",
+    "github",
+    "pull-request",
+    "agents"
+  ]
+}
