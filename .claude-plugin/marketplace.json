@@ -161,6 +161,25 @@
         "code-quality"
       ],
       "source": "./plugins/ogxo-format"
+    },
+    {
+      "name": "ogxo-specialists",
+      "description": "Specialist subagents that take a noisy job and return one structured report: log-analyst (correlate logs to a root cause), codebase-archaeologist (map an unfamiliar or legacy system), performance-optimizer (measure, fix by impact, re-measure), and migration-specialist (breaking-change catalog and a phased plan with rollback points).",
+      "version": "0.1.0",
+      "author": {
+        "name": "ogxo",
+        "url": "https://github.com/ogxo-io"
+      },
+      "homepage": "https://github.com/ogxo-io/plugins",
+      "category": "development",
+      "keywords": [
+        "agents",
+        "logs",
+        "legacy-code",
+        "performance",
+        "migrations"
+      ],
+      "source": "./plugins/ogxo-specialists"
     }
   ]
 }

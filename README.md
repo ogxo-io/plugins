@@ -12,6 +12,7 @@ claude plugin install ogxo-decide@ogxo
 claude plugin install ogxo-design@ogxo
 claude plugin install ogxo-guards@ogxo
 claude plugin install ogxo-format@ogxo
+claude plugin install ogxo-specialists@ogxo
 ```
 
 | Plugin | What it is | Status |
@@ -24,6 +25,7 @@ claude plugin install ogxo-format@ogxo
 | `ogxo-design` | `recolor`: audit an app's colors and implement an accessible, token-based color system, with contrast ratios computed by a bundled script. | 0.1.0 |
 | `ogxo-guards` | Hooks that reject a `git add` naming .env/credentials/.secret/.pem files, Edit/Write calls on lock files and node_modules/vendor/.git paths, and single writes over 1,048,576 characters. Pattern-based; see its README for what each does not catch. Requires `jq`. | 0.1.0 |
 | `ogxo-format` | Hooks that format each edited file with prettier, gofmt, rustfmt, or black when found, report trailing whitespace back to Claude, and check YAML syntax. Opt-in: auto-format rewrites whole files. Requires `jq`. | 0.1.0 |
+| `ogxo-specialists` | Subagents that take a noisy job and return one structured report: `log-analyst` (logs → root cause), `codebase-archaeologist` (map a legacy system), `performance-optimizer` (measure, fix by impact, re-measure), `migration-specialist` (breaking changes, phased plan with rollback points). | 0.1.0 |
 
 Plugins backed by a product (an MCP server or binary) pin to a release tag and
 commit sha in that product's repository. Content-only plugins — skills, agents,

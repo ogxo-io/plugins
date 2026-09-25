@@ -10,10 +10,10 @@ Marketplace name: `ogxo` → plugins install as `<plugin>@ogxo`.
 
 ## Status
 
-- The catalog has eight entries, all vendored under `plugins/`: **thryx**, and
-  seven content-only plugins — **ogxo-review**, **ogxo-git** (0.2.0),
+- The catalog has nine entries, all vendored under `plugins/`: **thryx**, and
+  eight content-only plugins — **ogxo-review**, **ogxo-git** (0.2.0),
   **ogxo-debug**, **ogxo-decide** (0.3.0), **ogxo-design**, **ogxo-guards**,
-  **ogxo-format** (0.1.0). The hook plugins require `jq`; each hook prints a
+  **ogxo-format**, **ogxo-specialists** (0.1.0). The hook plugins require `jq`; each hook prints a
   notice and does nothing when it is missing. This repo is the source of truth
   for them. The user decides when to commit; never `git add` or commit on your
   own.

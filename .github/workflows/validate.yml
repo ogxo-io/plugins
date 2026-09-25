@@ -1,0 +1,50 @@
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  plugins:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Pinned so validator rule changes land deliberately; bump when upgrading.
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code@2.1.282
+
+      # Validating the marketplace does not validate each plugin's files, and
+      # warnings (such as a catalog version that disagrees with plugin.json)
+      # exit 0, so every target is checked and warnings fail the job.
+      - name: claude plugin validate
+        run: |
+          fail=0
+          for target in . plugins/*/; do
+            out=$(claude plugin validate "$target" 2>&1) || fail=1
+            echo "$out"
+            if grep -q 'with warnings' <<<"$out"; then fail=1; fi
+          done
+          exit "$fail"
+
+      - name: Install PyYAML for the yaml-validate hook tests
+        run: python3 -m pip install --quiet pyyaml
+
+      - name: Hook regression tests
+        run: bash tests/hooks.sh
+
+      # Informational: distribution copy that claims something cannot happen
+      # needs a citation or a mechanism (see CLAUDE.md). Most hits are
+      # disclaimers, so this lists them for review instead of failing.
+      - name: Safety-claim review list
+        run: |
+          grep -rnE '\b(never|cannot|can.t|prevent|enforce|protect|scoped|isolat|sandbox|boundar|requires? .*authoriz)' \
+            plugins --include='*.md' --include='plugin.json' || echo "No matches."
