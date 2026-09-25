@@ -1,6 +1,6 @@
 {
   "name": "thryx",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Thryx project management over MCP: issues, projects, cycles, milestones, and documents in your Thryx workspace.",
   "author": { "name": "ogxo", "url": "https://github.com/ogxo-io" },
   "homepage": "https://app.thryx.io",

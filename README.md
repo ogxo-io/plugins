@@ -18,7 +18,7 @@ claude plugin install ogxo-statusline@ogxo
 
 | Plugin | What it is | Status |
 |---|---|---|
-| `thryx` | Hosted Thryx MCP server, vendored in this repo (`plugins/thryx`): issues, projects, cycles, milestones, and documents in your Thryx workspace. | 0.1.0 |
+| `thryx` | Hosted Thryx MCP server, vendored in this repo (`plugins/thryx`): issues, projects, cycles, milestones, and documents in your Thryx workspace. | 0.1.1 |
 | `ogxo-review` | Multi-agent code review: `/ogxo-review:full-review` cross-correlates reviewers and filters false positives; `/ogxo-review:code-review-git` posts line-level findings as a GitHub PR review. Bundles the code-review-agent, security-auditor, code-metrics-analyst, and dependency-auditor agents; `/ogxo-review:security-check` for a focused security pass. | 0.2.0 |
 | `ogxo-git` | Conventional Commit messages, PR titles/descriptions with template detection, resolving PR review threads (its workflow instructs it to present its analysis and wait for approval before replying or resolving), `/ogxo-git:catchup` to restore branch context, plus release, quick-fix, and ship-feature workflows and changelog/release-notes skills. | 0.2.0 |
 | `ogxo-debug` | `live-debug`: reproduce a web-app bug in the browser, read console and network errors, fix, and verify in the page; `css-alignment-debug` injects temporary outline overlays and reads a screenshot to find stubborn layout bugs. Also `browser-testing` for Playwright test scripts. | 0.3.0 |
@@ -27,7 +27,7 @@ claude plugin install ogxo-statusline@ogxo
 | `ogxo-guards` | Hooks that reject a `git add` naming .env/credentials/.secret/.pem files, Edit/Write calls on lock files and node_modules/vendor/.git paths, and single writes over 1,048,576 characters. Pattern-based; see its README for what each does not catch. Requires `jq`. | 0.1.0 |
 | `ogxo-format` | Hooks that format each edited file with prettier, gofmt, rustfmt, or black when found, report trailing whitespace back to Claude, and check YAML syntax. Opt-in: auto-format rewrites whole files. Requires `jq`. | 0.1.0 |
 | `ogxo-specialists` | Subagents that take a noisy job and return one structured report: `log-analyst` (logs → root cause), `codebase-archaeologist` (map a legacy system), `performance-optimizer` (measure, fix by impact, re-measure), `migration-specialist` (breaking changes, phased plan with rollback points). | 0.1.0 |
-| `ogxo-statusline` | A two-line status line: model, context use, git branch and changes, session time, thinking and effort, cache hit ratio, and 5-hour / 7-day usage bars, all from the session data Claude Code passes on stdin (no network calls, no credentials). `/ogxo-statusline:setup` installs it into your settings. Requires `jq`. | 0.1.0 |
+| `ogxo-statusline` | Status line for Claude Code and Grok Build: model, context use, git branch and changes, session time, effort, output tokens, and session cost. Claude Code also shows thinking, prompt-cache state, and 5-hour / 7-day usage bars. Grok Build uses the live context window, session output and cache-read share, and the active turn. `/ogxo-statusline:setup` installs the Claude line; `/ogxo-statusline:setup-grok` installs the Grok line. Requires `jq`. | 0.2.0 |
 
 Plugins backed by a product (an MCP server or binary) pin to a release tag and
 commit sha in that product's repository. Content-only plugins — skills, agents,

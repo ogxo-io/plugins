@@ -1,6 +1,6 @@
 ---
 name: thryx
-description: Use when working with a Thryx workspace over MCP - finding or updating your own tickets, moving a ticket's status, linking a pull request, searching or creating issues, triage, status or standup, planning cycles or sprints, tracking milestones, reading or writing project documents. Also use when the user says thryx, or names a ticket key from their Thryx workspace.
+description: Use when working with a Thryx workspace over MCP - finding or updating your own tickets, moving a ticket's status, linking a pull request, searching or creating issues, triage, status or standup, planning cycles or sprints, tracking milestones, reading or writing project documents (decisions and ADRs, PRDs and specs, runbooks such as the release process). Also use when the user says thryx, or names a ticket key from their Thryx workspace.
 ---
 
 # Thryx — driving the workspace without flailing
@@ -37,6 +37,14 @@ is answered by `list_pull_requests`, from the code, not from the status
 field. Put what you found in `add_comment` so the next person does not
 repeat the digging.
 
+**Starting a ticket.** When the user starts work on a ticket, make the
+ticket say so, in one `update_issue` call: move it to the project's
+in-progress state (the name comes from `list_statuses`), and if it has no
+assignee, set `assignee_email` to the user. No call tells you whose token
+this is, and `list_members` lists everyone, so if you do not know the
+user's email, ask once and reuse it. If someone else already holds the
+ticket, say who and ask before reassigning it.
+
 **Running the project.** Use the server's prompts below by name — they are
 the maintained procedures. For what they do not cover, `project_brief`
 answers what is happening this cycle, `project_structure` what the project
@@ -49,6 +57,77 @@ for the answer, then write with the batch tools.
 you do not file a duplicate. Duplicate tickets are the default failure
 mode of an agent with a create tool. Search first, every time, even when
 the user sounds certain the ticket is new.
+
+## Settle where a new ticket goes
+
+Before creating, work out where the ticket belongs, and ask about whatever
+the user has not already said:
+
+- **State.** A new ticket lands in the project's Triage state, or the
+  workflow's first state when it has no Triage; `create_issue` and
+  `create_issues` take no status. Ask whether it stays in Triage or goes
+  to Ready or Backlog (names from `list_statuses`), and set that with
+  `update_issue` right after creating.
+- **Cycle.** Ask whether it goes into a cycle (`list_cycles`; never call a
+  planned cycle the current one). Pass `cycle` on the create call itself;
+  that also moves the ticket out of Triage into the state the project
+  schedules work in (the create result names it). If the user picked a
+  different state, such as Backlog, set it with `update_issue` after the
+  create, since the cycle's promotion replaces it.
+- **Epic.** Find the project's open epics with `list_issues` for the
+  project (raise `limit` until the result is not truncated) and keep the
+  rows whose `issue_type` is `epic`; `project_structure` only counts them.
+  If one fits, ask "file it under EPIC-KEY?" and pass `parent_issue_key`
+  when the user agrees. If none fits, say so rather than forcing a match.
+
+Ask these together so the user answers once, along with the assignee
+when you are filing for someone who has not said. If the host has a
+multiple-choice question tool (in Claude Code, `AskUserQuestion`: up to
+four questions, two to four options each, and it always adds a free-text
+"Other"), use it, one question per decision:
+
+- **State:** Triage, Backlog, Ready.
+- **Cycle:** the running cycle and the next planned one by name, and "No
+  cycle".
+- **Epic:** the one to three epics that fit best, and "No epic". When none
+  fits, skip the question and say so.
+- **Assignee:** the user by email, and "Unassigned".
+
+Put your suggestion first in each list, marked "(Recommended)", and give
+each option a one-line reason in its description. Without such a tool,
+ask the same questions in one message, each with your suggestion.
+
+## Documents are the project's memory
+
+A project's documents hold what it has decided and how it works:
+architecture notes and invariants, decisions (ADRs), specs (PRDs), and
+runbooks such as the release process or how to pick up a ticket. Use them
+in both directions.
+
+**Read before you act.** Before starting a ticket, cutting a release, or
+proposing a design, look for a document that already covers it.
+`search_workspace` finds documents by title, body, and tag;
+`list_documents` gives one project's titles and tags; `get_document`
+reads the body. Where a runbook or process document exists, follow it and
+say which one you followed. When a request conflicts with a recorded
+decision or invariant, name the document and ask before going ahead.
+
+**Write down what the next person needs.** When the work settles
+something worth keeping (a decision and why it was made, a spec, the way
+a workflow runs), offer to record it, and draft it in your message
+first. `create_document` adds a new page and changes nothing else. It
+takes no tags, so tag the page right after with `tag_document`, reusing
+words from `list_document_tags` (such as `runbook`, `release`,
+`architecture`) and adding `adr` or `prd` when that is what it is.
+Tagging a new page removes nothing, so it needs no confirmation. Title a
+document by what it answers, and leave a comment on the tickets it
+governs that names it.
+
+**Editing a document is editing someone's writing.** `update_document`
+replaces the whole title and body. Read the current text, make the change
+on the full body, show the difference, and pass the flag only after the
+user agrees (see the contract below). To add a section, still send the
+whole body with the section added.
 
 ## Batch, do not loop
 
@@ -95,7 +174,11 @@ setting `confirm_irreversible: true` reflexively turns the check off.
 **Genuinely unavailable** — do not reconstruct them from other tools:
 `web_search`, `fetch_url`, `list_notes`, `write_note`, `attach_to_issue`,
 `look_at_attachment`. Attachments belong to a web-agent conversation, and
-there is none over MCP. Private notes never
+there is none over MCP. The same goes for the `attachment_ids` argument
+that `create_issue` and `create_issues` still list: leave it out, because
+any id makes the whole create fail. When the user shares a screenshot or
+file, describe what it shows in the ticket's description and tell them to
+attach the file in the web app. Private notes never
 cross an API token — the notes endpoint requires a signed-in session, and
 MCP credentials are a separate token type that cannot satisfy it. If the
 user needs one, say so and point at the web app.

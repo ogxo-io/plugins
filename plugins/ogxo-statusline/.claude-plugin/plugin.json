@@ -1,7 +1,7 @@
 {
   "name": "ogxo-statusline",
-  "version": "0.1.0",
-  "description": "A two-line status line for Claude Code: model, context use, git branch and changes, session time, thinking and effort, and prompt-cache hit ratio, plus 5-hour, 7-day, and spend-limit usage bars. Reads only the session data Claude Code passes on stdin; /ogxo-statusline:setup installs it into your settings. Requires jq.",
+  "version": "0.2.0",
+  "description": "Status line for Claude Code and Grok Build: model, context use, git branch and changes, session time, effort, output tokens, and session cost. Claude Code also shows thinking, prompt-cache state, and 5-hour, 7-day, and spend-limit bars. Grok Build uses the live context window, session output and cache-read share, and the active turn. /ogxo-statusline:setup writes Claude settings; /ogxo-statusline:setup-grok writes [ui.status_line] in the Grok user config. Requires jq.",
   "author": {
     "name": "ogxo",
     "url": "https://github.com/ogxo-io"
@@ -14,6 +14,7 @@
     "status-line",
     "rate-limits",
     "context-window",
-    "git"
+    "git",
+    "grok"
   ]
 }

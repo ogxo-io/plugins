@@ -8,3 +8,7 @@ docs/superpowers/
 
 # Scratch scripts written by the browser-testing runner
 .temp-execution-*
+
+# Python bytecode caches
+__pycache__/
+*.pyc

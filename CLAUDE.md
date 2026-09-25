@@ -13,10 +13,12 @@ Marketplace name: `ogxo` → plugins install as `<plugin>@ogxo`.
 - The catalog has ten entries, all vendored under `plugins/`: **thryx**, and
   nine content-only plugins — **ogxo-review**, **ogxo-git** (0.2.0),
   **ogxo-debug**, **ogxo-decide** (0.3.0), **ogxo-design**, **ogxo-guards**,
-  **ogxo-format**, **ogxo-specialists**, **ogxo-statusline** (0.1.0). The hook
+  **ogxo-format**, **ogxo-specialists**, **ogxo-statusline** (0.2.0). The hook
   plugins require `jq`; each hook prints a notice and does nothing when it is
-  missing. ogxo-statusline can't set `statusLine` itself (plugins can't); its
-  setup skill copies the script to `~/.claude/` and edits the user's settings.
+  missing. ogxo-statusline installs through a setup skill because the status
+  line setting lives in the user's own config: setup copies the script to
+  `~/.claude/` and edits settings.json; setup-grok copies the script to the
+  Grok home and writes `[ui.status_line]` in config.toml.
   This repo is the source of truth for them. The user decides when to commit; never `git add` or commit on your
   own.
 
