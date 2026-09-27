@@ -6,14 +6,14 @@
     "url": "https://github.com/ogxo-io"
   },
   "metadata": {
-    "description": "ogxo plugins for Claude Code, Grok Build, and Codex: Thryx project management, multi-agent code review, git/GitHub workflow skills, live browser debugging, and war-room decision support.",
+    "description": "ogxo plugins for Claude Code, Grok Build, and Codex: ThryX project management, multi-agent code review, git/GitHub workflow skills, live browser debugging, and war-room decision support.",
     "version": "0.1.0"
   },
   "plugins": [
     {
       "name": "ogxo",
-      "description": "The ogxo plugin set in one install: code review, git and GitHub workflows, browser debugging, decision and planning skills, color-system design, safety hooks, specialist subagents, and the status line. Installing it installs each of those plugins; thryx (needs a Thryx account) and ogxo-format (rewrites every file Claude edits) are left out and install on their own.",
-      "version": "0.1.0",
+      "description": "The ogxo plugin set in one install: code review, git and GitHub workflows, browser debugging, decision and planning skills, color-system design, safety hooks, specialist subagents, and the status line. Installing it installs each of those plugins; thryx (needs a ThryX account) and ogxo-format (rewrites every file Claude edits) are left out and install on their own.",
+      "version": "0.1.1",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -28,8 +28,8 @@
     },
     {
       "name": "thryx",
-      "description": "Thryx project management over MCP: issues, projects, cycles, milestones, and documents in your Thryx workspace.",
-      "version": "0.1.3",
+      "description": "ThryX project management over MCP: issues, projects, cycles, milestones, the client-facing macro board, and documents in your ThryX workspace, plus a product-management skill for writing tickets, PRDs, ADRs, and project docs and running follow-ups.",
+      "version": "0.2.0",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -67,7 +67,7 @@
     {
       "name": "ogxo-git",
       "description": "Git and GitHub workflow skills: Conventional Commit messages, PR titles and descriptions with template detection, resolving PR review threads (its workflow instructs it to present its analysis and wait for approval before replying or resolving), and a catchup command to restore branch context. Also release, quick-fix, and ship-feature workflows, and changelog-generator and release-notes skills.",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -104,8 +104,8 @@
     },
     {
       "name": "ogxo-decide",
-      "description": "War room: multi-persona deliberation for hard-to-reverse decisions, with game-theory lenses, a red-team pass, and a portfolio of options instead of a single winner. Also prd-create (section-by-section PRDs with pressure-testing, optionally saved to Thryx as a document plus epic and stories), task-architect (turns an idea into an agent-ready prompt), and the architecture-advisor agent. Also diagram-generator: Mermaid diagrams from a description or from the codebase.",
-      "version": "0.3.0",
+      "description": "War room: multi-persona deliberation for hard-to-reverse decisions, with game-theory lenses, a red-team pass, and a portfolio of options instead of a single winner. Also prd-create (section-by-section PRDs with pressure-testing, optionally saved to ThryX as a document plus epic and stories), task-architect (turns an idea into an agent-ready prompt), and the architecture-advisor agent. Also diagram-generator: Mermaid diagrams from a description or from the codebase.",
+      "version": "0.3.1",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"

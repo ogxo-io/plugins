@@ -1,7 +1,7 @@
 {
   "name": "thryx",
-  "version": "0.1.2",
-  "description": "Thryx project management over MCP: issues, projects, cycles, milestones, and documents in your Thryx workspace.",
+  "version": "0.2.0",
+  "description": "ThryX project management over MCP: issues, projects, cycles, milestones, the client-facing macro board, and documents in your ThryX workspace, plus a product-management skill for writing tickets, PRDs, ADRs, and project docs and running follow-ups.",
   "author": { "name": "ogxo", "url": "https://github.com/ogxo-io" },
   "homepage": "https://app.thryx.io",
   "license": "MIT",
@@ -10,9 +10,9 @@
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
-    "displayName": "Thryx",
-    "shortDescription": "Read and update issues, projects, cycles, and documents in Thryx",
-    "longDescription": "Connects to a Thryx workspace over MCP so an agent can search and triage issues, plan cycles, track milestones, and read or write project documents. Calls that are hard to undo are refused until the caller passes an explicit confirmation flag on that same request — a deliberate speed bump against careless automation, not a permission boundary.",
+    "displayName": "ThryX",
+    "shortDescription": "Read and update issues, projects, cycles, and documents in ThryX",
+    "longDescription": "Connects to a ThryX workspace over MCP so an agent can search and triage issues, plan cycles, track milestones, and read or write project documents. Calls that are hard to undo are refused until the caller passes an explicit confirmation flag on that same request — a deliberate speed bump against careless automation, not a permission boundary.",
     "developerName": "ogxo",
     "category": "Productivity",
     "capabilities": ["Interactive", "Read", "Write"],

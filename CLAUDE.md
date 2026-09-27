@@ -70,9 +70,9 @@ Marketplace name: `ogxo` → plugins install as `<plugin>@ogxo`.
   claude plugin install <plugin>@ogxo-local
   ```
 - **Exception, thryx: vendored here.** `plugins/thryx` lives in this repo,
-  referenced as `"./plugins/thryx"`. Thryx's source is not public, so
-  there is no product repo to pin, and the plugin is five files against a
-  stable hosted URL, so co-location would buy little. Every other
+  referenced as `"./plugins/thryx"`. ThryX's source is not public, so
+  there is no product repo to pin, and the plugin is skills and a
+  manifest against a stable hosted URL, so co-location would buy little. Every other
   product-backed plugin keeps its source with the product. Revisit if the
   thryx skill starts drifting from the server's tool surface.
 - Same plugin tree serves Claude Code and Grok Build (`grok plugin`, identical
@@ -157,7 +157,7 @@ token" survived the check because someone made it citable, then rewrote
 the copy itself to carry the mechanism — the shipped sentence now reads
 that the notes endpoint requires a signed-in session while MCP credentials
 are a separate token type that cannot satisfy it, backed by a citation to
-the Thryx server's auth extractors. When a flagged sentence turns out to
+the ThryX server's auth extractors. When a flagged sentence turns out to
 be true, the fix is to go find the evidence, cite it, and let the copy
 state the mechanism — never to weaken the claim instead.
 

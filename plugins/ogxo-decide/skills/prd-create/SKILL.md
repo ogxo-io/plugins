@@ -28,7 +28,7 @@ digraph prd_create {
     "Phase 3: Assemble PRD\n(fill template from refs)" [shape=box];
     "Phase 4: Self-review loop\n(7 checks)" [shape=box style=filled fillcolor=lightcoral];
     "Write to docs/prd/" [shape=box style=filled fillcolor=lightgreen];
-    "Phase 5: Offer handoffs\n(Thryx doc / Thryx epic / brainstorming)" [shape=box];
+    "Phase 5: Offer handoffs\n(ThryX doc / ThryX epic / brainstorming)" [shape=box];
     "Done" [shape=doublecircle];
 
     "Parse /ogxo-decide:prd-create <feature>" -> "Multi-feature bundle?";
@@ -52,8 +52,8 @@ digraph prd_create {
     "Phase 2: Sub-tool spawns\n(inline pause, sequential)" -> "Phase 3: Assemble PRD\n(fill template from refs)";
     "Phase 3: Assemble PRD\n(fill template from refs)" -> "Phase 4: Self-review loop\n(7 checks)";
     "Phase 4: Self-review loop\n(7 checks)" -> "Write to docs/prd/";
-    "Write to docs/prd/" -> "Phase 5: Offer handoffs\n(Thryx doc / Thryx epic / brainstorming)";
-    "Phase 5: Offer handoffs\n(Thryx doc / Thryx epic / brainstorming)" -> "Done";
+    "Write to docs/prd/" -> "Phase 5: Offer handoffs\n(ThryX doc / ThryX epic / brainstorming)";
+    "Phase 5: Offer handoffs\n(ThryX doc / ThryX epic / brainstorming)" -> "Done";
 }
 ```
 
@@ -297,16 +297,16 @@ Run the Self-Review Loop BEFORE writing to disk. Fix any failure inline; do NOT 
 
 ## Phase 5 — Optional Handoffs (main thread, user-driven)
 
-After writing the PRD, OFFER three optional follow-ups via `AskUserQuestion` (multi-select, all optional). Options 1 and 2 use the Thryx MCP tools from the `thryx@ogxo` plugin; offer them only when those tools are in your tool list.
+After writing the PRD, OFFER three optional follow-ups via `AskUserQuestion` (multi-select, all optional). Options 1 and 2 use the ThryX MCP tools from the `thryx@ogxo` plugin; offer them only when those tools are in your tool list.
 
-1. **Save to Thryx as a project document** — ask which project, run `search_workspace` for an existing PRD on the same feature first, then create the document from the PRD file with `create_document` (`project_key`, `title`, `body`). Return the document link.
-2. **Create a Thryx epic + stories** — ask which project (reuse the answer from option 1 if given), then `search_issues` for an existing epic. Then say exactly what you will create (epic title, one story per Section 7 entry) and wait for the user's OK, because Thryx writes over MCP take effect immediately. Create the epic with one `create_issues` call (`issue_type: epic`), then the stories with `create_issues` carrying `parent_issue_key` (at most 12 per call). Return the epic key and story keys.
+1. **Save to ThryX as a project document** — ask which project, run `search_workspace` for an existing PRD on the same feature first, then create the document from the PRD file with `create_document` (`project_key`, `title`, `body`). Return the document link.
+2. **Create a ThryX epic + stories** — ask which project (reuse the answer from option 1 if given), then `search_issues` for an existing epic. Then say exactly what you will create (epic title, one story per Section 7 entry) and wait for the user's OK, because ThryX writes over MCP take effect immediately. Create the epic with one `create_issues` call (`issue_type: epic`), then the stories with `create_issues` carrying `parent_issue_key` (at most 12 per call). Return the epic key and story keys.
 3. **Start implementation brainstorming** — recommend `/superpowers:brainstorming` (if installed) with the PRD path as input: `"This PRD is ready for implementation design. Start /superpowers:brainstorming with the PRD path as context to converge on a design spec."`
 
 **Do NOT auto-run any of these.** User explicitly opts in (multi-select). If the user declines all, print the PRD path one final time and exit.
 
 **Failure handling for Phase 5:**
-- If the Thryx tools are unavailable (plugin not installed, `THRYX_TOKEN` or `THRYX_WORKSPACE` unset) or a call fails, surface the error in one line; the PRD remains on disk at the path printed in Phase 4. Do NOT retry; do NOT roll back the PRD file.
+- If the ThryX tools are unavailable (plugin not installed, `THRYX_TOKEN` or `THRYX_WORKSPACE` unset) or a call fails, surface the error in one line; the PRD remains on disk at the path printed in Phase 4. Do NOT retry; do NOT roll back the PRD file.
 - If one step succeeds and the next fails (e.g. the document was saved but story creation failed), surface what succeeded vs failed. User resolves manually.
 
 ---
@@ -324,7 +324,7 @@ After writing the PRD, OFFER three optional follow-ups via `AskUserQuestion` (mu
 | PRD assembled with placeholder leaks | Phase 4 Check 1 catches `{{...}}` remnants |
 | User stories don't map to requirements | Phase 4 Check 4 catches orphans |
 | Goals stated without metrics | Phase 4 Check 3 flags vague goals; re-prompts user or routes to Open Questions |
-| Thryx MCP unavailable during Phase 5 | Phase 5 fails gracefully; PRD remains on disk from Phase 4; one-line error surface; no retry, no rollback |
+| ThryX MCP unavailable during Phase 5 | Phase 5 fails gracefully; PRD remains on disk from Phase 4; one-line error surface; no retry, no rollback |
 | Phase 5 partial write (document saved, stories failed) | Surface what succeeded vs failed; user resolves manually |
 | User wants to revise earlier sections | Not supported (GATE 1 forward-only); they re-invoke `/ogxo-decide:prd-create` |
 

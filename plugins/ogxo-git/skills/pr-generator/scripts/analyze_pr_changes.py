@@ -87,7 +87,7 @@ def get_base_branch() -> str:
 
 
 def extract_issue_key(branch_name: str) -> Optional[str]:
-    """Extract a Thryx issue key from the branch name, e.g. PROJ-123."""
+    """Extract a ThryX issue key from the branch name, e.g. PROJ-123."""
     match = re.search(r'([A-Z]+-\d+)', branch_name)
     return match.group(1) if match else None
 
