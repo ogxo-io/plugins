@@ -1,6 +1,6 @@
 # ogxo-review
 
-Multi-agent code review: full-review cross-correlates several reviewers and filters false positives; code-review-git posts line-level findings as a GitHub PR review and answers other reviewers' comments. Bundles the code-review-agent, security-auditor, and code-metrics-analyst agents.
+Multi-agent code review: full-review cross-correlates several reviewers and filters false positives; code-review-git posts line-level findings as a GitHub PR review and answers other reviewers' comments. Bundles the code-review-agent, security-auditor, code-metrics-analyst, and finding-verifier agents; code-review-git verifies every finding before it is shown.
 
 ## Install
 
@@ -18,3 +18,4 @@ claude plugin install ogxo-review@ogxo
 - `ogxo-review:security-auditor` (agent)
 - `/ogxo-review:security-check` (command)
 - `ogxo-review:dependency-auditor` (agent)
+- `ogxo-review:finding-verifier` (agent)

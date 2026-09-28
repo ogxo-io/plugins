@@ -167,6 +167,20 @@ Go through each unresolved thread and review body from Phase 1 step 5 that anoth
 
 Skip a comment you already 👍'd, and an outdated thread whose code no longer exists. Replies are short and specific: say what you checked and what follows, not a restatement of their comment. A review body has no thread to reply in, so a disagreement with one goes into your own review body, addressed to them by `@login`. Never resolve another reviewer's thread; that is theirs or the PR author's call.
 
+### Phase 4c: Verify Before Presenting
+
+Everything this command posts is public, so every finding and every stance from Phase 4b gets a second opinion from an agent that didn't produce it. Group the claims by file and spawn one **finding-verifier** sub-task per file (`subagent_type: ogxo-review:finding-verifier`), all in the same message so they run in parallel.
+
+Give each sub-task the claims for its file: ID, `path`, `line`, severity, and the claim text; for an `O` item, the other reviewer's point and your intended stance. Leave out the reasoning the reviewing agents gave, so the verifier forms its own view.
+
+Apply the verdicts:
+
+| Verdict | Finding (`R`/`S`/`M`) | Response to a reviewer (`O`) |
+|---|---|---|
+| `confirmed` | Keep. Take the verifier's corrected `line` or `severity` if it gave one. | Keep the stance. |
+| `refuted` | Drop it from the table. List it under "Dropped by verification" with the verifier's evidence. | Drop the 👍 or the reply. If the verifier showed their point is right after all, switch a disagreement to 👍; if it showed their point is wrong, switch an agreement to a reply that says why. |
+| `uncertain` | Keep it, marked `?`, with what would settle it. | Don't 👍 or reply; list it for the user. |
+
 ### Phase 5: Present Summary to User
 
 Before posting to GitHub, present the compiled review to the user:
@@ -174,13 +188,15 @@ Before posting to GitHub, present the compiled review to the user:
 ```
 ## Review Summary for PR #<number>
 
-| ID | Severity | Confidence | File | Line | Finding |
-|----|----------|------------|------|------|---------|
-| S1 | critical | 9/10 | src/api.ts | 87 | SQL injection via unsanitized... |
-| R1 | warning  | 8/10 | src/auth.ts | 42 | Missing input validation on... |
-| R2 | suggestion | 9/10 | src/utils.ts | 15 | Consider extracting to helper... |
+| ID | Severity | Confidence | Verified | File | Line | Finding |
+|----|----------|------------|----------|------|------|---------|
+| S1 | critical | 9/10 | ✓ | src/api.ts | 87 | SQL injection via unsanitized... |
+| R1 | warning  | 8/10 | ✓ | src/auth.ts | 42 | Missing input validation on... |
+| R2 | suggestion | 9/10 | ? | src/utils.ts | 15 | Consider extracting to helper... (depends on whether X is called elsewhere) |
 
 Total: X findings (Y critical, Z warnings, W suggestions)
+
+Dropped by verification: R3 (src/db.ts:12, input is validated in routes/user.ts:8), M2 (...)
 
 ## Responses to other reviewers
 
@@ -238,7 +254,7 @@ gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews \
 - Use GitHub's suggestion syntax (` ```suggestion `) when proposing concrete code fixes
 - Prefix each comment body with the severity emoji: 🔴 Critical | 🟡 Warning | 💡 Suggestion
 - Include the finding ID (R1, S1, etc.) in each comment for traceability
-- Choose the `event` from the Severity → Review Event table below
+- Choose the `event` from the Severity → Review Event table below, counting only verified (✓) findings: an uncertain (`?`) critical posts as `COMMENT`
 - **On the user's own PR** (`viewer.login` equals `author.login` from Phase 1), GitHub refuses `REQUEST_CHANGES` and `APPROVE` from the author with a 422. Post `COMMENT`, and open the body with the verdict the table would have given ("Would request changes: 1 critical finding").
 - Post as a **single review** (one API call), not individual comments
 
@@ -281,6 +297,7 @@ gh api graphql \
 - Review URL: <link>
 - Findings posted: X inline comments
 - Findings in summary: Y (couldn't map to diff lines)
+- Dropped by verification: D
 - Review type: COMMENT | REQUEST_CHANGES | APPROVE (own PR: COMMENT, with the verdict in the body)
 - Other reviewers: A agreed (👍), B replied to, C left without a view
 - Code quality findings: X (from code-review-agent)
@@ -292,7 +309,8 @@ gh api graphql \
 
 - **Never post without user approval** — Always present findings first
 - **Never post false positives** — Only confidence 8+ findings (each agent is instructed to report only 8+)
-- **Use REQUEST_CHANGES only when a critical finding exists** (see the table below)
+- **Verify before presenting** — every finding and every response to another reviewer goes through Phase 4c; nothing refuted is posted
+- **Use REQUEST_CHANGES only when a verified critical finding exists** (see the table below)
 - **Map lines accurately** — Verify each line exists in the diff before posting
 - **Single review submission** — Post all comments in one review, not individual comments
 - **Don't repeat another reviewer** — agree with their comment (👍) instead of posting the same finding again
@@ -304,7 +322,7 @@ gh api graphql \
 
 | Highest Severity | GitHub Review Event | Meaning |
 |-----------------|-------------------|---------|
-| Critical | `REQUEST_CHANGES` | Blocks merge until addressed |
+| Critical (verified) | `REQUEST_CHANGES` | Blocks merge until addressed |
 | Warning | `COMMENT` | Should be addressed but non-blocking |
 | Suggestion only | `COMMENT` | Nice-to-have improvements |
 | No issues found | `APPROVE` | Code looks good, nothing to flag |
