@@ -276,7 +276,7 @@ Assistant: *generates a clean overview with 15 key components grouped into 4 sub
 - **Monorepo**: Treat each package/app as a separate scope; show inter-package dependencies at the top level
 - **No source code available**: Switch to Describe mode and work from the user's verbal description
 - **Architecture diagram too complex (>20 nodes)**: Split into sub-diagrams by layer or domain; merge low-level services into their parent layer
-- **Simple diagram too complex (>30 nodes)**: Split by layer, domain, or module
+- **Other diagram types past their Max Before Split** (node-limit table above): Split by layer, domain, or module
 - **Many crossing edges**: Reorganize into subgraphs, use interface nodes to reduce cross-connections, and apply the architecture layout patterns from `references/output-formatting.md`
 
 ## Quick Reference Checklist

@@ -14,7 +14,7 @@ The script source is `${CLAUDE_PLUGIN_ROOT}/scripts/ogxo-statusline.sh`. If that
 ## Install or update
 
 1. Check `jq` is on `PATH`. The script prints only `ogxo` without it, so if it's missing, say how to install it (`brew install jq`, `apt install jq`) and continue; the user can install it afterwards.
-2. Copy the script to `~/.claude/ogxo-statusline.sh` and make it executable. Options belong in the settings command, not the script, so a plain update just overwrites the copy. If the existing file differs from every released version in ways that look like hand edits (for example changed colors), show the diff and ask before overwriting. If it's a symlink, leave it: someone is running it from a checkout.
+2. Copy the script to `~/.claude/ogxo-statusline.sh` and make it executable. Options belong in the settings command, not the script, so a plain update just overwrites the copy. If the existing file differs from the plugin script in ways that look like hand edits (for example changed colors), show the diff and ask before overwriting. If it's a symlink, leave it: someone is running it from a checkout.
 3. Read `~/.claude/settings.json` (treat a missing file as `{}`).
    - If `statusLine` already points at `~/.claude/ogxo-statusline.sh`, keep its command as it is, including any options after the path; the setting needs no change.
    - If it points at something else, show the current value and ask before replacing it.

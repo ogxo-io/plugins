@@ -102,7 +102,7 @@ Closes #234
 
 **Would you like me to:**
 1. Just generate this content (you can copy and create PR manually)
-2. Push the branch and show the `gh pr create` command
+2. Show the `gh pr create` command (and the push command, if needed) for you to run
 3. Create the PR automatically using GitHub CLI
 
 Please let me know how you'd like to proceed!

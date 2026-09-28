@@ -146,7 +146,7 @@ When working on a branch with an issue-key prefix (e.g., `PROJ-123-feature`):
 
 ### Co-Author Attribution
 
-**IMPORTANT**: Never automatically add co-author attribution.
+Add co-author attribution only when the user asks for it; commits reflect human authorship.
 - Only add `Co-authored-by:` when explicitly requested by the user
 - Format: `Co-authored-by: Name <email>`
 
@@ -240,7 +240,7 @@ chore(ci): update Node.js version to 20 LTS
 Updates GitHub Actions workflow to use Node.js 20:
 - Improves build performance
 - Access to new language features
-- Extends support timeline (LTS until 2026)
+- Extends the support timeline
 ```
 
 ## Multi-File Commit Strategy

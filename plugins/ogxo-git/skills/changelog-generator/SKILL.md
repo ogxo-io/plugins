@@ -77,9 +77,7 @@ Run the `TAG=`/`RANGE=` line in the **same Bash call** as the `git log` that use
 - **Breaking**: Commits with `BREAKING CHANGE:` in body or `!` after type
 - **Hash**: Short commit hash for linking
 
-**Skip these commits:**
-- Merge commits (already included via `--no-merges`)
-- Commits that don't follow Conventional Commits (group under "Other Changes" if present)
+Merge commits are already excluded by `--no-merges`. Group commits that don't follow Conventional Commits under an "Other Changes" section.
 
 ## Step 3: Detect GitHub Remote
 
@@ -183,34 +181,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 ```
 
 **Present the changelog entry to the user before writing the file.**
-
-## Common Mistakes to Avoid
-
-### Mistake 1: Writing Changelog from Memory
-
-**Wrong:**
-```
-User: "Generate changelog"
-Assistant: *writes changelog based on what it remembers from the conversation*
-```
-
-**Correct:**
-```
-User: "Generate changelog"
-Assistant: *runs git log to parse actual commits, then formats*
-```
-
-### Mistake 2: Including Noise Commits
-
-**Wrong:** Including every `chore:`, `ci:`, and `test:` commit in the changelog.
-
-**Correct:** Only include `feat`, `fix`, `refactor`, `perf`, and breaking changes by default. Include others only when requested.
-
-### Mistake 3: Wrong Version Bump
-
-**Wrong:** Suggesting a PATCH version when there are new features.
-
-**Correct:** Follow semver — any `feat` = MINOR bump, any `BREAKING CHANGE` = MAJOR bump.
 
 ## Quick Reference Checklist
 

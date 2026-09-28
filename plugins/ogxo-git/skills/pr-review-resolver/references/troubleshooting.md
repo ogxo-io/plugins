@@ -7,7 +7,7 @@ Reference file for the `pr-review-resolver` skill. Contains solutions for common
 | Situation | Action |
 |-----------|--------|
 | `gh` CLI not installed | Inform user to install from https://cli.github.com/ |
-| `gh` not authenticated | Run `gh auth login` and retry |
+| `gh` not authenticated | Tell the user to run `gh auth login`, then stop |
 | PR not found from branch | Ask user for PR number or URL |
 | No review comments found | Inform user there are no pending review comments |
 | API rate limit hit | Wait and retry, or inform user |

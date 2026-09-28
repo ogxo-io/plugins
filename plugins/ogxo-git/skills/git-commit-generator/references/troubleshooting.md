@@ -76,7 +76,7 @@ mypy                  # Type checking
 **Go:**
 ```bash
 gofmt -l .            # Check formatting
-golint ./...          # Linting
+staticcheck ./...     # Linting
 go vet ./...          # Static analysis
 ```
 
@@ -137,7 +137,7 @@ fi
    git diff --staged --name-only | xargs prettier --check
    ```
 
-**Important**: Do NOT proceed with commit message generation until all quality checks pass.
+Don't commit until the checks pass; you can still draft the message if the user only asked for one.
 
 ---
 
@@ -379,4 +379,4 @@ If you encounter issues not covered here:
 3. **Ask user** for clarification or preferences
 4. **Fall back to manual** git commands if scripts fail
 
-Remember: **Generating a good commit message is more important than following the exact workflow**. Adapt as needed while maintaining quality.
+Adapt the workflow steps to the situation; the Rules at the top of SKILL.md (no staging, no attribution, explicit approval before committing) still apply.

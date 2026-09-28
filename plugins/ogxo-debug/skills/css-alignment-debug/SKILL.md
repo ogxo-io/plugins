@@ -234,7 +234,6 @@ Some build systems cache CSS aggressively. Force a full reload: kill the dev ser
 - Doesn't author new layouts — it's a diagnostic tool, not a designer
 - Doesn't ship debug overlays — Step 6 (cleanup) is mandatory
 - Doesn't try to fix bugs in CSS specs / browser engines themselves
-- Doesn't generate fix code automatically — once you've identified the cause, you still need to apply judgment about the right fix
 
 ## Quick Snippets
 

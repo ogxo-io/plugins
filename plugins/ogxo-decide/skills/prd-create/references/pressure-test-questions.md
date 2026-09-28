@@ -19,7 +19,7 @@ After all questions are asked, if ≥1 answer was `weak` or `unknown`, Phase 0.5
 `AskUserQuestion` only supports multi-choice (requires `options` array of 2–4 items). Free-text questions MUST NOT use it — they will fail with `InputValidationError: expected array to have >=2 items`.
 
 For each question:
-1. **Multi-choice questions (have an Options block):** use `AskUserQuestion`. Pass the stated options. Optionally add a final option like `"Other / I'll specify in my next message"` so the user has an escape hatch.
+1. **Multi-choice questions (have an Options block):** use `AskUserQuestion` with the stated options; it takes at most four, so merge adjacent ones where a question lists more (Q-2 lists six).
 2. **Free-text questions (no Options block):** print the question as plain text in your response, then STOP and wait for the user's next reply. Do NOT call `AskUserQuestion`.
 3. After the user replies, classify per the rubric below for that question.
 4. Record `(question_id, user_answer_verbatim, classification)` in working state for Phase 4 self-review and Open Questions population.
@@ -106,7 +106,7 @@ For each question:
 - **Weak:** "Everyone could benefit" / "no one is excluded" / vague answer.
 - **Unknown:** "Haven't thought about it."
 
-## Q-10 Sustainability (comprehensive only)
+## Q-10 Sustainability
 
 - **Question:** What's the maintenance cost in year 2? Year 3?
 - **Type:** free-text

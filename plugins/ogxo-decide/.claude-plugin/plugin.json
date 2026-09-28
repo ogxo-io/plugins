@@ -1,6 +1,6 @@
 {
   "name": "ogxo-decide",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "War room: multi-persona deliberation for hard-to-reverse decisions, with game-theory lenses, a red-team pass, and a portfolio of options instead of a single winner. Also prd-create (section-by-section PRDs with pressure-testing, optionally saved to ThryX as a document plus epic and stories), task-architect (turns an idea into an agent-ready prompt), and the architecture-advisor agent. Also diagram-generator: Mermaid diagrams from a description or from the codebase.",
   "author": {
     "name": "ogxo",

@@ -41,8 +41,17 @@ gh pr view "$PR_NUMBER" --json state,title,url,headRefName
 
 ### 2a. Fetch unresolved threads with thread IDs (required)
 
+Review threads are only reachable through GraphQL. `gh pr view --json`
+has no `reviewThreads` field (it fails with `Unknown JSON field:
+"reviewThreads"`), and its `reviews` / `latestReviews` fields return
+review summaries without threads, resolution state, or thread IDs.
+
 ```bash
-# GraphQL returns thread IDs (PRRT_...) needed for replies and resolution
+# Owner and repo of the current checkout
+read -r OWNER REPO < <(gh repo view --json owner,name --jq '"\(.owner.login) \(.name)"')
+
+# GraphQL returns thread IDs (PRRT_...) needed for replies and resolution;
+# --jq keeps only the unresolved threads
 gh api graphql -f query='
   query($owner: String!, $repo: String!, $pr: Int!) {
     repository(owner: $owner, name: $repo) {
@@ -51,6 +60,7 @@ gh api graphql -f query='
           nodes {
             id
             isResolved
+            isOutdated
             path
             line
             comments(first: 10) {
@@ -66,30 +76,16 @@ gh api graphql -f query='
       }
     }
   }
-' -f owner="$OWNER" -f repo="$REPO" -F pr="$PR_NUMBER"
+' -f owner="$OWNER" -f repo="$REPO" -F pr="$PR_NUMBER" \
+  --jq '.data.repository.pullRequest.reviewThreads.nodes[]
+        | select(.isResolved == false)
+        | {id, path, line, isOutdated,
+           comments: [.comments.nodes[] | {id, author: .author.login, body, createdAt}]}'
 ```
 
-**Important**: The `id` field on each thread node is the thread ID (`PRRT_...`). Save these — they are used for both replying and resolving.
+The `id` field on each thread node is the thread ID (`PRRT_...`); the reply and resolve mutations both take it. `line` is null on an outdated thread whose line no longer exists in the diff.
 
-### 2b. Quick fetch via gh CLI (for simpler cases)
-
-```bash
-# Simpler but does not return thread IDs — use 2a instead when you need to reply
-gh pr view "$PR_NUMBER" --json reviewThreads \
-  --jq '.reviewThreads[] | select(.isResolved == false) | {
-    path: .path,
-    line: .line,
-    isOutdated: .isOutdated,
-    comments: [.comments[] | {
-      id: .id,
-      body: .body,
-      author: .author.login,
-      createdAt: .createdAt
-    }]
-  }'
-```
-
-### 2c. Supplement with REST API (if more detail is needed)
+### 2b. Supplement with REST API (if more detail is needed)
 
 > **IMPORTANT**: Always use `--paginate` to fetch all comments. Without it, only the first page is returned and comments on later pages appear unreplied.
 

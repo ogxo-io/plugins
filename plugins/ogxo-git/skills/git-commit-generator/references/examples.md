@@ -150,13 +150,13 @@ Makes it easier for new developers to set up local environment.
 3. Inform user: "Lint checks failed with 3 errors. Please fix these first:"
    - Show the errors
    - Suggest: "Run `npm run lint:fix` to auto-fix"
-4. Wait for user to fix issues
+4. Wait for the user to fix the issues before committing (a draft message is fine if that is all they asked for)
 5. After fixes, re-check:
    ```bash
    npm run lint
    # Output: All checks passed ✓
    ```
-6. Now proceed with git analysis and commit message generation
+6. Now proceed with the commit
 
 **Response to User:**
 ```

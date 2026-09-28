@@ -1,6 +1,6 @@
 # ogxo-review
 
-Multi-agent code review: full-review cross-correlates several reviewers and filters false positives; code-review-git posts line-level findings as a GitHub PR review. Bundles the code-review-agent, security-auditor, and code-metrics-analyst agents.
+Multi-agent code review: full-review cross-correlates several reviewers and filters false positives; code-review-git posts line-level findings as a GitHub PR review and answers other reviewers' comments. Bundles the code-review-agent, security-auditor, and code-metrics-analyst agents.
 
 ## Install
 

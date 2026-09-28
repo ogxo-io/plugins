@@ -79,7 +79,7 @@ Three invariants define this workflow:
 
 Run Phase 0.5 (pressure test) on `--depth comprehensive` or when `--grill` is set; it is the highest-value gate against shallow PRDs. In Phase 4, fix any failing self-review check before declaring the PRD complete.
 
-**Asking questions:** `AskUserQuestion` in this skill and its references means the host's multiple-choice question tool (in Claude Code, `AskUserQuestion`, which takes 2–4 options). Ask free-text questions in plain conversation text and wait for the reply.
+**Asking questions:** `AskUserQuestion` in this skill and its references means the host's multiple-choice question tool (in Claude Code, `AskUserQuestion`, which takes 2–4 options). Where a question bank entry lists more than four options (Q-2, Q2.3, Q12.1), drop its "Other" entry and merge adjacent options to fit. Ask free-text questions in plain conversation text and wait for the reply.
 
 ## Anti-Pattern: "We Already Know What We Want"
 
@@ -194,7 +194,7 @@ This phase runs ONLY when the user pre-emptively invoked war-room. It runs BETWE
 2. Run `/ogxo-decide:war-room <question>` as a skill in the main thread, not inside a sub-agent: its mid-run checkpoint asks the user a question, and it fans out its own sub-agents. Wait for it to complete (inline pause — blocking).
 3. Capture the war-room report path.
 4. Read the report's "Conditional Recommendations" and "Pareto Frontier" sections.
-5. Record in working state: `war_room_report_path`, summary (chosen option + alternatives), report rendering for Section 6 (Strategic Context) of the PRD.
+5. Record in working state: `war_room_report_path`, summary (Pareto-optimal options + Conditional Recommendations), report rendering for Section 6 (Strategic Context) of the PRD.
 6. **Supplements (does not replace) Section 6 clarifying questions.** Phase 1 will still ask Section 6's clarifying questions, but with the war-room context as input — the user's answers can build on or override the war-room's findings.
 
 ## Phase 1 — Section-by-Section Requirements Gathering (main thread, interactive)
@@ -214,7 +214,7 @@ The heart of the skill. Walk through PRD sections IN ORDER (per `references/prd-
    - **Free-text questions** (no `Options:` listed): print the question as plain text in your response, then STOP and wait for the user's reply on the next turn. Do NOT call `AskUserQuestion` for free-text — it requires `options` of length ≥2 and will fail with `InputValidationError`.
 4. **After each answer, check integration triggers** from `references/integration-triggers.md`:
    - Match the user's answer against the trigger phrases.
-   - If a war-room trigger fires AND `--no-brainstorm` is not set (war-room offers are not suppressed by `--no-brainstorm`; only brainstorming offers are), OFFER `/ogxo-decide:war-room` via `AskUserQuestion`. User accepts → add to sub-tool offer queue for Phase 2. User declines → append to working state's `open_questions` with tag `[from Section <N> <name>, declined war-room offer]`.
+   - If a war-room trigger fires, OFFER `/ogxo-decide:war-room` via `AskUserQuestion` (`--no-brainstorm` does not suppress war-room offers). User accepts → add to sub-tool offer queue for Phase 2. User declines → append to working state's `open_questions` with tag `[from Section <N> <name>, declined war-room offer]`.
    - If a brainstorming trigger fires AND `--no-brainstorm` is NOT set, OFFER `/superpowers:brainstorming` via `AskUserQuestion`. Same accept/decline handling.
    - If `--no-brainstorm` is set, suppress brainstorming offers; the underlying question still goes to Open Questions as a tagged entry.
 5. **Capture the answer** in working state under `section_<N>_answers`.
@@ -245,7 +245,7 @@ For every offer the user ACCEPTED in Phase 1, dispatch the sub-tool now. **Inlin
 2. Run war-room as a skill in the main thread (its checkpoint needs the user, and it dispatches its own sub-agents). Dispatch brainstorming the same way, since it also asks the user questions.
 3. **Wait for completion** before dispatching the next sub-tool.
 4. Capture the output: war-room report path or brainstorming spec path.
-5. Read the deliverable summary into PRD working state (top option chosen + alternatives for war-room; design summary for brainstorming).
+5. Read the deliverable summary into PRD working state (Pareto-optimal options + Conditional Recommendations for war-room; design summary for brainstorming).
 
 **Cost guard:** If the user has accepted ≥2 sub-tool offers, before dispatching the 3rd, ask:
 > "You've accepted 2 sub-tool offers; another would push agent cost above ~25 calls. Continue or skip the remaining offers?"
@@ -260,7 +260,7 @@ If the user declines all offers in Phase 1, Phase 2 is a no-op — proceed to Ph
 4. **Fill the template** from `references/prd-template.md`:
    - Header: from Phase 0 framing data (feature name, type, depth, war-room/brainstorming paths if any, pressure-test status)
    - Sections 2–10, 12, 13: from Phase 1 captured answers per section
-   - Section 6 (Strategic Context): if war-room ran (pre-emptive or Phase 2), embed the 3-bullet summary (chosen option, 1-2 alternatives, link to full report)
+   - Section 6 (Strategic Context): if war-room ran (pre-emptive or Phase 2), embed the war-room summary block (Pareto-optimal options, Conditional Recommendations, the user's pick if any, link to full report)
    - Section 8 (Functional Requirements): for each brainstorming spec generated, append a "Design exploration: `<path>`" line under the relevant requirement
    - Section 11 (Open Questions): all tagged entries from working state (declined offers, pressure-test gaps, user "I don't know" answers)
 5. **Remove sections not in the depth tier** AND renumber remaining sections to stay contiguous (no gaps in the visible PRD).
@@ -299,7 +299,7 @@ Run the Self-Review Loop BEFORE writing to disk. Fix any failure inline; do NOT 
 
 After writing the PRD, OFFER three optional follow-ups via `AskUserQuestion` (multi-select, all optional). Options 1 and 2 use the ThryX MCP tools from the `thryx@ogxo` plugin; offer them only when those tools are in your tool list.
 
-1. **Save to ThryX as a project document** — ask which project, run `search_workspace` for an existing PRD on the same feature first, then create the document from the PRD file with `create_document` (`project_key`, `title`, `body`). Return the document link.
+1. **Save to ThryX as a project document** — ask which project, run `search_workspace` for an existing PRD on the same feature first, then create the document from the PRD file with `create_document` (`project_key`, `title`, `body`), then `tag_document` with `prd`. Return the document link.
 2. **Create a ThryX epic + stories** — ask which project (reuse the answer from option 1 if given), then `search_issues` for an existing epic. Then say exactly what you will create (epic title, one story per Section 7 entry) and wait for the user's OK, because ThryX writes over MCP take effect immediately. Create the epic with one `create_issues` call (`issue_type: epic`), then the stories with `create_issues` carrying `parent_issue_key` (at most 12 per call). Return the epic key and story keys.
 3. **Start implementation brainstorming** — recommend `/superpowers:brainstorming` (if installed) with the PRD path as input: `"This PRD is ready for implementation design. Start /superpowers:brainstorming with the PRD path as context to converge on a design spec."`
 

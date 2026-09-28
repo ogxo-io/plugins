@@ -126,7 +126,7 @@ CONTEXT:
 YOUR PERSONA:
 - Role: {{role}}
 - Worldview: {{worldview lines from personas.md}}
-- You MUST raise these stances explicitly:
+- Raise each of these stances explicitly:
   - {{must-say item 1}}
   - {{must-say item 2}}
   - {{must-say item 3 if any}}

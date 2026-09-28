@@ -136,11 +136,10 @@ Recommended node limits vary by diagram type:
 Split a diagram when:
 
 - **Architecture diagrams exceed 20 nodes** - Architecture readability degrades quickly past this threshold
-- **Simpler diagram types exceed 30 nodes** - Flowcharts and ER diagrams can tolerate slightly more
+- **Any other type exceeds its Max Before Split** in the table above (30 for process flowcharts, 20 for ER)
 - **Edge crossings are excessive** - More than 5-6 crossing edges indicate poor organization
 - **Multiple concerns** - Architecture + data flow + class structure should be separate
 - **Zoom levels differ** - High-level overview and detailed module view need separate diagrams
-- **Many crossing edges** - If edges cross 3+ other edges, reorganize with subgraphs or split
 
 ### Splitting Strategies
 

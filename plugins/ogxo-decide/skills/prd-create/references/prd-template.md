@@ -56,9 +56,10 @@
 {{Fit with product vision (1-2 sentences) · competitive positioning · why-now relative to market/team capability}}
 
 <!-- if war-room was run for this PRD -->
-**Strategic decision (from war-room):**
-- Chosen option: {{name + 1-line rationale}}
-- Alternatives considered: {{names of other Pareto-optimal options from the war-room report}}
+**Strategic options (from war-room):**
+- Pareto-optimal options: {{names, each with its "best fit when"}}
+- Conditional recommendations: {{the report's "If you weight X most → Opt N" lines}}
+- Direction taken: {{the user's pick from the Section 6 answers, or "not decided — see Open Questions"}}
 - Full report: `{{path to docs/war-room/...md}}`
 <!-- end war-room -->
 
@@ -141,6 +142,6 @@
   - `[from pressure test Q-M <theme>]` — pressure-test answer was weak/unknown
   - `[from Section N clarifying question]` — user answered "I don't know" to a clarifying question
 
-- **War-room embedding (Section 6 Strategic Context):** When a war-room report was generated (either pre-emptively via `--war-room` flag or via Phase 2 spawn for Section 6), embed a 3-bullet summary block: chosen option + 1-2 alternatives + link to full report. NEVER paste the full report inline.
+- **War-room embedding (Section 6 Strategic Context):** When a war-room report was generated (either pre-emptively via `--war-room` flag or via Phase 2 spawn for Section 6), embed the summary block above: Pareto-optimal options, Conditional Recommendations, the user's pick if they made one, and a link to the full report. Link the report rather than pasting it inline.
 
 - **Brainstorming link (Section 8 Functional Requirements):** When a brainstorming spec was generated, append the "Design exploration" line under the relevant FR. Multiple brainstorming specs → multiple lines.

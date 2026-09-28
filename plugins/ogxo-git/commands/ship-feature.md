@@ -27,7 +27,7 @@ Complete workflow to ship a feature with testing, security review, commit, and p
 
 Execute in this order. Stop immediately if any quality gate fails:
 
-1. **Security Review**: Invoke the `ogxo-review:security-auditor` agent to scan for OWASP Top 10 vulnerabilities
+1. **Security Review**: Invoke the `ogxo-review:security-auditor` agent (from the ogxo-review plugin) to scan for OWASP Top 10 vulnerabilities; if that agent isn't installed, tell the user and ask whether to continue without the security gate
 2. **Run Tests**: Execute test suite (npm test, cargo test, go test, etc.) to ensure all tests pass
 3. **Build Verification**: Run production build to catch compilation or build errors
 4. **Review & Stage**: Present the changed-file list and ask the user to stage what should ship (staging is manual by design; suggest excluding planning artifacts like `plan.md` or task notes)

@@ -119,7 +119,7 @@ const TARGET_URL = 'http://localhost:3000'; // From Step 1
 })();
 ```
 
-### Step 3: Execute from Skill Directory
+### Step 3: Execute with the Runner
 
 ```bash
 BROWSER_TESTING_HOME="${CLAUDE_PLUGIN_DATA}/browser-testing" node "${CLAUDE_PLUGIN_ROOT}/skills/browser-testing/scripts/run-playwright.js" /tmp/playwright-test-<name>.js
@@ -293,56 +293,6 @@ Process:
 - Test templates: `assets/test-templates/` — e2e/accessibility/performance scaffolds to copy as starting points instead of writing specs from scratch
 - Execution: Via `scripts/run-playwright.js`
 - Documentation: See Playwright docs for advanced features
-
-## ❌ Common Mistakes to Avoid
-
-### Mistake 1: Not Waiting for the Right State Before Assertions
-
-**Wrong:**
-```
-User: "Check if the dashboard loads correctly"
-Assistant: *navigates to page and immediately checks for elements without waiting*
-```
-
-**Correct:**
-```
-User: "Check if the dashboard loads correctly"
-Assistant: *navigates with page.goto(url), then awaits expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible() before inspecting DOM*
-```
-
-**Why it matters:** Dynamic apps load content asynchronously. Checking the DOM too early produces false failures. Waiting for `networkidle` instead is its own trap: apps with analytics, polling, or websockets may never go idle (timeouts) or go idle before rendering. Web-first assertions retry until the exact state you need appears.
-
-### Mistake 2: Writing Test Files to the Skill Directory
-
-**Wrong:**
-```
-User: "Write a test for my login page"
-Assistant: *creates skills/browser-testing/test-login.js*
-```
-
-**Correct:**
-```
-User: "Write a test for my login page"
-Assistant: *creates /tmp/playwright-test-login.js*
-```
-
-**Why it matters:** The plugin directory is the installed plugin itself. Writing test files there pollutes it with user-specific artifacts, and a plugin update replaces them. Always write to /tmp/playwright-test-*.js.
-
-### Mistake 3: Not Auto-Detecting the Dev Server
-
-**Wrong:**
-```
-User: "Test my app"
-Assistant: *immediately asks "What URL should I test?" without checking running servers*
-```
-
-**Correct:**
-```
-User: "Test my app"
-Assistant: *runs detectDevServers() first, finds http://localhost:3000, then proceeds with testing*
-```
-
-**Why it matters:** The user may not know exactly which port their server is running on, or may have multiple servers. Auto-detection finds running servers automatically and avoids testing the wrong endpoint.
 
 ## Quick Reference Checklist
 

@@ -61,7 +61,7 @@ Phase 2 — Core upgrade (medium): bump framework + peer deps, fix compile/type 
 Phase 3 — API migration (medium-high): replace deprecated APIs, apply codemods, run tests.
 Phase 4 — Cleanup (low): remove shims + old deps, update config and docs, full suite.
 
-Rollback: `git checkout main -- .` then reinstall dependencies.
+Rollback: switch back to the default branch (the `HEAD branch:` line of `git remote show origin`) and discard the migration branch, then reinstall dependencies.
 ```
 
 ### 4. Implement incrementally

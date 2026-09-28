@@ -1,6 +1,6 @@
 {
   "name": "thryx",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "ThryX project management over MCP: issues, projects, cycles, milestones, the client-facing macro board, and documents in your ThryX workspace, plus a product-management skill for writing tickets, PRDs, ADRs, and project docs and running follow-ups.",
   "author": { "name": "ogxo", "url": "https://github.com/ogxo-io" },
   "homepage": "https://app.thryx.io",

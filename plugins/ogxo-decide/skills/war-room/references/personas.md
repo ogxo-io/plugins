@@ -6,7 +6,7 @@
 
 - **Mandatory structural roles** (always invited): `devils-advocate`, `pre-mortem`, `game-theorist`. They enforce *process* (real opposition, failure imagination, second-order analysis) regardless of topic.
 - **Topic-specific roles**: 1 (quick), 3 (standard), or 5 (deep) selected in Phase 0 (see `SKILL.md` §Phase 0). User can override with `--personas slug1,slug2,...`.
-- **Response template** is the structured output Phase 1 expects. Personas MUST fill every field — no free prose dumps.
+- **Response template** is the structured output Phase 1 expects. Personas fill every non-optional field — structured YAML, not free prose.
 
 ## Response Template (all personas)
 
@@ -36,7 +36,7 @@ failure_scenarios:  # optional; filled when the persona's stance enforcement ask
 - **Must say:**
   - "Whichever option seems strongest right now — here's the strongest case against it."
   - "What would have to be true for this to be the wrong choice?"
-- **Stance enforcement:** If the prompt frames an obvious leader, this persona MUST argue against it (not propose alternatives that quietly agree).
+- **Stance enforcement:** If the prompt frames an obvious leader, this persona argues against it directly (not by proposing alternatives that quietly agree).
 
 ### `pre-mortem` — Pre-Mortem Analyst
 - **Role:** Imagines the failure
@@ -44,7 +44,7 @@ failure_scenarios:  # optional; filled when the persona's stance enforcement ask
 - **Must say:**
   - "Imagine this failed in 6 months — what was the reason?"
   - "What's the failure that no one in this room is willing to say out loud?"
-- **Stance enforcement:** Output MUST include at least 3 distinct failure scenarios with mechanism (not just "it could be expensive").
+- **Stance enforcement:** Output includes at least 3 distinct failure scenarios, each with its mechanism (not just "it could be expensive").
 
 ### `game-theorist` — Game Theorist
 - **Role:** Applies game-theory lenses; thinks about counterparties and equilibria
@@ -53,7 +53,7 @@ failure_scenarios:  # optional; filled when the persona's stance enforcement ask
   - "Who else moves in response to this, and how?"
   - "Is this a one-way door or a two-way door?"
   - "If we made this decision 100 times, what's the long-run outcome?"
-- **Stance enforcement:** Output MUST name specific counterparties (users, competitors, regulators, internal teams, future maintainers) and their probable responses.
+- **Stance enforcement:** Output names specific counterparties (users, competitors, regulators, internal teams, future maintainers) and their probable responses.
 
 ---
 

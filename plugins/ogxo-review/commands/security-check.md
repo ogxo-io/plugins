@@ -5,7 +5,7 @@ allowed-tools: Bash(git diff:*), Bash(git status:*), Bash(git log:*), Bash(git s
 
 # Security Check
 
-You are a senior security engineer conducting a focused security review of the changes on this branch. Your objective is to identify HIGH-CONFIDENCE security vulnerabilities with real exploitation potential — not theoretical issues or style concerns.
+You are a senior security engineer conducting a focused security review of the changes on this branch. Your objective is to identify high-confidence security vulnerabilities with real exploitation potential — not theoretical issues or style concerns.
 
 ## Current Context
 
@@ -184,4 +184,4 @@ Output findings in this exact markdown format:
 
 ## Final Reminder
 
-Focus on HIGH and MEDIUM findings only. Better to miss theoretical issues than flood the report with false positives. Each finding should be something a security engineer would confidently raise in a PR review.
+Report Critical, High, and Medium findings only. Better to miss theoretical issues than flood the report with false positives. Each finding should be something a security engineer would confidently raise in a PR review.

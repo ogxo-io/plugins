@@ -1,5 +1,5 @@
 ---
-description: Run code review + security audit and post findings as GitHub PR review comments (line-by-line)
+description: Run code review + security audit, post findings as GitHub PR review comments (line-by-line), and answer other reviewers' comments (👍 to agree, a reply to disagree)
 allowed-tools: Bash(git diff:*), Bash(git status:*), Bash(git log:*), Bash(git show:*), Bash(git remote show:*), Bash(grep:*), Bash(npm audit:*), Bash(cargo audit:*), Bash(pip-audit:*), Bash(govulncheck:*), Bash(gh:*), Read, Write, Glob, Grep, Agent
 argument-hint: "[PR number | URL]"
 ---
@@ -50,6 +50,34 @@ Execute these phases in order:
 2. Get the full diff with line numbers: `gh pr diff <number>`
 3. Get the list of changed files: `gh pr diff <number> --name-only`
 4. Get the base branch: `gh pr view <number> --json baseRefName --jq '.baseRefName'`
+5. Read what other reviewers have already said, and who you are relative to the PR:
+
+```bash
+read -r OWNER REPO < <(gh repo view --json owner,name --jq '"\(.owner.login) \(.name)"')
+gh api graphql -f query='
+  query($owner: String!, $repo: String!, $pr: Int!) {
+    viewer { login }
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: $pr) {
+        author { login }
+        reviews(first: 50) {
+          nodes { id state body author { login }
+            reactionGroups { content viewerHasReacted } }
+        }
+        reviewThreads(first: 100) {
+          nodes { id isResolved isOutdated path line
+            comments(first: 20) {
+              nodes { id body author { login } createdAt
+                reactionGroups { content viewerHasReacted } }
+            }
+          }
+        }
+      }
+    }
+  }' -f owner="$OWNER" -f repo="$REPO" -F pr=<number>
+```
+
+   Keep `viewer.login` and `author.login`: when they match, this is the user's own PR (see Phase 6). Keep the unresolved threads and the non-empty review bodies written by anyone other than the viewer; Phase 4b answers them. A `THUMBS_UP` group with `viewerHasReacted: true` means the user already agreed with that comment.
 
 **Empty-scope guard.** If the changed file list came back empty (or reads `Could not detect changed files`), **stop here — do not proceed to Phase 2.** Report which scope was resolved and that it contained no changes, and name the likely cause: wrong base ref, wrong branch, or genuinely nothing changed. Never review an empty diff: the run will come back "no issues found," which is indistinguishable from a clean review and will be read as an approval.
 
@@ -112,7 +140,7 @@ Instruct the sub-task to follow its full **code-metrics-analyst** workflow:
 2. Compute cognitive complexity (SonarSource model) and cyclomatic complexity (McCabe) per function
 3. Measure function length, parameter count, and nesting depth
 4. Run test coverage tools and map uncovered lines to the PR diff
-5. Calculate maintainability index per file
+5. Maintainability index per file, only when a tool computes it
 6. Identify risk hotspots (high complexity + low coverage)
 7. Apply its thresholds and confidence scoring — only findings 8+/10
 
@@ -125,6 +153,19 @@ Instruct the sub-task to follow its full **code-metrics-analyst** workflow:
 2. Deduplicate overlapping findings (same file + line range) — keep the higher-confidence version
 3. Sort by severity: critical → warning → suggestion
 4. Assign each finding a unique ID prefixed by source: `R1`, `R2` (code review), `S1`, `S2` (security), `M1`, `M2` (metrics)
+
+### Phase 4b: Weigh the Other Reviewers' Comments
+
+Go through each unresolved thread and review body from Phase 1 step 5 that another reviewer (a person or a bot) wrote. Read the code it points at, then take one of four stances, each with an ID (`O1`, `O2`, ...):
+
+| Stance | When | Action |
+|---|---|---|
+| **Agree** | The point holds against the current code | 👍 on their comment, so they know you agree. If one of your findings says the same thing, drop yours: the 👍 replaces it. |
+| **Disagree** | The point doesn't hold (the code already handles it, it misreads the diff, the premise is wrong) | Reply in their thread with why, citing `file:line` or the behaviour you checked. |
+| **Another angle** | The point is partly right, or there is a better fix or a risk they missed | Reply in their thread with the addition. If one of your findings covers it, reply instead of posting a separate comment. |
+| **No view** | You can't verify it (outside the diff, needs context you don't have) | Nothing. Don't 👍 what you haven't checked. |
+
+Skip a comment you already 👍'd, and an outdated thread whose code no longer exists. Replies are short and specific: say what you checked and what follows, not a restatement of their comment. A review body has no thread to reply in, so a disagreement with one goes into your own review body, addressed to them by `@login`. Never resolve another reviewer's thread; that is theirs or the PR author's call.
 
 ### Phase 5: Present Summary to User
 
@@ -140,14 +181,23 @@ Before posting to GitHub, present the compiled review to the user:
 | R2 | suggestion | 9/10 | src/utils.ts | 15 | Consider extracting to helper... |
 
 Total: X findings (Y critical, Z warnings, W suggestions)
+
+## Responses to other reviewers
+
+| ID | Reviewer | Where | Their point | Stance | Action |
+|----|----------|-------|-------------|--------|--------|
+| O1 | @alice | src/api.ts:87 | Query isn't parameterized | Agree | 👍 (replaces S1) |
+| O2 | @bob | src/cache.ts:20 | TTL should be 60s | Disagree | Reply: "The 5s TTL matches..." |
 ```
+
+Show each reply's full text. If this is the user's own PR, say so, and that the review will be posted as `COMMENT` (Phase 6).
 
 **Wait for user approval before posting to GitHub.**
 
 The user may:
-- Approve all findings → proceed to Phase 6
-- Remove specific findings by ID → exclude them
-- Edit specific findings → modify before posting
+- Approve all findings and responses → proceed to Phase 6
+- Remove specific findings or responses by ID → exclude them
+- Edit specific findings or replies → modify before posting
 - Cancel → abort without posting
 
 ### Phase 6: Post Review to GitHub
@@ -183,15 +233,44 @@ gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews \
 
 **Important rules for posting:**
 - Use `side: "RIGHT"` (new file version) for all comments
-- The `line` must exist in the PR diff — verify each line is within a diff hunk
-- For findings that can't be mapped to a specific diff line, include them in the review `body` summary instead of as inline comments
+- **Map every `line` to the diff before posting.** In `gh pr diff <number>`, each hunk header `@@ -a,b +c,d @@` makes new-file lines `c` through `c+d-1` commentable (added and context lines). A line outside every hunk can't take an inline comment: put that finding in the review `body` as `path:line` instead.
+- **A multi-line comment** (a suggestion that replaces several lines) sets `start_line` to the first line and `line` to the last, with `start_side: "RIGHT"`; both lines must be in the same hunk. The ` ```suggestion ` block then replaces that whole range.
 - Use GitHub's suggestion syntax (` ```suggestion `) when proposing concrete code fixes
 - Prefix each comment body with the severity emoji: 🔴 Critical | 🟡 Warning | 💡 Suggestion
 - Include the finding ID (R1, S1, etc.) in each comment for traceability
 - Choose the `event` from the Severity → Review Event table below
+- **On the user's own PR** (`viewer.login` equals `author.login` from Phase 1), GitHub refuses `REQUEST_CHANGES` and `APPROVE` from the author with a 422. Post `COMMENT`, and open the body with the verdict the table would have given ("Would request changes: 1 critical finding").
 - Post as a **single review** (one API call), not individual comments
 
-**Step 3**: After posting, output the review URL so the user can verify.
+**If the POST fails with 422**, nothing was posted: GitHub rejects the whole review when any one comment can't be placed ("Line could not be resolved", "must be part of the diff"). Re-check each comment's `line` (and `start_line`) against the hunks, move the ones that don't map into the review `body`, and post again once. Then report which findings were moved.
+
+**Step 3**: Post the approved responses to other reviewers (Phase 4b), one call each, and check each result has no `errors` array. Pass text through GraphQL variables with `-f`, never inside the query string.
+
+A 👍 on their comment (`subjectId` is the comment's `PRRC_...` id, or the review's `PRR_...` id for a review body):
+
+```bash
+gh api graphql \
+  -f query='mutation($id: ID!) {
+    addReaction(input: {subjectId: $id, content: THUMBS_UP}) { reaction { content } }
+  }' \
+  -f id="PRRC_..."
+```
+
+A reply in their thread (`PRRT_...` thread id):
+
+```bash
+gh api graphql \
+  -f query='mutation($threadId: ID!, $body: String!) {
+    addPullRequestReviewThreadReply(input: {
+      pullRequestReviewThreadId: $threadId
+      body: $body
+    }) { comment { url } }
+  }' \
+  -f threadId="PRRT_..." \
+  -f body="The reply text"
+```
+
+**Step 4**: Output the review URL and each reply's URL so the user can verify.
 
 ### Phase 7: Final Report
 
@@ -202,7 +281,8 @@ gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews \
 - Review URL: <link>
 - Findings posted: X inline comments
 - Findings in summary: Y (couldn't map to diff lines)
-- Review type: COMMENT | REQUEST_CHANGES | APPROVE
+- Review type: COMMENT | REQUEST_CHANGES | APPROVE (own PR: COMMENT, with the verdict in the body)
+- Other reviewers: A agreed (👍), B replied to, C left without a view
 - Code quality findings: X (from code-review-agent)
 - Security findings: Y (from security-auditor)
 - Metrics findings: Z (from code-metrics-analyst)
@@ -215,6 +295,8 @@ gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews \
 - **Use REQUEST_CHANGES only when a critical finding exists** (see the table below)
 - **Map lines accurately** — Verify each line exists in the diff before posting
 - **Single review submission** — Post all comments in one review, not individual comments
+- **Don't repeat another reviewer** — agree with their comment (👍) instead of posting the same finding again
+- **Never resolve another reviewer's thread**
 - **Respect PR scope** — Only review files changed in the PR, not the entire codebase
 - **Trust the agents** — All three sub-tasks use their own filtering, thresholds, and scoring rules
 

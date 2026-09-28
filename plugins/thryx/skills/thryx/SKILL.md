@@ -231,7 +231,8 @@ list what it will lose before asking. `update_project`, `update_milestone`,
 require it only when the specific call would actually destroy something —
 the server checks the current state before deciding.
 
-What counts as destroying something is replacing text someone wrote.
+What counts as destroying something is replacing text someone wrote, or
+putting a hidden milestone or macro item in front of the client.
 `update_project` asks when `description` would replace a written
 description (even one you only added to), when `public_description`
 would replace the client's copy, or when the owning team or team grants

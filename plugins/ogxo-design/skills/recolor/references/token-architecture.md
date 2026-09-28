@@ -128,4 +128,4 @@ Work from foundations outward so every later step consumes the earlier one:
   rules). Add no new dependency unless strictly necessary and justified in the
   report.
 - Never leave the app half-migrated silently — anything not migrated goes in
-  the report's "Remaining work" with file references.
+  the report's "Remaining Risks & Follow-up" section with file references.

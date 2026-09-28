@@ -35,7 +35,7 @@ If the user wants to *prevent the bug from coming back*, finish this loop first,
 
 ## Prerequisites
 
-Verify in order before the first browser call. Stop and tell the user if any check fails — don't guess.
+Verify in order before the first browser call. When a check fails, tell the user rather than guessing: a missing dev server or missing source maps stops the loop, while a missing browser tool falls back as described under check 2.
 
 ### 1. Dev server running?
 

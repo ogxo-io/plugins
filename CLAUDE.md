@@ -1,7 +1,8 @@
 # CLAUDE.md — ogxo-io/plugins
 
-This repository is the **ogxo plugin marketplace**: mostly a catalog. It holds
-`.claude-plugin/marketplace.json` and this documentation. Plugins backed by a product
+This repository is the **ogxo plugin marketplace**. It holds
+`.claude-plugin/marketplace.json`, the vendored plugins under `plugins/`, their
+CI tests in `tests/`, and `install.sh`. Plugins backed by a product
 stay in the product repository, referenced from here by Git URL + path + tag;
 content-only plugins (and thryx) are vendored under `plugins/` (see
 Conventions below).
@@ -104,7 +105,7 @@ For a plugin in a product repo:
 The `git-subdir` form is what a plugin living in a subdirectory of another
 repo needs; `{"source": "url", "url": …, "sha": …}` is for a repo that is the
 plugin. Relative `"./plugins/x"` strings are for a plugin vendored into the
-marketplace repo — the exception, not the rule; see the thryx bullet above.
+marketplace repo: every content-only plugin, and thryx (see the thryx bullet above).
 
 ## How to work here
 
@@ -142,7 +143,7 @@ grep -rnE '\b(never|cannot|can.t|prevent|enforce|protect|scoped|isolat|sandbox|b
 ```
 
 It's deliberately noisy, and spans both plugin trees — this repo's
-vendored `plugins/thryx` and any plugin tree in a product repo. When this
+vendored `plugins/` and any plugin tree in a product repo. When this
 check was adopted against v0.1.0, the large majority of its hits were
 correct copy: disclaimers ("does not sandbox the worker", "detective, not
 preventive", "the write itself is never blocked") and packaging facts

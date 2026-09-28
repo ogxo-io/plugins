@@ -3,8 +3,6 @@ description: End-to-end release workflow with version bump, changelog, tag, and 
 allowed-tools: Bash(git describe:*), Bash(git log:*), Bash(git status:*), Bash(git branch:*), Bash(git diff:*), Bash(git commit:*), Bash(git tag:*), Bash(npm version:*), Read, Glob, Grep, Agent
 ---
 
-> **Tip**: End-to-end release workflow.
-
 # Release
 
 You are a senior release engineer managing a controlled, repeatable release process.
@@ -88,7 +86,7 @@ Update version strings in the relevant files:
 - **Other**: Search for version patterns in config files
 
 ```bash
-# Node.js — use npm version (handles package.json + lock + tag)
+# Node.js — npm version updates package.json and package-lock.json; --no-git-tag-version leaves the commit and tag to Step 5
 npm version <major|minor|patch> --no-git-tag-version
 
 # Or manual for other languages
@@ -103,7 +101,7 @@ Create a release commit and tag:
 
 ```bash
 # Ask the user to stage the release files first (staging is manual by design):
-#   CHANGELOG.md + the version file (package.json / Cargo.toml / go.mod ...)
+#   CHANGELOG.md + the version file (package.json / Cargo.toml / pyproject.toml ...)
 
 # Then commit
 git commit -m "chore(release): vX.Y.Z"
