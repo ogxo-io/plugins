@@ -37,7 +37,7 @@ curl -fsSL https://raw.githubusercontent.com/ogxo-io/plugins/main/install.sh | b
 | Plugin | What it is | Status |
 |---|---|---|
 | `ogxo` | The bundle: installs every plugin below except `thryx` and `ogxo-format`. No skills or hooks of its own. | 0.1.1 |
-| `thryx` | Hosted ThryX MCP server, vendored in this repo (`plugins/thryx`): issues, projects, cycles, milestones, and documents in your ThryX workspace. | 0.2.0 |
+| `thryx` | Hosted ThryX MCP server, vendored in this repo (`plugins/thryx`): issues, projects, cycles, milestones, and documents in your ThryX workspace. | 0.2.1 |
 | `ogxo-review` | Multi-agent code review: `/ogxo-review:full-review` cross-correlates reviewers and filters false positives; `/ogxo-review:code-review-git` posts line-level findings as a GitHub PR review. Bundles the code-review-agent, security-auditor, code-metrics-analyst, and dependency-auditor agents; `/ogxo-review:security-check` for a focused security pass. | 0.2.0 |
 | `ogxo-git` | Conventional Commit messages, PR titles/descriptions with template detection, resolving PR review threads (its workflow instructs it to present its analysis and wait for approval before replying or resolving), `/ogxo-git:catchup` to restore branch context, plus release, quick-fix, and ship-feature workflows and changelog/release-notes skills. | 0.2.2 |
 | `ogxo-debug` | `live-debug`: reproduce a web-app bug in the browser, read console and network errors, fix, and verify in the page; `css-alignment-debug` injects temporary outline overlays and reads a screenshot to find stubborn layout bugs. Also `browser-testing` for Playwright test scripts. | 0.3.1 |

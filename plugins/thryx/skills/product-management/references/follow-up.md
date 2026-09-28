@@ -7,21 +7,30 @@ and once the person answers, says what it wrote and where.
 
 ## Signals to raise every time
 
-Lead with these whenever you see them:
+Lead with these whenever you see them. `project_report` finds six of
+them for you in `signals`: each entry has a `kind`, a one-line
+`meaning`, the full `count`, and up to 20 ticket keys or titles in
+`items`. An empty list means nothing is flagged. Name the items and the
+full count when a signal needs action.
+
+| Signal | `kind` in `signals` |
+| --- | --- |
+| A ticket whose blockers are all done: it is free, so say so | `settled_blockers` |
+| A ticket in progress or in review with no one assigned | `unassigned_started` |
+| A ticket inside the live cycle still in Backlog or Triage | `backlog_in_active_cycle` |
+| A gap between one scheduled cycle's end and the next one's start | `cycle_gap` |
+| A milestone whose open tickets sit in no cycle ending by its date | `milestone_work_outside_target_cycle` |
+| A deliverable or milestone at 100% whose status is still open | `completed_progress_open_status` |
+
+The report doesn't find these, so check them yourself:
 
 - a ticket someone has held in progress with no activity for 3 working
   days, or the project's own threshold if it states one;
 - a blocked ticket (`list_relations`, or `blocked_reason`) whose blocker
   isn't moving;
-- a ticket still listed as blocked by work that is already done (the
-  blocker shows `settled: true`): it is free, so say so;
-- an urgent or high-priority ticket with no one assigned, or a ticket in
-  progress or in review with no one assigned;
-- a ticket inside a live cycle whose status still says Backlog;
+- an urgent or high-priority ticket with no one assigned;
 - a cycle whose remaining work is more than its remaining time can hold;
-- a milestone that will miss its date at the current pace, or whose
-  remaining work sits in no cycle that ends before its date;
-- a gap between one cycle's end and the next cycle's start;
+- a milestone that will miss its date at the current pace;
 - work in the code with no ticket, or a ticket marked done with no merged
   pull request;
 - a decision everyone is waiting on, with no `decision` ticket and no
@@ -41,8 +50,9 @@ Lead with these whenever you see them:
 ## Weekly review
 
 1. Use `project_report` with `days: 14` for how the last stretch went.
-   It already carries `stale_issues`, `unassigned_open`, and the state
-   and priority mix, so start from those. Use `list_cycle_issues` for
+   It already carries the `signals` above, `stale_issues`,
+   `unassigned_open`, and the state and priority mix, so start from
+   those. The server's `project_status` prompt walks the same report. Use `list_cycle_issues` for
    the current cycle. Read the whole backlog with `list_issues` only
    when the report points at something you need to see ticket by
    ticket, because it is the most expensive read here.

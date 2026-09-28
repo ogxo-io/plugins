@@ -18,12 +18,15 @@ Keep it to about a screen:
 - what comes next;
 - links to the overview document, the active PRDs, and the key ADRs.
 
-`update_project` with `description` replaces the whole text, with no
-append and no confirmation step (see the thryx skill's contract), so the
-check is on you. Read the current text with `get_project`, edit the full
-text, show the difference, and write it only once the person agrees. The client reads
-`public_description`, a separate field covered in
-`references/client-board.md`.
+Edit the smallest part that changed. Keep "where it stands" under its
+own heading, so a refresh is one `update_project` call with
+`description_section`; `description_append` adds at the end. Neither
+asks for confirmation, so the check is on you: read the current text
+with `get_project`, show the change, and write it only once the person
+agrees. `description` replaces the whole text and asks for
+`confirm_irreversible` when there is text to replace (see the thryx
+skill's contract). The client reads `public_description`, a separate
+field covered in `references/client-board.md`.
 
 ## The overview document, the long layer
 

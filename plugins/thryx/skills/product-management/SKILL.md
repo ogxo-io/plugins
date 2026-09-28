@@ -47,6 +47,13 @@ guess about the code as something you read.
 | Standup, weekly review, after a release | `references/follow-up.md` |
 | Milestones, the macro board, anything a client reads | `references/client-board.md` |
 
+The server also ships prompts for some of this work (`write_ticket`,
+`plan_cycle`, `organize_project`, `macro_board`, `project_status`; the
+thryx skill lists them). They are the procedures ThryX's own assistant
+follows, written from the tracker alone. Use a prompt when it fits and
+add what the references here cover and it doesn't: the repository, and
+proposing before writing.
+
 ## Where each thing lives
 
 Every fact has one home. Everything else links to it. Don't paste a

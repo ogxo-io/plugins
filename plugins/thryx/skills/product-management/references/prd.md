@@ -9,8 +9,9 @@ later. A bug fix or a one-ticket change doesn't need one.
 ## Before drafting
 
 - Look for an existing one: `search_workspace` finds documents by
-  title, body, and tag (try `prd`), and `list_documents` lists one
-  project's titles and tags. Extending a PRD beats writing a rival one.
+  title, body, and tag, and `list_documents` with `tag: "prd"` lists one
+  project's PRDs (if the project has no `prd` tag yet, the refusal lists
+  the tags it does use). Extending a PRD beats writing a rival one.
 - Read what exists: `get_project`, the related epics and tickets, and
   the code the feature touches. What the product does today should be
   something you checked, not something you remember.
@@ -62,5 +63,5 @@ When scope changes during the build, update the PRD's Scope section, not
 only the tickets. Otherwise the PRD becomes fiction. `update_document`
 with `body_section` changes one heading. Show the change first (the
 thryx skill's confirmation contract applies). When the work ships,
-propose setting the status line and record whether the success measures were met
-when you checked.
+propose setting the status line and record whether the success measures
+were met when you checked.

@@ -21,7 +21,8 @@ end whether it happened.
   reason in the description.
 - **Dates**: start the day after the previous cycle ends. Point out any
   gap between cycles, because idle days on the calendar are planning
-  debt.
+  debt. `project_report` lists gaps between scheduled cycles under the
+  `cycle_gap` signal.
 
 ## Selecting the tickets
 
