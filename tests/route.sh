@@ -304,5 +304,15 @@ expect "stats: empty log prints the log path" grep -qF "$data/dispatches.jsonl" 
 runx "$ext"
 expect "external: status prints the state file" grep -qF "State: $data/external.json" <<<"$out"
 
+# --- parallel batches ---------------------------------------------------------
+expect "skill: batch table before parallel work" grep -q 'Batch table' "$skill"
+expect "skill: at most two concurrent writers" grep -qi 'at most two' "$skill"
+expect "skill: forbids git state changes in worker briefs" grep -q 'git add, commit, stash, checkout, reset, or restore' "$skill"
+expect "skill: isolated worktrees start from HEAD" grep -qF 'git worktree add .claude/worktrees/<task> -b task/<task> HEAD' "$skill"
+expect "skill: worktrees do not isolate databases or ports" grep -qi 'test databases, ports' "$skill"
+expect "skill: grok via bridge with --write" grep -qF 'grok-bridge.mjs run --background --write' "$skill"
+expect "anchor: mentions parallel batches" grep -qi 'parallel' "$plugin/hooks/anchor.md"
+expect "README: parallel work section" grep -q '^## Parallel work' "$plugin/README.md"
+
 echo "route tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

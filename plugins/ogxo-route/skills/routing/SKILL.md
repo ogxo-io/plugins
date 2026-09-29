@@ -55,12 +55,14 @@ agent inherits the session model.
 | Bulk logs: pull and filter | — | `ogxo-route:log-extractor`, then `ogxo-specialists:log-analyst` |
 | Small logs, interpretation | — | `ogxo-specialists:log-analyst` |
 | E2E run and failure interpretation | — | `ogxo-route:e2e-runner` |
-| Implement, standard | `grok-build:grok-delegate` or `codex:codex-rescue` | `ogxo-route:implementer` |
+| Implement, standard | grok through its bridge (see below) or `codex:codex-rescue` | `ogxo-route:implementer` |
 | Implement, risky | — (native only) | `ogxo-route:implementer-risky` (Opus rule) |
 | Per-task check | — | tests (`ogxo-route:test-runner`) and `ogxo-route:verifier` |
 | Risky-task review | — | `ogxo-review:code-review-agent` (Opus rule) |
 | Pre-PR review of the branch | — | `ogxo-review:code-review-agent` (Opus rule) |
 | Explore, general-purpose, Plan | — | always pass `model`: `haiku` to list files, `sonnet` for judgement |
+
+To run grok, call its bridge from Bash rather than dispatching the `grok-build:grok-delegate` agent: in auto mode the agent's nested write can be denied by the permission check. Find the script with `ls -d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/grok-build/*/scripts/grok-bridge.mjs | tail -1`, then run `node <path>/grok-bridge.mjs run --background --write --fresh "<brief>"` from the directory the task works in (`--write` is required; without it grok runs read-only and leaves only a patch). Follow up with `show <run-id>`, and `run --background --write --resume-last` for a fix round. The user can still ask for the agent or `/grok-build:delegate` by name.
 
 `/codex:review` and `/grok-build:review` set `disable-model-invocation: true`, so only the user can run them. Before
 a PR, suggest the user runs them as an extra pass if they have them; the
@@ -98,5 +100,43 @@ effort, because the advisor is consulted less often at low effort.
 
 - Pass paths, `file:line` ranges, and commit SHAs, not pasted file content.
 - Give each worker a self-contained task: goal, files, acceptance checks.
-- Dispatch independent tasks in parallel, in one message.
+- Dispatch independent read-only work (scout, test-runner, log-extractor) in parallel, in one message. Parallel implementation follows Step 8.
 - Every ogxo-route worker ends with `RESULT`, `CHECKS-RUN`, `UNCERTAINTIES`; read them before accepting the work.
+
+## Step 8: parallel batches
+
+Before dispatching more than one implementation task at a time, write a
+**Batch table** in the conversation, one row per task: task, writer (grok,
+codex, implementer), files it may edit, files that are off-limits because
+another task owns them, and mode (shared or isolated).
+
+### Shared tree (default)
+
+All writers edit the user's checkout. This is cheap and needs no setup.
+
+- Run tasks in parallel only when their file sets do not overlap. A task that shares a file with a running task waits for it.
+- At most two concurrent writers. grok's run state also contends beyond two runs.
+- Give each run its own build output where builds collide, for example `CARGO_TARGET_DIR=target/<task>`.
+- Every worker brief lists the files it may edit and the off-limits files, says not to run git add, commit, stash, checkout, reset, or restore, and says to leave changes it did not make alone and report them.
+- A worker's own tests see the other runs' unfinished edits. Before committing a task, re-run typecheck, unit tests, and the relevant e2e specs on the combined tree.
+- Commit each task by explicit path (`git add -- <its files>`), and only when the user asks. If two tasks touched the same file, split the hunks so each commit carries only its task.
+
+### Isolated batch (opt-in)
+
+One git worktree per task, merged back one at a time. Suggest it when the
+user is editing the main checkout while the batch runs, when more than two
+writers should run at once, when tasks that overlap in files must still run
+in parallel, or when the user wants the main tree untouched until a task is
+done. Ask before using it.
+
+1. Create the worktree from the current commit, so unpushed commits are included:
+   `git worktree add .claude/worktrees/<task> -b task/<task> HEAD`.
+   Uncommitted changes in the main checkout are not carried over; if the task depends on them, say so and stay in the shared tree. `.claude/worktrees/` should be in `.gitignore`.
+2. Set up the worktree: dependencies (install, or symlink `node_modules`), gitignored files the build needs (a `.worktreeinclude` file copies them for worktrees Claude Code creates; copy them yourself for this one), and a build output directory. Worktrees isolate files only: test databases, ports, and containers are still shared, so keep per-task test databases and distinct ports.
+3. Point the writer at it: grok `cd <worktree> && node <path>/grok-bridge.mjs run --background --write --fresh ...`; codex `codex exec -C <worktree> ...` or `codex:codex-rescue` with the path in its prompt; `ogxo-route:implementer` with the absolute worktree path in its brief and the instruction to edit only under it.
+4. When the task is done: run tests and `ogxo-route:verifier` inside the worktree, commit the task on its throwaway branch (`git -C <worktree> add -A && git -C <worktree> commit -m "<task>"`), show the user `git diff HEAD...task/<task>`, and only after the user approves run `git merge --squash task/<task>` in the main checkout. That stages the task for the user to review and commit. Merge tasks one at a time and re-run the combined-tree checks after each.
+5. Remove the worktree and its branch: `git worktree remove .claude/worktrees/<task>` and `git branch -D task/<task>`.
+
+Conflicts do not go away in an isolated batch; they move to merge time. A
+task that overlaps with one already merged is rebased onto the main branch
+(`git -C <worktree> rebase <main-branch>`) and re-tested before its merge.

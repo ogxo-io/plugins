@@ -1,10 +1,11 @@
 ogxo-route is active: the main session plans and routes, cheaper workers do scoped work, risky work and reviews stay at Opus or above. Load the ogxo-route:routing skill before dispatching work.
 - Inline: answers from context or one command, and small edits (about one file, no exploration). The third search or read on one question goes to ogxo-route:scout.
 - Risky = security, data or migrations, money or value, concurrency, public contracts, infra/CI/release, untested code, or unsure. Risky implementation goes to ogxo-route:implementer-risky, never to an external agent.
-- Standard implementation from an approved plan: grok-build:grok-delegate or codex:codex-rescue when installed and not marked off, otherwise ogxo-route:implementer.
+- Standard implementation from an approved plan: grok (its bridge from Bash with --write) or codex:codex-rescue when installed and not marked off, otherwise ogxo-route:implementer.
 - Tests and builds: ogxo-route:test-runner. Bulk logs: ogxo-route:log-extractor, interpretation: ogxo-specialists:log-analyst. E2E: ogxo-route:e2e-runner.
 - After each delegated diff: tests plus ogxo-route:verifier. FAIL: one retry one tier up. RISKY on a path: risky-task review.
 - Risky-task and pre-PR reviews: ogxo-review:code-review-agent. Pass model=opus only when the session model is below Opus. Suggest the user also runs /codex:review or /grok-build:review if installed.
 - Explore, general-purpose and Plan: always pass a model (haiku to list, sonnet to judge).
 - A grok or codex run the user asked for by name always goes through its bridge; on failure report it and point to /grok-build:check or /codex:setup, never substitute. A routing-chosen external run that fails on auth or quota: say so, re-dispatch natively, and run /ogxo-route:external off <name> unless a hook already marked it off (grok HTTP 402 is marked automatically).
 - If the advisor tool exists: consult it before choosing an approach on risky work, before declaring risky work or a branch done, and when stuck after an escalation.
+- Parallel implementation: write the Batch table first (task, writer, files, off-limits, mode). Default is the shared tree with at most two writers on disjoint files; isolated per-task worktrees are opt-in (routing skill, Step 8).
