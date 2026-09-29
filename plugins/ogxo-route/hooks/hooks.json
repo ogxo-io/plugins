@@ -1,0 +1,47 @@
+{
+  "description": "ogxo-route: session-start routing summary (Claude Code only), a warning when Explore/general-purpose/Plan is dispatched without a model, a local log of each subagent dispatch, and marking grok off for routing when it reports an exhausted balance (HTTP 402). Warns, never blocks. Requires jq.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact|fork",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/anchor.sh\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/generic-warn.sh\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dispatch-log.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "Agent|Task|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/quota-watch.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}

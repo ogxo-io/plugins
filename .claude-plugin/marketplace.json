@@ -12,8 +12,8 @@
   "plugins": [
     {
       "name": "ogxo",
-      "description": "The ogxo plugin set in one install: code review, git and GitHub workflows, browser debugging, decision and planning skills, color-system design, safety hooks, specialist subagents, and the status line. Installing it installs each of those plugins; thryx (needs a ThryX account) and ogxo-format (rewrites every file Claude edits) are left out and install on their own.",
-      "version": "0.1.1",
+      "description": "The ogxo plugin set in one install: code review, git and GitHub workflows, browser debugging, decision and planning skills, color-system design, safety hooks, specialist subagents, the status line, and model routing. Installing it installs each of those plugins; thryx (needs a ThryX account) and ogxo-format (rewrites every file Claude edits) are left out and install on their own.",
+      "version": "0.1.2",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -48,7 +48,7 @@
     {
       "name": "ogxo-review",
       "description": "Multi-agent code review: full-review cross-correlates several reviewers and filters false positives; code-review-git posts line-level findings as a GitHub PR review and answers other reviewers' comments. Bundles the code-review-agent, security-auditor, code-metrics-analyst, and finding-verifier agents; code-review-git verifies every finding before it is shown. Also security-check, a focused security review of a branch, and the dependency-auditor agent.",
-      "version": "0.2.3",
+      "version": "0.2.4",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -105,7 +105,7 @@
     {
       "name": "ogxo-decide",
       "description": "War room: multi-persona deliberation for hard-to-reverse decisions, with game-theory lenses, a red-team pass, and a portfolio of options instead of a single winner. Also prd-create (section-by-section PRDs with pressure-testing, optionally saved to ThryX as a document plus epic and stories), task-architect (turns an idea into an agent-ready prompt), and the architecture-advisor agent. Also diagram-generator: Mermaid diagrams from a description or from the codebase.",
-      "version": "0.3.2",
+      "version": "0.3.3",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -181,7 +181,7 @@
     {
       "name": "ogxo-specialists",
       "description": "Specialist subagents that take a noisy job and return one structured report: log-analyst (correlate logs to a root cause), codebase-archaeologist (map an unfamiliar or legacy system), performance-optimizer (measure, fix by impact, re-measure), and migration-specialist (breaking-change catalog and a phased plan with rollback points).",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -200,7 +200,7 @@
     {
       "name": "ogxo-statusline",
       "description": "Status line for Claude Code and Grok Build: model, context use, git branch and changes, session time, effort, output tokens, and session cost. Claude Code also shows thinking, prompt-cache state, and 5-hour, 7-day, and spend-limit bars. Grok Build uses the live context window, session output and cache-read share, and the active turn. /ogxo-statusline:setup writes Claude settings; /ogxo-statusline:setup-grok writes [ui.status_line] in the Grok user config. Requires jq.",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -216,6 +216,25 @@
         "grok"
       ],
       "source": "./plugins/ogxo-statusline"
+    },
+    {
+      "name": "ogxo-route",
+      "description": "Cost-aware routing for Claude Code: a routing skill and session-start summary that tell the main session which tier handles which task, worker subagents pinned to Sonnet or Haiku with explicit tool lists, and hooks that warn when a generic subagent is dispatched without a model and log each dispatch. Risky work and reviews stay at Opus or above. Warns, never blocks. Claude Code only. Requires jq.",
+      "version": "0.1.3",
+      "author": {
+        "name": "ogxo",
+        "url": "https://github.com/ogxo-io"
+      },
+      "homepage": "https://github.com/ogxo-io/plugins",
+      "category": "productivity",
+      "keywords": [
+        "routing",
+        "cost",
+        "subagents",
+        "effort",
+        "hooks"
+      ],
+      "source": "./plugins/ogxo-route"
     }
   ]
 }

@@ -1,7 +1,8 @@
 ---
 name: log-analyst
 description: 'Correlates logs, stack traces, and errors across services to a root cause and returns one structured report, plus logging improvements. Use when the user shares log output or asks what went wrong from logs, including timeouts and latency seen in logs. Reports without editing code (no Write/Edit tools; Bash is unrestricted). Not for debugging without logs or for profiling (use ogxo-specialists:performance-optimizer).'
-model: inherit
+model: sonnet
+effort: medium
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
 ---
 

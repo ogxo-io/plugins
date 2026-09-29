@@ -45,6 +45,12 @@ jobs:
       - name: Hook regression tests
         run: bash tests/hooks.sh
 
+      - name: Agent model and effort pins
+        run: bash tests/agent-pins.sh
+
+      - name: ogxo-route hook and script tests
+        run: bash tests/route.sh
+
       - name: Status line rendering tests
         run: bash tests/statusline.sh
 

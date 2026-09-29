@@ -1,7 +1,8 @@
 ---
 name: code-metrics-analyst
 description: Code metrics analyst computing cognitive/cyclomatic complexity, coverage mapping, maintainability index, and complexity-vs-coverage risk hotspots on PR diffs. Does not edit code (no Write/Edit tools; Bash is unrestricted), but coverage runs write report files into the working tree. Delegate for quantitative metrics; for qualitative review use ogxo-review:code-review-agent, for security use ogxo-review:security-auditor.
-model: inherit
+model: sonnet
+effort: low
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
 ---
 

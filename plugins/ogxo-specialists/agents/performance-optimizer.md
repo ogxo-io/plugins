@@ -2,6 +2,7 @@
 name: performance-optimizer
 description: 'Measures before changing: profiles to find the actual bottleneck, fixes the highest-impact issue first, and re-measures to report before/after numbers. Use for slow pages, requests, or queries, high memory or suspected leaks, latency, and bundle size. Edits code. Not for readability refactors, security fixes (use ogxo-review:security-auditor), or when no performance problem has been reported.'
 model: inherit
+effort: medium
 tools: Read, Write, Edit, Grep, Glob, Bash, WebFetch, WebSearch
 ---
 

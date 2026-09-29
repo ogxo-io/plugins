@@ -1,7 +1,8 @@
 ---
 name: codebase-archaeologist
 description: 'Maps an unfamiliar or legacy codebase and reports how it actually works: entry points, data flows, implicit contracts, dead code, and the history behind odd decisions from git blame. Use for onboarding, "how does this work / where does this data come from", and impact analysis before a change. Reports without editing code (no Write/Edit tools; Bash is unrestricted). Not for reviewing recent changes (use ogxo-review:code-review-agent) or performance analysis (use ogxo-specialists:performance-optimizer).'
-model: inherit
+model: sonnet
+effort: medium
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
 ---
 

@@ -7,6 +7,8 @@ root=$(cd "$(dirname "$0")/.." && pwd)
 script="$root/plugins/ogxo-statusline/scripts/ogxo-statusline.sh"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
+# Keep the default ogxo-route log path inside the temp dir, not the real config.
+export CLAUDE_CONFIG_DIR="$tmp/cfg"
 
 pass=0
 fail=0
@@ -123,6 +125,26 @@ expect "git branch, dirty, changes" "$tmp/git.json" "(feature-x*) ~"
 expect "--no-git" "$tmp/git.json" "Opus" "feature-x" --no-git
 git -C "$tmp" -c advice.detachedHead=false checkout -q --detach
 expect "detached HEAD shows short sha" "$tmp/git.json" "($(git -C "$tmp" rev-parse --short=7 HEAD)*)"
+
+# ogxo-route segment: dispatches in this session, from ogxo-route's log.
+rlog="$tmp/cfg/plugins/data/ogxo-route-ogxo/dispatches.jsonl"
+jq '.session_id = "s1"' "$tmp/norate.json" >"$tmp/route.json"
+expect "route: no log, no segment" "$tmp/route.json" "Opus" "subagent"
+mkdir -p "$(dirname "$rlog")"
+{
+  echo '{"ts":1,"session_id":"s1","subagent_type":"ogxo-route:scout","requested_model":null,"nested":false}'
+  echo '{"ts":1,"session_id":"s1","subagent_type":"Explore","requested_model":null,"nested":false}'
+  echo '{"ts":1,"session_id":"s1","subagent_type":"","requested_model":null,"nested":true}'
+  echo '{"ts":1,"session_id":"s1","subagent_type":"Explore","requested_model":"haiku","nested":false}'
+  echo '{"ts":1,"session_id":"s2","subagent_type":"Explore","requested_model":null,"nested":false}'
+  echo '{"ts":1,"session_id":"s1","subagent_type":"brok'
+} >"$rlog"
+expect "route: session count and no-model" "$tmp/route.json" "⇄ 4 subagents · 2 no-model"
+expect "--no-route" "$tmp/route.json" "Opus" "subagent" --no-route
+jq '.session_id = "s3"' "$tmp/norate.json" >"$tmp/route3.json"
+expect "route: other session has no segment" "$tmp/route3.json" "Opus" "subagent"
+echo '{"ts":1,"session_id":"s1","subagent_type":"ogxo-route:scout","requested_model":null,"nested":false}' >"$tmp/alt.jsonl"
+expect "--route-log, singular, no-model hidden at 0" "$tmp/route.json" "⇄ 1 subagent" "no-model" --route-log="$tmp/alt.jsonl"
 
 echo "statusline tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

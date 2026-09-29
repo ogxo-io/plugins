@@ -11,10 +11,10 @@ Marketplace name: `ogxo` → plugins install as `<plugin>@ogxo`.
 
 ## Status
 
-- The catalog has eleven entries, all vendored under `plugins/`: **thryx**,
-  nine content-only plugins — **ogxo-review**, **ogxo-git**, **ogxo-debug**,
+- The catalog has twelve entries, all vendored under `plugins/`: **thryx**,
+  ten content-only plugins — **ogxo-review**, **ogxo-git**, **ogxo-debug**,
   **ogxo-decide**, **ogxo-design**, **ogxo-guards**, **ogxo-format**,
-  **ogxo-specialists**, **ogxo-statusline** — and **ogxo**, the bundle: a
+  **ogxo-specialists**, **ogxo-statusline**, **ogxo-route** — and **ogxo**, the bundle: a
   plugin with no components whose `dependencies` are every other plugin
   except thryx and ogxo-format. A new plugin goes into the bundle's
   `dependencies` with a bundle version bump, or into the excluded list in

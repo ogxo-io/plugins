@@ -2,6 +2,7 @@
 name: architecture-advisor
 description: Senior software architect for system design, design patterns, trade-off analysis, and ADRs. Use for choosing between system designs or technologies, reviewing an existing architecture, assessing architectural debt, or writing an ADR; it returns analysis and recommendations, not code changes.
 model: inherit
+effort: high
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch, Agent, mcp__context7__*
 ---
 

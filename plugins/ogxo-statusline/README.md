@@ -9,7 +9,7 @@ Opus │ ◔ 43% (426k/1.0m) │ plugins (main*) ↑1 ~1 │ ⏱ 1h15m │ ◐ t
 5h ●○○○○○ 24% ⟳10:23pm │ 7d ●●●●●○ 91% ⟳sep 29
 ```
 
-- **Line 1:** model, context window use, directory with git branch (`*` when dirty, `↑`/`↓` against upstream, `~N` changed files) and worktree name, session time, thinking and effort level, output tokens, prompt-cache hit ratio, and session cost.
+- **Line 1:** model, context window use, directory with git branch (`*` when dirty, `↑`/`↓` against upstream, `~N` changed files) and worktree name, session time, thinking and effort level, output tokens, prompt-cache hit ratio, and session cost. With ogxo-route installed it also shows how many subagents this session dispatched, and how many Explore, general-purpose, or Plan dispatches ran without a model (`⇄ 5 subagents · 2 no-model`).
   - The cache segment adds `cold in 4m` during the cache's last ten minutes, and `cold` once it has expired, since the next message then re-processes the whole prompt.
   - Session cost is Claude Code's list-price estimate. By default it shows only when there's no plan usage line, which is the case for API-key users.
 - **Line 2:** 5-hour and 7-day plan usage with reset times, and the spend limit when a Claude apps gateway sets one. It appears only when Claude Code sends that data (claude.ai Pro and Max, after the first response).
@@ -28,6 +28,8 @@ Add options to the `statusLine` command, for example `"command": "~/.claude/ogxo
 | `--no-git` | Skip the git branch segment |
 | `--no-usage` | Skip the plan usage line |
 | `--no-cache` | Skip output tokens and prompt-cache status |
+| `--no-route` | Skip the ogxo-route subagent count |
+| `--route-log=PATH` | ogxo-route dispatch log to read (default: its plugin data dir under `$CLAUDE_CONFIG_DIR`, else `$HOME/.claude`) |
 | `--cost=auto\|always\|never` | Session cost: only without plan usage (default), always, or never |
 | `--basic-colors` | 16-color ANSI instead of 24-bit color |
 | `--no-color` | Plain text; also used when `NO_COLOR` is set |

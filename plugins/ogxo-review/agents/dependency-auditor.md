@@ -1,7 +1,8 @@
 ---
 name: dependency-auditor
 description: Audits dependencies for CVEs, outdated/end-of-life packages, license compliance, and supply-chain risks, then plans phased upgrade paths. Reports without editing code (no Write/Edit tools; Bash is unrestricted, and some scanners write caches or download tools). Delegate for dependency and supply-chain security; for application-code security review use ogxo-review:security-auditor.
-model: inherit
+model: sonnet
+effort: medium
 tools: Read, Grep, Glob, Bash, WebSearch, WebFetch
 ---
 

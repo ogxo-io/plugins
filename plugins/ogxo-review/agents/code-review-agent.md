@@ -2,6 +2,7 @@
 name: code-review-agent
 description: Senior code reviewer for quality, security (OWASP Top 10), performance, and Web3/smart-contract issues, using confidence scoring and false-positive filtering. Reports findings without editing code (no Write/Edit tools; Bash is unrestricted). Delegate for comprehensive pre-merge or diff review; for a security-only audit, pen-test planning, or compliance mapping use ogxo-review:security-auditor.
 model: inherit
+effort: high
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
 ---
 

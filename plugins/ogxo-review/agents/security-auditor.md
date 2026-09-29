@@ -2,6 +2,7 @@
 name: security-auditor
 description: Senior security auditor for OWASP Top 10 assessment, SAST code review, dependency vulnerability scanning, auth/authz analysis, threat modeling, and compliance. Reports findings without editing code (no Write/Edit tools; Bash is unrestricted). Delegate for security-focused audits and diff security review; for general code quality use ogxo-review:code-review-agent.
 model: inherit
+effort: high
 tools: Read, Grep, Glob, Bash, WebFetch, WebSearch
 ---
 

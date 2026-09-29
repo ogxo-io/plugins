@@ -13,6 +13,9 @@
 #   --no-git          skip the git branch segment
 #   --no-usage        skip the plan usage line
 #   --no-cache        skip output tokens and prompt-cache status
+#   --no-route        skip the ogxo-route subagent count
+#   --route-log=PATH  ogxo-route dispatch log to read (default: the plugin's
+#                     data dir under $CLAUDE_CONFIG_DIR, else $HOME/.claude)
 #   --cost=MODE       session cost: auto (only without plan usage, the default),
 #                     always, or never
 #   --basic-colors    16-color ANSI instead of 24-bit color
@@ -23,6 +26,8 @@ set -f
 show_git=true
 show_usage=true
 show_cache=true
+show_route=true
+route_log=""
 cost_mode=auto
 palette=truecolor
 [ -n "${NO_COLOR:-}" ] && palette=none
@@ -32,6 +37,8 @@ for arg in "$@"; do
         --no-git) show_git=false ;;
         --no-usage) show_usage=false ;;
         --no-cache) show_cache=false ;;
+        --no-route) show_route=false ;;
+        --route-log=*) route_log=${arg#--route-log=} ;;
         --cost=auto|--cost=always|--cost=never) cost_mode=${arg#--cost=} ;;
         --basic-colors) [ "$palette" = none ] || palette=basic ;;
         --no-color) palette=none ;;
@@ -84,7 +91,7 @@ sep=" ${dim}│${reset} "
 IFS=$'\x1f' read -r model size used_pct in_tok cache_create cache_read out_tok \
     cwd duration_ms thinking effort worktree cost_usd \
     cache_warm cache_observed cache_expires hit_ratio \
-    h5_pct h5_reset d7_pct d7_reset sp_pct sp_reset <<<"$(printf '%s' "$input" | jq -r '
+    h5_pct h5_reset d7_pct d7_reset sp_pct sp_reset session_id <<<"$(printf '%s' "$input" | jq -r '
     [ .model.display_name,
       .context_window.context_window_size,
       .context_window.used_percentage,
@@ -107,7 +114,8 @@ IFS=$'\x1f' read -r model size used_pct in_tok cache_create cache_read out_tok \
       .rate_limits.seven_day.used_percentage,
       .rate_limits.seven_day.resets_at,
       .rate_limits.spend_limit.used_percentage,
-      .rate_limits.spend_limit.resets_at
+      .rate_limits.spend_limit.resets_at,
+      .session_id
     ] | map(if . == null then "" else tostring end) | join("\u001f")' 2>/dev/null)"
 
 # ── Helpers ─────────────────────────────────────────────
@@ -249,6 +257,27 @@ if $show_cache; then
         cache_seg+=" ${red}cold${reset}"
     fi
     [ -n "$cache_seg" ] && line1+="${sep}${cache_seg}"
+fi
+
+# Subagents dispatched in this session, from ogxo-route's dispatch log (absent
+# when ogxo-route is not installed). "no-model" counts Explore,
+# general-purpose, Plan and bare dispatches that ran on the session model.
+if $show_route && [ -n "$session_id" ]; then
+    [ -n "$route_log" ] || route_log="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/data/ogxo-route-ogxo/dispatches.jsonl"
+    if [ -f "$route_log" ]; then
+        read -r r_total r_bare <<<"$(grep -F "\"session_id\":\"$session_id\"" "$route_log" 2>/dev/null | jq -R -s -r '
+            [split("\n")[] | fromjson? | objects] as $d
+            | "\($d | length) \($d | map(select(.subagent_type as $t
+                | (["", "general-purpose", "Explore", "Plan"] | any(. == $t))
+                  and .requested_model == null)) | length)"' 2>/dev/null)"
+        if [ "${r_total:-0}" -gt 0 ] 2>/dev/null; then
+            noun=subagents
+            [ "$r_total" -eq 1 ] && noun=subagent
+            route_seg="${dim}⇄${reset} ${white}${r_total}${reset} ${dim}${noun}${reset}"
+            [ "${r_bare:-0}" -gt 0 ] && route_seg+=" ${dim}·${reset} ${yellow}${r_bare} no-model${reset}"
+            line1+="${sep}${route_seg}"
+        fi
+    fi
 fi
 
 has_usage=false
