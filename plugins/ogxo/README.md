@@ -20,7 +20,7 @@ claude plugin install ogxo@ogxo
 
 Two plugins are left out on purpose. Install them by name when you want them:
 
-- `thryx`: needs a ThryX account, with `THRYX_WORKSPACE` and `THRYX_TOKEN` set
+- `thryx`: needs a ThryX account, and one MCP server per workspace, added with `/thryx:connect`
 - `ogxo-format`: reformats every file Claude edits
 
 ## Updating and removing

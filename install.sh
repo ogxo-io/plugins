@@ -158,7 +158,7 @@ fi
 # Next steps for plugins that need one.
 for p in "${done_list[@]}"; do
   case "$p" in
-    thryx) say "thryx: set THRYX_WORKSPACE and THRYX_TOKEN before starting Claude Code (see its README)." ;;
+    thryx) say "thryx: connect each ThryX workspace with /thryx:connect <workspace> in Claude Code." ;;
     ogxo-statusline | "$BUNDLE") say "ogxo-statusline: run /ogxo-statusline:setup in Claude Code to turn the status line on." ;;
   esac
 done

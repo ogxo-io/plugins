@@ -306,7 +306,7 @@ After writing the PRD, OFFER three optional follow-ups via `AskUserQuestion` (mu
 **Do NOT auto-run any of these.** User explicitly opts in (multi-select). If the user declines all, print the PRD path one final time and exit.
 
 **Failure handling for Phase 5:**
-- If the ThryX tools are unavailable (plugin not installed, `THRYX_TOKEN` or `THRYX_WORKSPACE` unset) or a call fails, surface the error in one line; the PRD remains on disk at the path printed in Phase 4. Do NOT retry; do NOT roll back the PRD file.
+- If the ThryX tools are unavailable (no ThryX workspace server connected, or its token unset) or a call fails, surface the error in one line; the PRD remains on disk at the path printed in Phase 4. Do NOT retry; do NOT roll back the PRD file.
 - If one step succeeds and the next fails (e.g. the document was saved but story creation failed), surface what succeeded vs failed. User resolves manually.
 
 ---

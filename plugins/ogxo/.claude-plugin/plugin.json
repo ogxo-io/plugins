@@ -1,6 +1,6 @@
 {
   "name": "ogxo",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "The ogxo plugin set in one install: code review, git and GitHub workflows, browser debugging, decision and planning skills, color-system design, safety hooks, specialist subagents, the status line, and model routing. Installing it installs each of those plugins; thryx (needs a ThryX account) and ogxo-format (rewrites every file Claude edits) are left out and install on their own.",
   "author": {
     "name": "ogxo",

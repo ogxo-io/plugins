@@ -1,19 +1,23 @@
 # thryx
 
-Connects your agent to a [ThryX](https://app.thryx.io) workspace over MCP —
+Connects your agent to your [ThryX](https://app.thryx.io) workspaces over MCP —
 searching, creating, and updating issues, planning cycles, tracking
 milestones, and reading or writing project documents, all against your
 live workspace data.
 
-This plugin talks to a **hosted service**: there is no local binary, no
-local process, and no local state. Every tool call is an HTTP request to
-`app.thryx.io`, authenticated with your personal API token.
+The plugin ships the skills and `/thryx:connect`, which connects each ThryX
+workspace as its own MCP server, so one install covers every company you
+work with. There is no local binary or server process: every tool call is
+an HTTP request to `app.thryx.io`, authenticated with your API token, which
+a small command reads from your Keychain or environment when the server
+connects.
 
-## Skills
+## What's in it
 
 - **`thryx`**: how the MCP tools behave, covering search before create,
   where a new ticket goes, batching, which writes need an explicit
   confirmation, and what isn't available over MCP.
+- **`/thryx:connect [workspace]`**: connects a workspace; see below.
 - **`product-management`**: how to do the PM work well once the tools
   are in hand. It covers writing tickets, PRDs, ADRs, and the project
   overview; running standups, weekly reviews, cycle planning and close,
@@ -28,21 +32,71 @@ claude plugin marketplace add ogxo-io/plugins
 claude plugin install thryx@ogxo
 ```
 
-## Configuration
+## Connect your workspaces
 
-Set these environment variables before starting Claude Code:
+Each ThryX workspace has its own MCP endpoint,
+`https://app.thryx.io/api/v1/mcp/<workspace>`, where `<workspace>` is its
+slug; the plugin connects each one as its own server, `thryx-<workspace>`.
+In Claude Code:
 
-| Variable          | Value                                                        |
-| ----------------- | ------------------------------------------------------------ |
-| `THRYX_WORKSPACE` | Your workspace slug — the last path segment of your ThryX MCP URL |
-| `THRYX_TOKEN`     | A personal API token                                          |
+```text
+/thryx:connect ogxo
+```
 
-Get a token from **Account settings → API tokens** in the ThryX web app,
-which also offers a pasteable client snippet.
+It adds a user-scope server whose `headersHelper` builds the
+`Authorization` header each time the server connects, so `~/.claude.json`
+holds that command rather than the token. Where the token comes from:
 
-**Keep the token in your environment, never in a committed `.mcp.json`.**
-This plugin's own `.mcp.json` only ever contains the `${THRYX_TOKEN}`
-placeholder — do not replace it with a literal token and commit that.
+- **macOS:** your login Keychain (item `thryx-mcp`). The first time, a
+  dialog with hidden input asks for the token; get one from **Account
+  settings → API tokens** in the ThryX web app. One token serves every
+  workspace you connect; `--own-token` gives a workspace its own, and
+  `--set-token` asks again after you rotate it.
+- **Elsewhere, or with `--token-var NAME`:** an environment variable,
+  `THRYX_TOKEN` by default, set in your shell profile before Claude Code
+  starts.
+
+Run it once per workspace, then restart Claude Code; `/mcp` shows whether
+each server connected. `--replace` swaps an existing `thryx-<workspace>`
+server, for example one added with the ThryX web app's snippet, which
+stores the token in plaintext in `~/.claude.json`.
+
+Without the command, the same server by hand, with the token in
+`THRYX_TOKEN`:
+
+```bash
+claude mcp add-json --scope user thryx-ogxo "$(cat <<'JSON'
+{"type": "http",
+ "url": "https://app.thryx.io/api/v1/mcp/ogxo",
+ "headersHelper": "printf '{\"Authorization\": \"Bearer %s\"}' \"$THRYX_TOKEN\""}
+JSON
+)"
+```
+
+Claude Code passes `TOKEN` variables to the helper for user- and
+local-scope servers but removes them for servers in a project's
+`.mcp.json`, so add these at user scope.
+
+For Codex, the token comes from the environment:
+
+```bash
+codex mcp add thryx-ogxo --url https://app.thryx.io/api/v1/mcp/ogxo --bearer-token-env-var THRYX_TOKEN
+```
+
+**Never put a literal token in a committed `.mcp.json`.**
+
+### Which workspace a repository uses
+
+With several workspaces connected, the `thryx` skill works out which one
+the current repository belongs to before it writes anything. Say so once in
+the repository's `CLAUDE.md` (or `AGENTS.md`):
+
+```markdown
+ThryX workspace: ogxo
+```
+
+Without that line, the skill goes by a ticket key found in only one
+workspace, and otherwise asks.
 
 ## What's not available over MCP
 

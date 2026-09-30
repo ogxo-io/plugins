@@ -11,7 +11,7 @@ claude plugin marketplace add ogxo-io/plugins
 claude plugin install ogxo@ogxo
 ```
 
-It installs every plugin in the table below except two, which you add by name when you want them: **thryx** needs a ThryX account (`THRYX_WORKSPACE` and `THRYX_TOKEN`), and **ogxo-format** reformats every file Claude edits. When a plugin joins the set, updating the bundle installs it. To remove everything, uninstall `ogxo@ogxo` and then run `claude plugin prune`. **ogxo-statusline** turns on with `/ogxo-statusline:setup`.
+It installs every plugin in the table below except two, which you add by name when you want them: **thryx** needs a ThryX account and one MCP server per workspace, added with `/thryx:connect`, and **ogxo-format** reformats every file Claude edits. When a plugin joins the set, updating the bundle installs it. To remove everything, uninstall `ogxo@ogxo` and then run `claude plugin prune`. **ogxo-statusline** turns on with `/ogxo-statusline:setup`.
 
 To pick plugins yourself instead, install them by name:
 
@@ -65,12 +65,12 @@ An open session keeps the versions it loaded: run `/reload-plugins` in it to app
 
 | Plugin | What it is | Status |
 |---|---|---|
-| `ogxo` | The bundle: installs every plugin below except `thryx` and `ogxo-format`. No skills or hooks of its own. | 0.1.2 |
-| `thryx` | Hosted ThryX MCP server, vendored in this repo (`plugins/thryx`): issues, projects, cycles, milestones, and documents in your ThryX workspace. | 0.2.4 |
+| `ogxo` | The bundle: installs every plugin below except `thryx` and `ogxo-format`. No skills or hooks of its own. | 0.1.3 |
+| `thryx` | Skills for the hosted ThryX MCP server, vendored in this repo (`plugins/thryx`): issues, projects, cycles, milestones, and documents. `/thryx:connect <workspace>` connects each ThryX workspace as its own MCP server (on macOS the token goes into your Keychain through a dialog), so one install covers several companies. | 0.3.0 |
 | `ogxo-review` | Multi-agent code review: `/ogxo-review:full-review` cross-correlates reviewers and filters false positives; `/ogxo-review:code-review-git` posts line-level findings as a GitHub PR review and answers other reviewers' comments. Bundles the code-review-agent, security-auditor, code-metrics-analyst, dependency-auditor, and finding-verifier agents (code-review-git verifies every finding before it is shown); `/ogxo-review:security-check` for a focused security pass. | 0.3.0 |
 | `ogxo-git` | Conventional Commit messages, PR titles/descriptions with template detection, resolving PR review threads (its workflow instructs it to present its analysis and wait for approval before replying or resolving), `/ogxo-git:catchup` to restore branch context, plus release, quick-fix, and ship-feature workflows and changelog/release-notes skills. | 0.2.4 |
 | `ogxo-debug` | `live-debug`: reproduce a web-app bug in the browser, read console and network errors, fix, and verify in the page; `css-alignment-debug` injects temporary outline overlays and reads a screenshot to find stubborn layout bugs. Also `browser-testing` for Playwright test scripts. | 0.3.3 |
-| `ogxo-decide` | `war-room`: multi-persona deliberation for hard-to-reverse decisions — game-theory lenses, red-team pass, a portfolio of options rather than a single winner; `prd-create` (PRDs, optionally saved to ThryX), `task-architect`, and the architecture-advisor agent. Also `diagram-generator` for Mermaid diagrams. | 0.3.3 |
+| `ogxo-decide` | `war-room`: multi-persona deliberation for hard-to-reverse decisions — game-theory lenses, red-team pass, a portfolio of options rather than a single winner; `prd-create` (PRDs, optionally saved to ThryX), `task-architect`, and the architecture-advisor agent. Also `diagram-generator` for Mermaid diagrams. | 0.3.4 |
 | `ogxo-design` | `recolor`: audit an app's colors and implement an accessible, token-based color system, with contrast ratios computed by a bundled script. | 0.1.1 |
 | `ogxo-guards` | Hooks that reject a `git add` whose pathspecs, or for broad adds the files git status lists, include .env, key, certificate, or credentials files, Edit/Write calls on lock files and node_modules/vendor/.git paths, and single writes over 1,048,576 characters. Pattern-based; see its README for what each does not catch. Requires `jq`. | 0.2.0 |
 | `ogxo-format` | Hooks that format each edited file with prettier, gofmt, rustfmt, or black when found, report trailing whitespace back to Claude, and check YAML syntax. Opt-in: auto-format rewrites whole files. Requires `jq`. | 0.1.1 |

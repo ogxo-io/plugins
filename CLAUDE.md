@@ -73,8 +73,10 @@ Marketplace name: `ogxo` → plugins install as `<plugin>@ogxo`.
   ```
 - **Exception, thryx: vendored here.** `plugins/thryx` lives in this repo,
   referenced as `"./plugins/thryx"`. ThryX's source is not public, so
-  there is no product repo to pin, and the plugin is skills and a
-  manifest against a stable hosted URL, so co-location would buy little. Every other
+  there is no product repo to pin, and the plugin is only skills (users
+  connect one MCP server per ThryX workspace themselves, since a plugin's
+  MCP server can't be configured per workspace), so co-location would buy
+  little. Every other
   product-backed plugin keeps its source with the product. Revisit if the
   thryx skill starts drifting from the server's tool surface.
 - Same plugin tree serves Claude Code and Grok Build (`grok plugin`, identical

@@ -93,7 +93,7 @@ for sh_name in "${shells[@]}"; do
     expect_in "Not in the bundle: ogxo-format" "$out"
     expect_in "Not in the bundle: thryx" "$out"
     expect_in "/ogxo-statusline:setup" "$out"
-    expect_not_in "THRYX_WORKSPACE" "$out"
+    expect_not_in "thryx: connect each ThryX workspace" "$out"
   fi
 
   case_name="--all --include-format"
@@ -109,7 +109,7 @@ for sh_name in "${shells[@]}"; do
   case_name="--all --include-thryx"
   if run_case "$sh_name" "$case_name" market 0 --all --include-thryx; then
     expect_in "claude plugin install thryx@ogxo" "$calls"
-    expect_in "THRYX_WORKSPACE" "$out"
+    expect_in "thryx: connect each ThryX workspace" "$out"
     expect_not_in "ogxo-format@ogxo" "$calls"
   fi
 

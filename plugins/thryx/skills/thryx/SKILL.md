@@ -11,10 +11,25 @@ exists.
 
 ## Resolve the workspace first
 
-Every call is company-scoped by the workspace slug in the server URL,
-which comes from `THRYX_WORKSPACE` — not from anything said in the
-conversation. If you are unsure which workspace that is, list projects
-before mutating anything.
+Every call is company-scoped by the workspace slug in its server's URL,
+not by anything said in the conversation. Each workspace is its own MCP
+server, usually named `thryx-<workspace>`, and its tools carry that name
+(`mcp__thryx-ogxo__get_issue`); each server's instructions name its
+workspace ("ThryX workspace \"ogxo\""). With none connected, there are no
+ThryX tools: say so, suggest `/thryx:connect <workspace>`, and don't stand
+in for the tracker some other way. With
+one server connected, that is the workspace. With several, pick one before
+any write, in this order:
+
+1. The repository says so: a `ThryX workspace: <slug>` line in its
+   `CLAUDE.md` or `AGENTS.md`.
+2. A ticket key in the request or the branch name that `get_issue` finds
+   in exactly one workspace.
+3. Otherwise ask which workspace, and suggest adding that line.
+
+Reads can look across workspaces; writes go to the one you picked, and
+every call for the task goes to that same server. If you are unsure,
+`list_projects` on the candidate before mutating anything.
 
 ## Starting a ticket: mark it before you touch the code
 
