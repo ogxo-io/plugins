@@ -221,8 +221,39 @@ pre .ln { display: block; min-height: 1.5em; }
     });
   }
 
+  // List prices in USD per million tokens (Anthropic API, 2026-09-25):
+  // input, output, 5-minute cache write, 1-hour cache write, cache read.
+  // First matching prefix wins. Update with the price list; index.html has
+  // the same table.
+  const PRICES = [
+    ['claude-fable-5', 10, 50, 12.5, 20, 0.25], ['claude-mythos-5', 10, 50, 12.5, 20, 0.25],
+    ['claude-opus-5-5', 4, 20, 5, 8, 0.2], ['claude-opus', 5, 25, 6.25, 10, 0.5],
+    ['claude-sonnet-5', 2, 10, 2.5, 4, 0.2], ['claude-sonnet-4', 3, 15, 3.75, 6, 0.3],
+    ['claude-haiku-4-5', 1, 5, 1.25, 2, 0.1],
+  ];
+  const priceOf = (m) => PRICES.find(([p]) => String(m || '').startsWith(p)) || null;
+  // Cost of one usage record {in, out, cr, cw5, cw1} at a model's list price, or null.
+  const costOf = (u, m) => {
+    const p = priceOf(m);
+    if (!p) return null;
+    return ((u.in || 0) * p[1] + (u.out || 0) * p[2] + (u.cw5 || 0) * p[3] + (u.cw1 || 0) * p[4] + (u.cr || 0) * p[5]) / 1e6;
+  };
+  const usd = (n) => (n == null ? '  n/a' : n >= 100 ? '$' + n.toFixed(0) : '$' + n.toFixed(2));
+
   function summarise(events) {
-    const st = { t0: null, last: 0, working: false, ended: false, tools: 0, errors: 0, agents: 0, running: 0, fails: 0, advisor: 0, waiting: false };
+    const st = { t0: null, last: 0, working: false, ended: false, tools: 0, errors: 0, agents: 0, running: 0, fails: 0, advisor: 0, waiting: false, cost: 0, costKnown: true, hasUse: false };
+    const started = new Set();
+    // Same rule as the board: a stop from an agent that never started and has
+    // no type is one of Claude Code's own helpers, not a worker.
+    const addCost = (map) => {
+      if (!map || typeof map !== 'object') return;
+      for (const [k, u] of Object.entries(map)) {
+        if (!u || typeof u !== 'object') continue;
+        const c = costOf(u, k.startsWith('adv:') ? k.slice(4) : k);
+        st.hasUse = true;
+        if (c == null) st.costKnown = false; else st.cost += c;
+      }
+    };
     const live = new Set();
     const waits = new Set();
     const launchedDone = new Set();
@@ -239,8 +270,9 @@ pre .ln { display: block; min-height: 1.5em; }
         case 'tool_ok': waits.delete(ev.a || 'main'); break;
         case 'end': st.ended = true; st.working = false; break;
         case 'dispatch': st.agents++; break;
-        case 'sstart': live.add(ev.id); break;
-        case 'sstop': live.delete(ev.id); waits.delete(ev.id); if (ev.v === 'FAIL') st.fails++; break;
+        case 'sstart': live.add(ev.id); started.add(ev.id); break;
+        case 'sstop': live.delete(ev.id); waits.delete(ev.id); if (ev.v === 'FAIL') st.fails++; if (ev.ty || started.has(ev.id)) addCost(ev.use); break;
+        case 'use': addCost(ev.use); break;
         case 'launched': if (ev.done && ev.id) { launchedDone.add(ev.id); live.delete(ev.id); } break;
         case 'tool': st.tools++; waits.delete(ev.a || 'main'); if (!ev.a) st.working = st.working || !st.ended; break;
         case 'tool_err': st.errors++; waits.delete(ev.a || 'main'); break;
@@ -297,6 +329,19 @@ pre .ln { display: block; min-height: 1.5em; }
     const busy = boards.filter((b) => { const st = stats.get(b.sid); return b.on && st && !st.ended && (st.working || st.running); }).length;
     g.put(0, 2, `${on} recording`, on ? 'hi' : 'dim');
     g.put(on > 9 ? 14 : 13, 2, `${busy} working`, busy ? 'opus' : 'dim');
+    // Per-project (repository) totals at list prices, across its boards.
+    const byRepo = new Map();
+    for (const b of boards) {
+      const st = stats.get(b.sid);
+      if (!st || !st.hasUse) continue;
+      const k = b.repo || 'session';
+      byRepo.set(k, (byRepo.get(k) || 0) + st.cost);
+    }
+    if (byRepo.size) {
+      const txt = 'list-price cost by project: ' + [...byRepo.entries()].sort((p, q) => q[1] - p[1]).map(([k, v]) => `${k} ${usd(v)}`).join('   ');
+      const x = (on > 9 ? 14 : 13) + `${busy} working`.length + 4;
+      g.put(x, 2, clip(txt, W - x), 'dim');
+    }
     paint(headEl, g.html());
   }
 
@@ -320,6 +365,7 @@ pre .ln { display: block; min-height: 1.5em; }
         ['errors', String(st.errors), st.errors ? 'err' : 'fg'],
         ['verifier fails', String(st.fails), st.fails ? 'err' : 'fg'],
         ['advisor', String(st.advisor), 'fg'],
+        ['cost', st.hasUse ? usd(st.cost) + (st.costKnown ? '' : '+?') : '--', 'fg'],
       ];
       let x = 2;
       for (const [k, v, c] of parts) {

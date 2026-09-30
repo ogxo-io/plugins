@@ -165,6 +165,8 @@ pre .ln { display: block; min-height: 1.5em; }
       <pre id="log"></pre>
     </div>
     <div class="gap"></div>
+    <pre id="usage"></pre>
+    <div class="gap"></div>
     <pre id="foot"></pre>
   </main>
 </div>
@@ -188,6 +190,24 @@ pre .ln { display: block; min-height: 1.5em; }
     'ogxo-route:implementer-risky': 'high',
   };
   const ALIAS = { 'general-purpose': 'general', 'implementer-risky': 'impl-risky', 'code-review-agent': 'code-review' };
+  // List prices in USD per million tokens (Anthropic API, 2026-09-25):
+  // input, output, 5-minute cache write, 1-hour cache write, cache read.
+  // First matching prefix wins. Update with the price list; hub.html has
+  // the same table.
+  const PRICES = [
+    ['claude-fable-5', 10, 50, 12.5, 20, 0.25], ['claude-mythos-5', 10, 50, 12.5, 20, 0.25],
+    ['claude-opus-5-5', 4, 20, 5, 8, 0.2], ['claude-opus', 5, 25, 6.25, 10, 0.5],
+    ['claude-sonnet-5', 2, 10, 2.5, 4, 0.2], ['claude-sonnet-4', 3, 15, 3.75, 6, 0.3],
+    ['claude-haiku-4-5', 1, 5, 1.25, 2, 0.1],
+  ];
+  const priceOf = (m) => PRICES.find(([p]) => String(m || '').startsWith(p)) || null;
+  // Cost of one usage record {in, out, cr, cw5, cw1} at a model's list price, or null.
+  const costOf = (u, m) => {
+    const p = priceOf(m);
+    if (!p) return null;
+    return ((u.in || 0) * p[1] + (u.out || 0) * p[2] + (u.cw5 || 0) * p[3] + (u.cw1 || 0) * p[4] + (u.cr || 0) * p[5]) / 1e6;
+  };
+  const usd = (n) => (n == null ? '  n/a' : n >= 100 ? '$' + n.toFixed(0) : '$' + n.toFixed(2));
   const SPIN = ['|', '/', '-', '\\'];
 
   // ---------- theme ----------
@@ -214,6 +234,8 @@ pre .ln { display: block; min-height: 1.5em; }
       tools: new Map(), log: [], batch: null,
       tierTools: {}, tierAgents: {}, toolCount: 0, errors: 0, offline: false, loaded: false,
       advisor: [], waits: 0,
+      // Token usage records: {who: 'main' | 'advisor' | agent key, m: model, u: {in, out, cr, cw5, cw1}}.
+      use: [], usePartial: false,
     };
   }
   reset();
@@ -260,6 +282,17 @@ pre .ln { display: block; min-height: 1.5em; }
   function mark(obj, t, kind) {
     obj.marks.push({ t, kind });
     if (obj.marks.length > 6000) obj.marks.splice(0, 1000);
+  }
+
+  // A use map is {model: {in, out, cr, cw5, cw1}}; "adv:<model>" keys are the
+  // advisor's own tokens inside the main session's messages.
+  function addUse(who, map) {
+    if (!map || typeof map !== 'object') return;
+    for (const [k, u] of Object.entries(map)) {
+      if (!u || typeof u !== 'object') continue;
+      const adv = k.startsWith('adv:');
+      S.use.push({ who: adv ? 'advisor' : who, m: adv ? k.slice(4) : k, u });
+    }
   }
 
   function ingest(ev) {
@@ -342,6 +375,7 @@ pre .ln { display: block; min-height: 1.5em; }
         const key = S.byId.get(ev.id) || callerKey({ a: ev.id, at: ev.ty, t });
         const a = S.agents.get(key);
         a.t1 = t; a.returnAt = t; a.verdict = ev.v || null; a.out = ev.out || a.out; a.wait = null;
+        addUse(key, ev.use);
         a.state = ev.v === 'FAIL' ? 'fail' : ev.v === 'RISKY' ? 'risky' : ev.v === 'PASS' ? 'pass' : 'ok';
         const pi = S.pending.indexOf(key); if (pi >= 0) S.pending.splice(pi, 1);
         addLog(t, key, 'return', ev.v ? `VERDICT ${ev.v}` : (a.d || 'done'), ev.v === 'FAIL' ? 'err' : ev.v === 'RISKY' ? 'warn' : 'ok');
@@ -394,6 +428,11 @@ pre .ln { display: block; min-height: 1.5em; }
         addLog(t, key, 'failed', `${ev.n || (rec && rec.n) || 'tool'} ${rec ? rec.s : ''}`, 'err');
         break;
       }
+      case 'use':
+      case 'usenote':
+        if (ev.e === 'usenote') { S.usePartial = true; break; }
+        addUse('main', ev.use);
+        break;
       case 'advisor':
         S.advisor.push(t);
         mark(S.main, t, 'adv');
@@ -987,6 +1026,81 @@ pre .ln { display: block; min-height: 1.5em; }
     paint(el, g.html());
   }
 
+  // Tokens and list-price cost per agent type, and what the workers' tokens
+  // would have cost on the main session's model.
+  function renderUsage(el) {
+    const W = colsOf(el);
+    const rowsBy = new Map();
+    const mainOut = {};
+    for (const r of S.use) {
+      let label, tier;
+      if (r.who === 'main') { label = 'main'; tier = 'main'; mainOut[r.m] = (mainOut[r.m] || 0) + (r.u.out || 0) + 1; }
+      else if (r.who === 'advisor') { label = 'advisor'; tier = 'fable'; }
+      else { const a = S.agents.get(r.who); label = shortType(a ? a.ty : 'agent'); tier = tierOf(r.m) || (a ? agentTier(a) : 'main'); }
+      const key = label + '|' + r.m;
+      const row = rowsBy.get(key) || { label, tier, m: r.m, worker: r.who !== 'main' && r.who !== 'advisor', n: new Set(), u: { in: 0, out: 0, cr: 0, cw5: 0, cw1: 0 } };
+      for (const f of ['in', 'out', 'cr', 'cw5', 'cw1']) row.u[f] += r.u[f] || 0;
+      if (row.worker) row.n.add(r.who);
+      rowsBy.set(key, row);
+    }
+    const rows = [...rowsBy.values()].sort((p, q) => (p.label === 'main' ? -1 : q.label === 'main' ? 1 : (q.u.out + q.u.cr) - (p.u.out + p.u.cr)));
+    const mainModel = Object.entries(mainOut).sort((p, q) => q[1] - p[1])[0]?.[0] || null;
+    const H = Math.max(6, rows.length + 8);
+    const g = new Grid(W, H);
+    g.box(0, 0, W, H, 'faint');
+    g.put(2, 0, ' tokens and cost ', 'hi b');
+    const note = ' list prices, not your plan\'s billing ';
+    if (W > 40) g.put(W - note.length - 2, 0, note, 'dim');
+    if (!rows.length) {
+      g.put(2, 2, 'token use shows up here after the first turn ends or a worker returns', 'dim');
+      paint(el, g.html());
+      return;
+    }
+    const cols = [['who', 14], ['model', 9], ['input', 8], ['cache rd', 9], ['cache wr', 9], ['output', 8], ['cost', 9]];
+    let x = 2;
+    for (const [h, w] of cols) { g.put(x, 1, pad(h, w), 'dim'); x += w + 1; }
+    let total = 0, known = true, workers = 0, asMain = 0;
+    rows.forEach((r, i) => {
+      const c = costOf(r.u, r.m);
+      if (c == null) known = false; else total += c;
+      if (r.worker && c != null) {
+        workers += c;
+        const cm = mainModel ? costOf(r.u, mainModel) : null;
+        asMain += cm == null ? c : Math.max(c, cm);
+      }
+      const y = 2 + i;
+      const who = r.worker && r.n.size > 1 ? `${r.label} x${r.n.size}` : r.label;
+      // Subagent transcripts log each reply's usage before it finishes streaming,
+      // so a worker's output count (and its cost) is a floor.
+      const cells = [who, tierOf(r.m) || r.m, kfmt(r.u.in), kfmt(r.u.cr), kfmt(r.u.cw5 + r.u.cw1), kfmt(r.u.out) + (r.worker ? '+' : ''), usd(c) + (r.worker ? '+' : '')];
+      let xx = 2;
+      cells.forEach((v, j) => {
+        const w = cols[j][1];
+        const k = j === 0 ? (r.tier === 'main' ? 'hi' : r.tier) : j === 1 ? (tierOf(r.m) || 'dim') : j === 6 ? 'fg' : 'dim';
+        g.put(xx, y, j >= 2 ? String(v).padStart(w) : pad(v, w), k);
+        xx += w + 1;
+      });
+    });
+    const ty = 2 + rows.length;
+    g.put(2, ty, pad('total', 14), 'hi b');
+    g.put(2 + 14 + 1 + 9 + 1 + (8 + 1) + (9 + 1) * 2 + (8 + 1), ty, usd(total).padStart(9) + (known ? '' : ' +?'), 'hi b');
+    let line;
+    if (workers > 0 && mainModel && asMain > workers + 0.005) {
+      line = `workers ${usd(workers)}+; the same tokens at ${tierOf(mainModel) || mainModel} prices ${usd(asMain)}+, a difference of ${usd(asMain - workers)}+`;
+      g.put(2, ty + 2, clip(line, W - 4), 'fg');
+      const at = line.indexOf('a difference of');
+      if (at >= 0 && at < W - 4) g.put(2 + at, ty + 2, clip(line.slice(at), W - 4 - at), 'haiku b');
+    } else if (workers > 0) {
+      line = `workers ${usd(workers)}+, all on the main session's tier or above`;
+      g.put(2, ty + 2, clip(line, W - 4), 'fg');
+    }
+    const foot = S.usePartial ? 'main session counted from when the board was turned on; grok and codex runs not counted'
+      : 'grok and codex runs not counted; the brief each worker gets is in the main session\'s tokens';
+    g.put(2, ty + 3, clip('+ a floor: subagent transcripts log a reply\'s output tokens before it finishes, so workers\' output reads low', W - 4), 'dim');
+    g.put(2, ty + 4, clip(foot, W - 4), 'dim');
+    paint(el, g.html());
+  }
+
   function renderLog(el) {
     const W = colsOf(el);
     const g = new Grid(W, PANEL_H);
@@ -1041,7 +1155,7 @@ pre .ln { display: block; min-height: 1.5em; }
   }
 
   // ---------- loop ----------
-  const els = ['head', 'tree', 'batch', 'time', 'tiers', 'log', 'foot'].reduce((o, id) => { o[id] = document.getElementById(id); return o; }, {});
+  const els = ['head', 'tree', 'batch', 'time', 'tiers', 'log', 'usage', 'foot'].reduce((o, id) => { o[id] = document.getElementById(id); return o; }, {});
   function render() {
     if (document.hidden) return;
     frame++;
@@ -1051,6 +1165,7 @@ pre .ln { display: block; min-height: 1.5em; }
     renderTime(els.time);
     renderTiers(els.tiers);
     renderLog(els.log);
+    renderUsage(els.usage);
     renderFoot(els.foot);
   }
 
@@ -1105,8 +1220,8 @@ pre .ln { display: block; min-height: 1.5em; }
     const s1 = ['Grep  Limiter', 'api/router.go', 'api/handlers/orders.go', 'api/handlers/auth.go', 'internal/limiter/doc.go', 'api/middleware/chain.go'];
     s1.forEach((s, i) => tool(4700 + i * 1100, 'a1', i === 0 ? 'Grep' : 'Read', s.replace(/^Grep\s+/, '')));
     ['api/**/*.go', 'cmd/**/main.go', 'api/handlers/README.md'].forEach((s, i) => tool(4500 + i * 900, 'a2', i < 2 ? 'Glob' : 'Read', s));
-    at(8200, { e: 'sstop', id: 'a2', ty: 'Explore', out: 900 });
-    at(11600, { e: 'sstop', id: 'a1', ty: 'ogxo-route:scout', out: 3100 });
+    at(8200, { e: 'sstop', id: 'a2', ty: 'Explore', out: 900, use: { 'claude-haiku-4-5-20251001': { in: 40, out: 900, cr: 310000, cw5: 42000, cw1: 0 } } });
+    at(11600, { e: 'sstop', id: 'a1', ty: 'ogxo-route:scout', out: 3100, use: { 'claude-sonnet-5-5': { in: 60, out: 3100, cr: 820000, cw5: 61000, cw1: 0 } } });
     tool(12300, null, 'Write', 'docs/plans/rate-limits.md');
     at(13200, { e: 'batch', rows: [
       { task: 'Token bucket core', writer: 'implementer', files: ['internal/limiter/bucket.go', 'internal/limiter/bucket_test.go'], mode: 'shared' },
@@ -1117,11 +1232,12 @@ pre .ln { display: block; min-height: 1.5em; }
     L[L.length - 2][1].x = 'grok';
     const s3 = [['Read', 'internal/limiter/doc.go'], ['Write', 'internal/limiter/bucket.go'], ['Write', 'internal/limiter/bucket_test.go'], ['Bash', 'go test ./internal/limiter', true], ['Edit', 'internal/limiter/bucket.go'], ['Bash', 'go test ./internal/limiter']];
     s3.forEach(([n, s, fl], i) => tool(14800 + i * 1500, 'a3', n, s, fl));
-    at(24000, { e: 'sstop', id: 'a3', ty: 'ogxo-route:implementer', out: 5200 });
+    at(20500, { e: 'use', use: { 'claude-opus-5-5': { in: 120, out: 8000, cr: 2100000, cw5: 0, cw1: 160000 } } });
+    at(24000, { e: 'sstop', id: 'a3', ty: 'ogxo-route:implementer', out: 5200, use: { 'claude-sonnet-5-5': { in: 90, out: 5200, cr: 1400000, cw5: 88000, cw1: 0 } } });
     spawn(24600, 'a4', 'ogxo-route:verifier', 'Verify token bucket diff', 'claude-haiku-4-5');
     tool(25200, 'a4', 'Bash', 'git diff --stat');
     tool(26000, 'a4', 'Bash', 'risky-paths.sh');
-    at(27400, { e: 'sstop', id: 'a4', ty: 'ogxo-route:verifier', v: 'FAIL', out: 600 });
+    at(27400, { e: 'sstop', id: 'a4', ty: 'ogxo-route:verifier', v: 'FAIL', out: 600, use: { 'claude-haiku-4-5-20251001': { in: 30, out: 600, cr: 190000, cw5: 26000, cw1: 0 } } });
     at(27900, { e: 'advisor' });
     spawn(28200, 'a5', 'ogxo-route:implementer-risky', 'Token bucket core, retry one tier up', 'claude-opus-5-5');
     at(32500, { e: 'perm', a: 'a5', n: 'Bash' });
@@ -1129,18 +1245,19 @@ pre .ln { display: block; min-height: 1.5em; }
     [['Read', 'internal/limiter/bucket.go'], ['Edit', 'internal/limiter/bucket.go'], ['Edit', 'internal/limiter/bucket_test.go'], ['Bash', 'go test -race ./internal/limiter']].forEach(([n, s], i) => tool([29000, 30400, 31800, 34600][i], 'a5', n, s));
     at(29500, { e: 'tool', a: null, u: 'gx2', n: 'Bash', s: 'grok-bridge show', x: 'grok' });
     at(29900, { e: 'tool_ok', a: null, u: 'gx2', n: 'Bash' });
-    at(35000, { e: 'sstop', id: 'a5', ty: 'ogxo-route:implementer-risky', out: 7400 });
+    at(35000, { e: 'sstop', id: 'a5', ty: 'ogxo-route:implementer-risky', out: 7400, use: { 'claude-opus-5-5': { in: 110, out: 7400, cr: 1900000, cw5: 120000, cw1: 0 } } });
     spawn(35600, 'a6', 'ogxo-route:test-runner', 'Run go test ./...', 'claude-haiku-4-5');
     spawn(35800, 'a7', 'ogxo-route:verifier', 'Verify token bucket retry', 'claude-haiku-4-5');
     tool(36300, 'a6', 'Bash', 'go test ./...');
     tool(36500, 'a7', 'Bash', 'git diff --stat');
-    at(38200, { e: 'sstop', id: 'a7', ty: 'ogxo-route:verifier', v: 'PASS', out: 500 });
-    at(39800, { e: 'sstop', id: 'a6', ty: 'ogxo-route:test-runner', out: 700 });
+    at(38200, { e: 'sstop', id: 'a7', ty: 'ogxo-route:verifier', v: 'PASS', out: 500, use: { 'claude-haiku-4-5-20251001': { in: 30, out: 500, cr: 170000, cw5: 24000, cw1: 0 } } });
+    at(39800, { e: 'sstop', id: 'a6', ty: 'ogxo-route:test-runner', out: 700, use: { 'claude-haiku-4-5-20251001': { in: 30, out: 700, cr: 150000, cw5: 21000, cw1: 0 } } });
     spawn(40500, 'a8', 'ogxo-review:code-review-agent', 'Pre-PR review of feat/rate-limits', 'claude-opus-5-5');
     ['internal/limiter/bucket.go', 'api/middleware/ratelimit.go', 'api/router.go', 'internal/limiter/bucket_test.go'].forEach((s, i) => tool(41200 + i * 1300, 'a8', 'Read', s));
-    at(47500, { e: 'sstop', id: 'a8', ty: 'ogxo-review:code-review-agent', out: 9800 });
+    at(47500, { e: 'sstop', id: 'a8', ty: 'ogxo-review:code-review-agent', out: 9800, use: { 'claude-opus-5-5': { in: 120, out: 9800, cr: 2300000, cw5: 150000, cw1: 0 } } });
     at(47800, { e: 'advisor' });
     tool(48200, null, 'Bash', 'git status --short');
+    at(49400, { e: 'use', use: { 'claude-opus-5-5': { in: 300, out: 21000, cr: 6200000, cw5: 0, cw1: 240000 }, 'adv:claude-fable-5-1': { in: 190000, out: 9600, cr: 0, cw5: 0, cw1: 0 } } });
     at(49500, { e: 'stop' });
     return L.sort((p, q) => p[0] - q[0]);
   }

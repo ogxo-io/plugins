@@ -895,5 +895,51 @@ if command -v node >/dev/null 2>&1; then
   expect "dashboard: hub JavaScript parses" node --check "$tmp/hub.js"
 fi
 
+# --- dashboard: token usage ---
+reset_data
+board_on s1
+str="$tmp/sub-usage.jsonl"
+{
+  # one message split over two lines (usage repeated), one with a 1-hour cache write
+  printf '%s\n' '{"type":"assistant","message":{"id":"m1","model":"claude-sonnet-5-5","content":[{"type":"text","text":"a"}],"usage":{"input_tokens":10,"output_tokens":100,"cache_read_input_tokens":1000,"cache_creation_input_tokens":500,"cache_creation":{"ephemeral_5m_input_tokens":500,"ephemeral_1h_input_tokens":0}}}}'
+  printf '%s\n' '{"type":"assistant","message":{"id":"m1","model":"claude-sonnet-5-5","content":[{"type":"tool_use","id":"t","name":"Bash","input":{}}],"usage":{"input_tokens":10,"output_tokens":100,"cache_read_input_tokens":1000,"cache_creation_input_tokens":500,"cache_creation":{"ephemeral_5m_input_tokens":500,"ephemeral_1h_input_tokens":0}}}}'
+  printf '%s\n' '{"type":"assistant","message":{"id":"m2","model":"claude-sonnet-5-5","content":[{"type":"text","text":"b"}],"usage":{"input_tokens":5,"output_tokens":50,"cache_read_input_tokens":2000,"cache_creation_input_tokens":300,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":300}}}}'
+} >"$str"
+hk "$(jq -nc --arg p "$str" '{session_id:"s1", hook_event_name:"SubagentStop", agent_id:"ag9", agent_type:"ogxo-route:implementer", agent_transcript_path:$p}')"
+expect "dash-event: worker usage summed once per message, by model" last_ev s1 '.e == "sstop" and .use["claude-sonnet-5-5"] == {in: 15, out: 150, cr: 3000, cw5: 500, cw1: 300}'
+
+mtr="$tmp/main-usage.jsonl"
+{
+  printf '%s\n' '{"type":"user","message":{"content":"SECRET-PROMPT"}}'
+  # the advisor ran inside this message: its iteration carries its own model
+  printf '%s\n' '{"type":"assistant","message":{"id":"x1","model":"claude-opus-5-5","content":[{"type":"text","text":"a"}],"usage":{"input_tokens":4,"output_tokens":809,"cache_read_input_tokens":192259,"cache_creation_input_tokens":2546,"iterations":[{"type":"message","input_tokens":2,"output_tokens":553,"cache_read_input_tokens":95895,"cache_creation_input_tokens":469,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":469}},{"type":"advisor_message","model":"claude-fable-5-1","input_tokens":98505,"output_tokens":4867,"cache_read_input_tokens":0,"cache_creation_input_tokens":0},{"type":"message","input_tokens":2,"output_tokens":256,"cache_read_input_tokens":96364,"cache_creation_input_tokens":2077,"cache_creation":{"ephemeral_5m_input_tokens":2077,"ephemeral_1h_input_tokens":0}}]}}}'
+  printf '%s\n' '{"type":"assistant","message":{"id":"x2","model":"claude-opus-5-5","content":[{"type":"text","text":"b"}],"usage":{"input_tokens":1,"output_tokens":10,"cache_read_input_tokens":100,"cache_creation_input_tokens":0}}}'
+} >"$mtr"
+use_evs() { events s1 | jq -c '[.[] | select(.e == "use") | .use]'; }
+hk "$(jq -nc --arg p "$mtr" '{session_id:"s1", hook_event_name:"Stop", transcript_path:$p}')"
+got=$(use_evs | jq -c '.[0]')
+expect "dash-event: main usage from each iteration, advisor apart" [ "$got" = '{"claude-opus-5-5":{"in":5,"out":819,"cr":192359,"cw5":2077,"cw1":469},"adv:claude-fable-5-1":{"in":98505,"out":4867,"cr":0,"cw5":0,"cw1":0}}' ]
+printf '%s\n' '{"type":"assistant","message":{"id":"x2","model":"claude-opus-5-5","content":[{"type":"tool_use","id":"t","name":"Bash","input":{}}],"usage":{"input_tokens":1,"output_tokens":10,"cache_read_input_tokens":100,"cache_creation_input_tokens":0}}}' >>"$mtr"
+printf '%s\n' '{"type":"assistant","message":{"id":"x3","model":"claude-opus-5-5","content":[{"type":"text","text":"c"}],"usage":{"input_tokens":2,"output_tokens":20,"cache_read_input_tokens":200,"cache_creation_input_tokens":0}}}' >>"$mtr"
+hk "$(jq -nc --arg p "$mtr" '{session_id:"s1", hook_event_name:"Stop", transcript_path:$p}')"
+got=$(use_evs | jq -c '.[1]')
+expect "dash-event: next scan counts only new messages, not the repeated last one" [ "$got" = '{"claude-opus-5-5":{"in":2,"out":20,"cr":200,"cw5":0,"cw1":0}}' ]
+hk "$(jq -nc --arg p "$mtr" '{session_id:"s1", hook_event_name:"Stop", transcript_path:$p}')"
+expect "dash-event: nothing new, no use event" [ "$(use_evs | jq length)" = 2 ]
+expect "dash-event: usage scan records no transcript text" bash -c '! grep -q "SECRET-PROMPT" "$1"' _ "$data/dash/s1/events.js"
+expect "dash-event: usage scan stays quiet" [ "$noisy" = 0 ]
+
+prices() { grep -A7 '^  const PRICES = \[' "$1"; }
+pa=$(prices "$page"); pb=$(prices "$hubp")
+expect "dashboard: page has a price table" [ -n "$pa" ]
+expect "dashboard: board and hub use the same price table" [ "$pa" = "$pb" ]
+expect "dashboard: page ingests token usage" grep -qF "case 'use':" "$page"
+expect "dashboard: hub skips helper stops for cost too" grep -qF "if (ev.ty || started.has(ev.id)) addCost(ev.use);" "$hubp"
+if command -v node >/dev/null 2>&1; then
+  awk '/const PRICES = \[/{f=1} f{print} /const costOf = /{c=1} c&&/^  };$/{exit}' "$page" >"$tmp/prices.js"
+  printf '%s\n' 'const r = [costOf({in: 1e6}, "claude-opus-5-5"), costOf({cw1: 1e6}, "claude-opus-5-5"), costOf({cr: 1e6}, "claude-haiku-4-5-20251001"), costOf({out: 1e6}, "claude-fable-5-1"), costOf({in: 1}, "gpt-x")];' 'process.stdout.write(JSON.stringify(r));' >>"$tmp/prices.js"
+  expect "dashboard: prices by model prefix, 1-hour writes at 2x, unknown model has no price" bash -c '[ "$(node "$1")" = "[4,8,0.1,50,null]" ]' _ "$tmp/prices.js"
+fi
+
 echo "route tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

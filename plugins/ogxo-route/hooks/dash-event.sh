@@ -26,6 +26,24 @@ vdef='def verdict: if type == "string"
   then [match("VERDICT:\\**\\s*\\**\\s*(PASS|FAIL|RISKY)\\b"; "g")] | last | .captures[0].string
   else null end;'
 
+# Token usage per model from assistant messages. A message's usage lists its
+# iterations when the advisor ran inside it (type advisor_message, with its
+# own model); otherwise the usage itself is one iteration. Cache writes are
+# split into 1-hour and 5-minute entries because they are priced apart.
+# shellcheck disable=SC2016 # jq variables, not shell ones
+udef='def num: if type == "number" then . else 0 end;
+  def rows: (.usage | if type == "object" then . else {} end) as $u
+    | ((.model // "unknown") | tostring) as $mm
+    | (if ($u.iterations | type) == "array" and ($u.iterations | length) > 0 then $u.iterations[] else $u end)
+    | objects
+    | ((.cache_creation | if type == "object" then .ephemeral_1h_input_tokens else 0 end) | num) as $c1
+    | {k: (if .type == "advisor_message" then "adv:" + ((.model // "advisor") | tostring) else $mm end),
+       in: (.input_tokens | num), out: (.output_tokens | num), cr: (.cache_read_input_tokens | num),
+       cw1: $c1, cw5: ([((.cache_creation_input_tokens | num) - $c1), 0] | max)}
+    | select(.in + .out + .cr + .cw1 + .cw5 > 0);
+  def bucket: reduce .[] as $r ({}; .[$r.k] |= {in: ((.in // 0) + $r.in), out: ((.out // 0) + $r.out),
+    cr: ((.cr // 0) + $r.cr), cw5: ((.cw5 // 0) + $r.cw5), cw1: ((.cw1 // 0) + $r.cw1)});'
+
 # Line 1: session id (empty unless valid). Line 2: the event JSON or null.
 # Line 3: the subagent transcript path, SubagentStop only.
 out=$(jq -r --arg sq "'" "$vdef"'
@@ -132,14 +150,14 @@ case $ev in *'"e":"sstop"'*)
     size=$(wc -c <"$tp" 2>/dev/null)
     size=${size//[!0-9]/}
     if [ -n "$size" ] && [ "$size" -lt 52428800 ]; then
-      ev2=$(jq -R -n -c --argjson ev "$ev" "$vdef"'
+      ev2=$(jq -R -n -c --argjson ev "$ev" "$vdef $udef"'
         reduce (inputs | fromjson? | objects | select(.type == "assistant") | .message | objects) as $m
-          ({ids: {}, anon: 0, txt: null};
+          ({ids: {}, anon: 0, txt: null, msgs: {}};
            (($m.usage | if type == "object" then .output_tokens else null end) | if type == "number" then . else 0 end) as $n
-           | (if ($m.id | type) == "string" then .ids[$m.id] = ([.ids[$m.id] // 0, $n] | max) else .anon += $n end)
+           | (if ($m.id | type) == "string" then .ids[$m.id] = ([.ids[$m.id] // 0, $n] | max) | .msgs[$m.id] = {model: $m.model, usage: $m.usage} else .anon += $n end)
            | ([$m.content[]? | objects | select(.type == "text") | .text | strings] | join("\n")) as $x
            | if $x != "" then .txt = $x else . end)
-        | $ev + {v: ($ev.v // (.txt | verdict)), out: (.anon + ([.ids[]] | add // 0))}
+        | $ev + {v: ($ev.v // (.txt | verdict)), out: (.anon + ([.ids[]] | add // 0)), use: ([.msgs[] | rows] | bucket)}
       ' "$tp" 2>/dev/null)
       case $ev2 in '{'*'}') ev=$ev2 ;; esac
     fi
@@ -147,7 +165,8 @@ case $ev in *'"e":"sstop"'*)
   ;;
 esac
 
-# Stop and main-session dispatches: advisor calls since the last scan. The
+# Stop and main-session dispatches: advisor calls and token usage since the
+# last scan. The
 # advisor runs on the API side (a server_tool_use block named advisor in the
 # transcript), so no tool hook sees it. Only complete lines past the saved
 # byte offset are read, and each call id is counted once.
@@ -185,6 +204,28 @@ case $ev in *'"e":"stop"'* | *'"e":"dispatch"'*)
             at=$(jq -nc --arg ts "$ts" '{t: (if $ts == "" then (now * 1000 | floor) else ($ts | tonumber * 1000) end), e: "advisor"}') || continue
             printf 'E(%s);\n' "$at" >>"$dir/events.js" 2>/dev/null
           done
+        # Main-session token usage in the new lines, as one silent "use" event.
+        # Each message's lines repeat its usage, so each id counts once; the
+        # last id is kept so a message split across two scans isn't counted
+        # twice. On a first scan of a transcript over 50 MB the history is
+        # skipped and counting starts now ("usenote" tells the page).
+        if [ "$off" -gt 0 ] || [ "$used" -lt 52428800 ]; then
+          last=$(cat "$dir/use.last" 2>/dev/null)
+          ue=$(head -c "$used" "$chunk" | grep -F '"usage"' | jq -R -n -c --arg last "$last" "$udef"'
+            [inputs | fromjson? | objects | select(.type == "assistant") | .message | objects
+             | select((.id | type) == "string" and .id != $last)] as $ms
+            | ($ms | reduce .[] as $m ({}; .[$m.id] = $m)) as $by
+            | {last: (($ms | last | .id) // $last), use: ([$by[] | rows] | bucket)}' 2>/dev/null)
+          case $ue in '{'*'}')
+            lid=$(jq -r '.last // empty' <<<"$ue" 2>/dev/null)
+            [[ $lid =~ ^[A-Za-z0-9_-]{1,128}$ ]] && printf '%s\n' "$lid" >"$dir/use.last" 2>/dev/null
+            uev=$(jq -c 'select(.use != {}) | {t: (now * 1000 | floor), e: "use", use: .use}' <<<"$ue" 2>/dev/null)
+            [ -n "$uev" ] && printf 'E(%s);\n' "$uev" >>"$dir/events.js" 2>/dev/null
+            ;;
+          esac
+        else
+          printf 'E(%s);\n' "$(jq -nc '{t: (now * 1000 | floor), e: "usenote"}')" >>"$dir/events.js" 2>/dev/null
+        fi
         printf '%s\n' "$((off + used))" >"$dir/adv.off" 2>/dev/null
       fi
       rm -f "$chunk"
