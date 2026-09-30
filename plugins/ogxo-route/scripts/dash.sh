@@ -6,13 +6,16 @@
 #   dash.sh batch [session_id]  record a batch table (JSON array on stdin)
 #   dash.sh hub                 print the URL of the page listing every board
 #   dash.sh demo                print the URL of the page's built-in replay
+#   dash.sh serve [port]        serve the boards over HTTP on 127.0.0.1
+#                               (default port 8765, else the next free one)
+#   dash.sh serve stop          stop that server
 # session_id defaults to $CLAUDE_CODE_SESSION_ID. Board: the page, events.js
 # (appended by hooks/dash-event.sh while the `on` flag exists), meta.json and
 # the flag, in ${CLAUDE_PLUGIN_DATA}/dash/<session_id>/. The hub is
 # dash/index.html; it reads dash/boards.js, rewritten here on on/off/status/hub.
 set -uo pipefail
 
-usage() { echo "usage: dashboard [on|off|status|batch|hub|demo] [session_id]" >&2; exit 2; }
+usage() { echo "usage: dashboard [on|off|status|batch|hub|demo] [session_id] | serve [port|stop]" >&2; exit 2; }
 
 command -v jq >/dev/null 2>&1 || { echo "ogxo-route: jq is required" >&2; exit 1; }
 data=${CLAUDE_PLUGIN_DATA:-}
@@ -21,7 +24,7 @@ case $data in /*) ;; *) data="$PWD/$data" ;; esac
 
 [ $# -le 2 ] || usage
 action=${1:-on}
-case $action in on | off | status | batch | hub | demo) ;; *) usage ;; esac
+case $action in on | off | status | batch | hub | demo | serve) ;; *) usage ;; esac
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd) || exit 1
 if [ "$action" = demo ]; then
@@ -91,6 +94,71 @@ hub() {
   mkdir -p "$base" && cp "$root/dashboard/hub.html" "$base/index.html" && registry
 }
 
+# serving: print the port of this data dir's HTTP server when it is running.
+# dash/serve.pid holds "<pid> <port> <start time>"; a pid that now belongs
+# to another process (other start time) counts as stopped.
+serving() {
+  local pid port start
+  [ -f "$base/serve.pid" ] || return 1
+  read -r pid port start <"$base/serve.pid" || [ -n "$pid" ] || return 1
+  [[ $pid =~ ^[0-9]+$ && $port =~ ^[0-9]+$ ]] || return 1
+  [ "$(started "$pid")" = "$start" ] || return 1
+  printf '%s\n' "$port"
+}
+# listening <port>: something accepts connections on 127.0.0.1:<port>.
+listening() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; }
+
+if [ "$action" = serve ]; then
+  arg=${2:-}
+  if [ "$arg" = stop ]; then
+    if port=$(serving); then
+      read -r pid _ <"$base/serve.pid"
+      kill "$pid" 2>/dev/null
+      echo "Stopped the board server on port $port."
+    else
+      echo "No board server is running."
+    fi
+    rm -f "$base/serve.pid"
+    exit 0
+  fi
+  [ -z "$arg" ] || [[ $arg =~ ^[0-9]{4,5}$ && $arg -ge 1024 && $arg -le 65535 ]] || {
+    echo "ogxo-route: serve takes a port from 1024 to 65535, or stop" >&2
+    exit 2
+  }
+  command -v python3 >/dev/null 2>&1 || { echo "ogxo-route: serve needs python3" >&2; exit 1; }
+  hub || exit 1
+  if ! port=$(serving); then
+    port=""
+    first=${arg:-8765}
+    for try in $(seq "$first" $((first + 9))); do
+      [ "$try" -le 65535 ] || break
+      listening "$try" && continue
+      # Bound to 127.0.0.1: only this machine can connect. nohup keeps it
+      # running after the command that started it returns.
+      nohup python3 -m http.server --bind 127.0.0.1 --directory "$base" "$try" >/dev/null 2>&1 </dev/null &
+      pid=$!
+      for _ in $(seq 1 30); do
+        kill -0 "$pid" 2>/dev/null || break
+        listening "$try" && break
+        sleep 0.1
+      done
+      sleep 0.2
+      if kill -0 "$pid" 2>/dev/null && listening "$try"; then
+        printf '%s %s %s\n' "$pid" "$try" "$(started "$pid")" >"$base/serve.pid"
+        port=$try
+        break
+      fi
+      kill "$pid" 2>/dev/null
+    done
+    [ -n "$port" ] || { echo "ogxo-route: no free port from $first to $((first + 9))" >&2; exit 1; }
+  fi
+  echo "Serving the boards on this machine only (127.0.0.1)."
+  echo "Open: http://127.0.0.1:$port/index.html"
+  echo "It keeps running after this session ends; /ogxo-route:dashboard serve stop stops it."
+  echo "From another device: tailscale serve $port (your tailnet only), or ssh -L $port:127.0.0.1:$port <this host>."
+  exit 0
+fi
+
 if [ "$action" = hub ]; then
   hub || exit 1
   echo "Open: file://${base// /%20}/index.html"
@@ -144,6 +212,7 @@ case $action in
     echo "Route board on for session ${sid:0:8}."
     echo "Open: $url"
     echo "It updates live as this session works; /ogxo-route:dashboard off stops recording, /ogxo-route:dashboard hub lists every board."
+    if port=$(serving); then echo "Also served at http://127.0.0.1:$port/$sid/index.html"; fi
     ;;
   off)
     rm -f "$dir/on"
@@ -155,6 +224,7 @@ case $action in
     if [ -e "$dir/on" ]; then state=on; else state=off; fi
     echo "Route board: $state (session ${sid:0:8})"
     echo "Path: $dir/index.html"
+    if port=$(serving); then echo "Served at: http://127.0.0.1:$port/$sid/index.html"; fi
     # Only the on event, a minute later: this session's hooks aren't writing,
     # usually because they were loaded before the board existed.
     if [ "$state" = on ] && [ "$(wc -l <"$dir/events.js" 2>/dev/null | tr -d ' ')" = 1 ] &&

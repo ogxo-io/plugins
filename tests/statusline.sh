@@ -146,5 +146,33 @@ expect "route: other session has no segment" "$tmp/route3.json" "Opus" "subagent
 echo '{"ts":1,"session_id":"s1","subagent_type":"ogxo-route:scout","requested_model":null,"nested":false}' >"$tmp/alt.jsonl"
 expect "--route-log, singular, no-model hidden at 0" "$tmp/route.json" "⇄ 1 subagent" "no-model" --route-log="$tmp/alt.jsonl"
 
+# Plan usage shared with ogxo-route's board: dash/limits.js next to the log.
+dashd="$tmp/cfg/plugins/data/ogxo-route-ogxo/dash"
+lim="$dashd/limits.js"
+# check <description> <command...>: pass when the command succeeds.
+check() { if "${@:2}" >/dev/null 2>&1; then pass=$((pass + 1)); else fail=$((fail + 1)); echo "FAIL: $1"; fi; }
+limits() { sed -e 's/^L(//' -e 's/);$//' "$lim" | jq -e "$1"; }
+rm -rf "$dashd"
+render "$tmp/full.json" >/dev/null
+check "limits: nothing written without a board folder" [ ! -e "$lim" ]
+mkdir -p "$dashd"
+render "$tmp/full.json" >/dev/null
+check "limits: written into the board folder" limits '.h5.p == 23.5 and .d7.p == 91.2 and .sp.p == 62.8 and (.h5.r | type) == "number" and (.t | type) == "number"'
+check "limits: one L(...) line" [ "$(wc -l <"$lim" | tr -d ' ')" = 1 ]
+check "limits: no temp files left" bash -c '[ -z "$(ls "$1" | grep tmp)" ]' _ "$dashd"
+rm -f "$lim"
+render "$tmp/full.json" --no-route >/dev/null
+check "limits: --no-route writes nothing" [ ! -e "$lim" ]
+render "$tmp/norate.json" >/dev/null
+check "limits: nothing without rate_limits" [ ! -e "$lim" ]
+render "$tmp/partial.json" >/dev/null
+check "limits: only the windows sent" limits '(has("h5") | not) and (has("sp") | not) and .d7.p == 91.2'
+jq '.rate_limits.five_hour = {used_percentage: "9; rm -rf /", resets_at: "x"}' "$tmp/full.json" >"$tmp/bad.json"
+render "$tmp/bad.json" >/dev/null
+check "limits: non-numbers dropped" limits '(has("h5") | not) and .d7.p == 91.2'
+mkdir -p "$tmp/dash"
+render "$tmp/full.json" --route-log="$tmp/alt.jsonl" >/dev/null
+check "limits: --route-log moves the folder too" [ -s "$tmp/dash/limits.js" ]
+
 echo "statusline tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

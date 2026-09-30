@@ -7,13 +7,16 @@
 #   2. 5-hour and 7-day plan usage, and the spend limit when one is set
 # Every value comes from stdin or local git; the script makes no network calls
 # and reads no credentials. Line 2 appears only when Claude Code sends
-# rate_limits (claude.ai Pro/Max, or a gateway with a spend limit).
+# rate_limits (claude.ai Pro/Max, or a gateway with a spend limit). When
+# ogxo-route's board folder exists, the plan usage is also written to
+# limits.js there for the live board (--no-route turns that off).
 #
 # Options (add them to the statusLine command in settings.json):
 #   --no-git          skip the git branch segment
 #   --no-usage        skip the plan usage line
 #   --no-cache        skip output tokens and prompt-cache status
-#   --no-route        skip the ogxo-route subagent count
+#   --no-route        skip the ogxo-route subagent count, and don't share plan
+#                     usage with its live board (dash/limits.js)
 #   --route-log=PATH  ogxo-route dispatch log to read (default: the plugin's
 #                     data dir under $CLAUDE_CONFIG_DIR, else $HOME/.claude)
 #   --cost=MODE       session cost: auto (only without plan usage, the default),
@@ -282,6 +285,31 @@ fi
 
 has_usage=false
 [ -n "$h5_pct$d7_pct$sp_pct" ] && has_usage=true
+
+# Share the plan usage with ogxo-route's live board: when its board folder
+# exists (next to the dispatch log), write limits.js there for the pages to
+# read. Numbers only, written to a temp file and moved into place.
+# window_json <used %> <resets_at>: {"p":..,"r":..}, or nothing when unusable.
+window_json() {
+    [[ $1 =~ ^[0-9]+(\.[0-9]+)?$ ]] || return 0
+    local r=null
+    [[ $2 =~ ^[0-9]+$ ]] && r=$2
+    printf '{"p":%s,"r":%s}' "$1" "$r"
+}
+if $show_route && $has_usage; then
+    [ -n "$route_log" ] || route_log="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/data/ogxo-route-ogxo/dispatches.jsonl"
+    dash_dir="$(dirname "$route_log")/dash"
+    if [ -d "$dash_dir" ] && [ ! -L "$dash_dir" ]; then
+        limits="{\"t\":$now"
+        for w in "h5 $h5_pct $h5_reset" "d7 $d7_pct $d7_reset" "sp $sp_pct $sp_reset"; do
+            read -r w_key w_pct w_reset <<<"$w"
+            w_json=$(window_json "$w_pct" "$w_reset")
+            [ -n "$w_json" ] && limits+=",\"$w_key\":$w_json"
+        done
+        printf 'L(%s});\n' "$limits" >"$dash_dir/limits.js.tmp.$$" 2>/dev/null &&
+            mv -f "$dash_dir/limits.js.tmp.$$" "$dash_dir/limits.js" 2>/dev/null
+    fi
+fi
 if [ -n "$cost_usd" ]; then
     if [ "$cost_mode" = always ] || { [ "$cost_mode" = auto ] && ! $has_usage; }; then
         line1+="${sep}${white}$(awk -v c="$cost_usd" 'BEGIN { printf "$%.2f", c }')${reset}"

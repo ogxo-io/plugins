@@ -870,7 +870,7 @@ expect "dash.sh: registry lists boards without meta.json" reg_has 'any(.[]; .sid
 expect "dash.sh: registry skips bad names and symlinks" reg_has 'length == 2 and all(.[]; .sid != "bad.name" and .sid != "lnk")'
 expect "dash.sh: registry lines are B(...) calls" bash -c '! grep -qv "^B({.*});$" "$1"' _ "$data/dash/boards.js"
 expect "dash.sh: registry leaves no temp files" [ "$(ls "$data/dash" | grep -c 'tmp')" = 0 ]
-expect "command: dashboard argument hint" grep -qF 'argument-hint: "[on|off|status|hub|demo]"' "$cmdf"
+expect "command: dashboard argument hint" grep -qF 'argument-hint: "[on|off|status|hub|demo|serve [port|stop]]"' "$cmdf"
 expect "command: dashboard may open the page" grep -qF 'Bash(open:*), Bash(xdg-open:*)' "$cmdf"
 
 # A spy jq on PATH records whether the hook got past its bash checks.
@@ -1008,6 +1008,71 @@ if command -v node >/dev/null 2>&1; then
   printf '%s\n' 'const r = [costOf({in: 1e6}, "claude-opus-5-5"), costOf({cw1: 1e6}, "claude-opus-5-5"), costOf({cr: 1e6}, "claude-haiku-4-5-20251001"), costOf({out: 1e6}, "claude-fable-5-1"), costOf({in: 1}, "gpt-x")];' 'process.stdout.write(JSON.stringify(r));' >>"$tmp/prices.js"
   expect "dashboard: prices by model prefix, 1-hour writes at 2x, unknown model has no price" bash -c '[ "$(node "$1")" = "[4,8,0.1,50,null]" ]' _ "$tmp/prices.js"
 fi
+
+# --- plan usage (limits.js, written by ogxo-statusline) ---
+limitsblock() { sed -n '/  \/\/ limits:begin/,/  \/\/ limits:end/p' "$1"; }
+la=$(limitsblock "$page"); lb=$(limitsblock "$hubp")
+expect "limits: board has the formatter" [ -n "$la" ]
+expect "limits: board and hub use the same formatter" [ "$la" = "$lb" ]
+expect "limits: board reads ../limits.js" grep -qF "'../limits.js?'" "$page"
+expect "limits: hub reads limits.js" grep -qF "loadScript('limits.js'" "$hubp"
+if command -v node >/dev/null 2>&1; then
+  { printf '%s\n' "$la"
+    cat <<'JS'
+const now = Date.UTC(2026, 8, 30, 12, 0, 0), s = now / 1000;
+const out = [
+  limitParts({ t: s - 60, h5: { p: 23.5, r: s + 3600 }, d7: { p: 91.2, r: s + 2 * 86400 }, sp: { p: 5, r: s - 60 } }, now),
+  limitParts({ t: s - 7200, h5: { p: 80, r: null } }, now),
+  limitParts({ t: s, h5: { p: 'x' } }, now),
+  limitParts(null, now),
+];
+process.stdout.write(JSON.stringify(out));
+JS
+  } >"$tmp/limits.js"
+  want='[[["5h 77% left, resets 13:00","fg"],["week 9% left, resets Fri 2 12:00","err"],["spend reset at 11:59","dim"]],[["5h 20% left","warn"],["as of 2h ago","dim"]],[],[]]'
+  expect "limits: percent left, reset time or weekday, rolled-over windows, stale readings" bash -c '[ "$(TZ=UTC node "$1")" = "$2" ]' _ "$tmp/limits.js" "$want"
+fi
+
+# --- dash.sh serve ---
+if command -v python3 >/dev/null 2>&1 && command -v curl >/dev/null 2>&1; then
+  reset_data
+  ctl -- on
+  sport=$((20000 + RANDOM % 20000))
+  ctl -- serve "$sport"
+  expect "serve: exit 0" [ "$code" -eq 0 ]
+  expect "serve: prints the hub URL on localhost" grep -qx "Open: http://127.0.0.1:$sport/index.html" <<<"$out"
+  expect "serve: names the stop command" grep -qF 'serve stop' <<<"$out"
+  expect "serve: serves the hub" curl -fsS -o /dev/null "http://127.0.0.1:$sport/index.html"
+  expect "serve: serves a board" curl -fsS -o /dev/null "http://127.0.0.1:$sport/$sid/index.html"
+  spid=$(awk '{print $1}' "$data/dash/serve.pid")
+  expect "serve: the server binds 127.0.0.1 only" bash -c 'ps -o args= -p "$1" | grep -qF -- "--bind 127.0.0.1"' _ "$spid"
+  ctl -- serve
+  expect "serve: a second call reuses the running server" grep -qx "Open: http://127.0.0.1:$sport/index.html" <<<"$out"
+  expect "serve: same process" [ "$(awk '{print $1}' "$data/dash/serve.pid")" = "$spid" ]
+  ctl -- status
+  expect "serve: status shows the served board URL" grep -qx "Served at: http://127.0.0.1:$sport/$sid/index.html" <<<"$out"
+  ctl -- on
+  expect "serve: on shows the served board URL" grep -qF "http://127.0.0.1:$sport/$sid/index.html" <<<"$out"
+  data2="$tmp/data2"
+  mkdir -p "$data2"
+  ctl CLAUDE_PLUGIN_DATA="$data2" -- serve "$sport"
+  expect "serve: a taken port moves to the next" grep -qx "Open: http://127.0.0.1:$((sport + 1))/index.html" <<<"$out"
+  ctl CLAUDE_PLUGIN_DATA="$data2" -- serve stop
+  ctl -- serve stop
+  expect "serve: stop says so" grep -q "Stopped the board server on port $sport" <<<"$out"
+  expect "serve: stop removes the pid file" [ ! -e "$data/dash/serve.pid" ]
+  sleep 0.3
+  expect "serve: stopped server no longer answers" bash -c '! curl -fsS -m 2 -o /dev/null "http://127.0.0.1:$1/" 2>/dev/null' _ "$sport"
+  ctl -- serve stop
+  expect "serve: stop with nothing running" grep -q 'No board server is running' <<<"$out"
+  kill "$spid" 2>/dev/null
+else
+  echo "SKIP: dash.sh serve (python3 or curl not installed)"
+fi
+for bad in 80 70000 abc; do
+  ctl -- serve "$bad"
+  expect "serve: rejects port '$bad' with exit 2" [ "$code" -eq 2 ]
+done
 
 echo "route tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

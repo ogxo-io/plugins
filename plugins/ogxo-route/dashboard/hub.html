@@ -207,6 +207,7 @@ pre .ln { display: block; min-height: 1.5em; }
   // turned on or off; each board's own events.js is summarised here.
   let boards = [];
   let loadedOnce = false, registryMissing = false;
+  let LIM = null;
   const stats = new Map();
 
   function loadScript(src, bind) {
@@ -220,6 +221,38 @@ pre .ln { display: block; min-height: 1.5em; }
       document.head.appendChild(s);
     });
   }
+
+  // limits:begin
+  // Plan usage from dash/limits.js, which ogxo-statusline writes as
+  // L({t, h5: {p, r}, d7: {p, r}, sp: {p, r}}): p is percent used, r the
+  // window's reset time and t the reading's time, both in epoch seconds.
+  // Returns [text, class] parts to print in order, or [] without data.
+  function limitParts(lim, nowMs) {
+    if (!lim || typeof lim !== 'object' || typeof lim.t !== 'number') return [];
+    const p2 = (n) => String(n).padStart(2, '0');
+    const when = (ms) => {
+      const d = new Date(ms);
+      const hm = `${p2(d.getHours())}:${p2(d.getMinutes())}`;
+      if (d.toDateString() === new Date(nowMs).toDateString()) return hm;
+      return `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()]} ${d.getDate()} ${hm}`;
+    };
+    const parts = [];
+    for (const [k, label] of [['h5', '5h'], ['d7', 'week'], ['sp', 'spend']]) {
+      const w = lim[k];
+      if (!w || typeof w.p !== 'number') continue;
+      const r = typeof w.r === 'number' ? w.r * 1000 : null;
+      // The window rolled over after the reading: its new usage is unknown.
+      if (r != null && r <= nowMs) { parts.push([`${label} reset at ${when(r)}`, 'dim']); continue; }
+      const left = Math.max(0, Math.min(100, Math.round(100 - w.p)));
+      parts.push([`${label} ${left}% left` + (r != null ? `, resets ${when(r)}` : ''), left < 10 ? 'err' : left < 25 ? 'warn' : 'fg']);
+    }
+    const age = nowMs - lim.t * 1000;
+    if (parts.length && age > 10 * 60000) {
+      parts.push([`as of ${age >= 3600000 ? Math.floor(age / 3600000) + 'h' : Math.round(age / 60000) + 'm'} ago`, 'dim']);
+    }
+    return parts;
+  }
+  // limits:end
 
   // List prices in USD per million tokens (Anthropic API, 2026-09-25):
   // input, output, 5-minute cache write, 1-hour cache write, cache read.
@@ -286,6 +319,8 @@ pre .ln { display: block; min-height: 1.5em; }
 
   async function refresh() {
     const got = await loadScript('boards.js', (fn) => { window.B = fn; });
+    const lim = await loadScript('limits.js', (fn) => { window.L = fn; });
+    LIM = lim && lim.length ? lim[lim.length - 1] : LIM;
     loadedOnce = true;
     registryMissing = got == null;
     if (got) {
@@ -321,7 +356,8 @@ pre .ln { display: block; min-height: 1.5em; }
 
   function renderHead() {
     const W = colsOf(headEl);
-    const g = new Grid(W, 3);
+    const lp = limitParts(LIM, Date.now());
+    const g = new Grid(W, lp.length ? 4 : 3);
     g.put(0, 0, 'ROUTE BOARDS', 'hi b');
     g.put(14, 0, 'every session with a board, newest activity first', 'dim');
     g.put(0, 1, '='.repeat(W), 'faint');
@@ -341,6 +377,11 @@ pre .ln { display: block; min-height: 1.5em; }
       const txt = 'list-price cost by project: ' + [...byRepo.entries()].sort((p, q) => q[1] - p[1]).map(([k, v]) => `${k} ${usd(v)}`).join('   ');
       const x = (on > 9 ? 14 : 13) + `${busy} working`.length + 4;
       g.put(x, 2, clip(txt, W - x), 'dim');
+    }
+    if (lp.length) {
+      let lx = 0;
+      g.put(lx, 3, 'plan', 'dim'); lx += 6;
+      for (const [t, c] of lp) { if (lx >= W) break; g.put(lx, 3, clip(t, W - lx), c); lx += t.length + 3; }
     }
     paint(headEl, g.html());
   }

@@ -191,6 +191,38 @@ pre .ln { display: block; min-height: 1.5em; }
     'ogxo-route:implementer-risky': 'high',
   };
   const ALIAS = { 'general-purpose': 'general', 'implementer-risky': 'impl-risky', 'code-review-agent': 'code-review' };
+  // limits:begin
+  // Plan usage from dash/limits.js, which ogxo-statusline writes as
+  // L({t, h5: {p, r}, d7: {p, r}, sp: {p, r}}): p is percent used, r the
+  // window's reset time and t the reading's time, both in epoch seconds.
+  // Returns [text, class] parts to print in order, or [] without data.
+  function limitParts(lim, nowMs) {
+    if (!lim || typeof lim !== 'object' || typeof lim.t !== 'number') return [];
+    const p2 = (n) => String(n).padStart(2, '0');
+    const when = (ms) => {
+      const d = new Date(ms);
+      const hm = `${p2(d.getHours())}:${p2(d.getMinutes())}`;
+      if (d.toDateString() === new Date(nowMs).toDateString()) return hm;
+      return `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()]} ${d.getDate()} ${hm}`;
+    };
+    const parts = [];
+    for (const [k, label] of [['h5', '5h'], ['d7', 'week'], ['sp', 'spend']]) {
+      const w = lim[k];
+      if (!w || typeof w.p !== 'number') continue;
+      const r = typeof w.r === 'number' ? w.r * 1000 : null;
+      // The window rolled over after the reading: its new usage is unknown.
+      if (r != null && r <= nowMs) { parts.push([`${label} reset at ${when(r)}`, 'dim']); continue; }
+      const left = Math.max(0, Math.min(100, Math.round(100 - w.p)));
+      parts.push([`${label} ${left}% left` + (r != null ? `, resets ${when(r)}` : ''), left < 10 ? 'err' : left < 25 ? 'warn' : 'fg']);
+    }
+    const age = nowMs - lim.t * 1000;
+    if (parts.length && age > 10 * 60000) {
+      parts.push([`as of ${age >= 3600000 ? Math.floor(age / 3600000) + 'h' : Math.round(age / 60000) + 'm'} ago`, 'dim']);
+    }
+    return parts;
+  }
+  // limits:end
+
   // List prices in USD per million tokens (Anthropic API, 2026-09-25):
   // input, output, 5-minute cache write, 1-hour cache write, cache read.
   // First matching prefix wins. Update with the price list; hub.html has
@@ -650,9 +682,19 @@ pre .ln { display: block; min-height: 1.5em; }
     }
     g.put(W - right.length, 2, st, sc); g.put(W - el2.length, 2, el2, 'hi');
 
-    g.put(2, 3, '> main plans + routes.', 'dim');
-    g.put(25, 3, 'workers ship scoped work.', 'dim');
-    if (W > 80) g.put(52, 3, 'reviews stay at opus+.', 'dim');
+    // Plan usage on the right of the last row; the tagline gives way to it.
+    const lp = limitParts(LIM, Date.now());
+    const lw = lp.reduce((n, [t]) => n + t.length + 3, lp.length ? 5 : 0);
+    if (!lp.length || W - lw > 52) {
+      g.put(2, 3, '> main plans + routes.', 'dim');
+      if (!lp.length || W - lw > 80) g.put(25, 3, 'workers ship scoped work.', 'dim');
+      if (!lp.length && W > 80) g.put(52, 3, 'reviews stay at opus+.', 'dim');
+    }
+    if (lp.length && lw <= W) {
+      let lx = W - lw + 3;
+      g.put(lx, 3, 'plan', 'dim'); lx += 5;
+      for (const [t, c] of lp) { g.put(lx, 3, t, c); lx += t.length + 3; }
+    }
     paint(el, g.html());
     document.getElementById('wtitle').textContent = `~/${S.repo || 'session'}  route board${DEMO ? '  (demo)' : ''}`;
   }
@@ -1209,6 +1251,17 @@ pre .ln { display: block; min-height: 1.5em; }
   // page. A script tag loads from file:// where fetch() usually can't, so the
   // page re-adds one each poll and ingests only the lines it hasn't seen.
   let seen = 0, loading = false;
+  // Plan usage, shared by every board: ../limits.js, re-read every few seconds.
+  let LIM = null, limAt = 0;
+  function pollLimits() {
+    if (Date.now() - limAt < 5000) return;
+    limAt = Date.now();
+    const s = document.createElement('script');
+    window.L = (x) => { LIM = x; };
+    s.src = '../limits.js?' + Date.now();
+    s.onload = s.onerror = () => s.remove();
+    document.head.appendChild(s);
+  }
   function poll() {
     if (loading) return;
     loading = true;
@@ -1298,6 +1351,8 @@ pre .ln { display: block; min-height: 1.5em; }
   }
   function runDemo() {
     const script = demoScript();
+    const nowS = Math.floor(Date.now() / 1000);
+    LIM = { t: nowS, h5: { p: 38, r: nowS + 2 * 3600 + 900 }, d7: { p: 71, r: nowS + 3 * 86400 } };
     const loopMs = 56000;
     let start = Date.now(), i = 0;
     S.loaded = true;
@@ -1318,7 +1373,7 @@ pre .ln { display: block; min-height: 1.5em; }
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
   addEventListener('resize', measure);
   if (DEMO) runDemo();
-  else { poll(); setInterval(() => { if (!document.hidden) poll(); }, 800); }
+  else { poll(); pollLimits(); setInterval(() => { if (!document.hidden) { poll(); pollLimits(); } }, 800); }
   render();
   setInterval(render, REDUCE ? 1000 : 125);
 })();

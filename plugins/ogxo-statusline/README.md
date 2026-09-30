@@ -13,6 +13,7 @@ Opus │ ◔ 43% (426k/1.0m) │ plugins (main*) ↑1 ~1 │ ⏱ 1h15m │ ◐ t
   - The cache segment adds `cold in 4m` during the cache's last ten minutes, and `cold` once it has expired, since the next message then re-processes the whole prompt.
   - Session cost is Claude Code's list-price estimate. By default it shows only when there's no plan usage line, which is the case for API-key users.
 - **Line 2:** 5-hour and 7-day plan usage with reset times, and the spend limit when a Claude apps gateway sets one. It appears only when Claude Code sends that data (claude.ai Pro and Max, after the first response).
+  - With ogxo-route's live board in use (its `dash` folder exists), the status line also writes these numbers (percent used and reset time, nothing else) to `limits.js` in that folder, so the board and the hub can show them. Hooks don't receive plan usage, so this is how the board gets it; re-run `/ogxo-statusline:setup` after updating so your copy of the script does this. `--no-route` turns it off.
 
 ```bash
 claude plugin marketplace add ogxo-io/plugins
@@ -28,7 +29,7 @@ Add options to the `statusLine` command, for example `"command": "~/.claude/ogxo
 | `--no-git` | Skip the git branch segment |
 | `--no-usage` | Skip the plan usage line |
 | `--no-cache` | Skip output tokens and prompt-cache status |
-| `--no-route` | Skip the ogxo-route subagent count |
+| `--no-route` | Skip the ogxo-route subagent count, and don't share plan usage with its live board |
 | `--route-log=PATH` | ogxo-route dispatch log to read (default: its plugin data dir under `$CLAUDE_CONFIG_DIR`, else `$HOME/.claude`) |
 | `--cost=auto\|always\|never` | Session cost: only without plan usage (default), always, or never |
 | `--basic-colors` | 16-color ANSI instead of 24-bit color |
