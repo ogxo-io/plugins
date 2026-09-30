@@ -1,5 +1,5 @@
 {
-  "description": "ogxo-route: session-start routing summary (Claude Code only), a warning when Explore/general-purpose/Plan is dispatched without a model, a local log of each subagent dispatch, and marking grok off for routing when it reports an exhausted balance (HTTP 402). Warns, never blocks. Requires jq.",
+  "description": "ogxo-route: session-start routing summary (Claude Code only), a warning when Explore/general-purpose/Plan is dispatched without a model, a local log of each subagent dispatch and of permission requests and prompt notifications, marking grok off for routing when it reports an exhausted balance (HTTP 402), and opt-in alerts when Claude Code waits on a permission prompt. Warns, never blocks. Requires jq.",
   "hooks": {
     "SessionStart": [
       {
@@ -39,6 +39,31 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/quota-watch.sh\""
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/permission-log.sh\""
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "permission_prompt|agent_needs_input",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/permission-log.sh\""
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/prompt-alert.sh\""
           }
         ]
       }

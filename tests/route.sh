@@ -333,5 +333,88 @@ for a in implementer implementer-risky; do
 done
 expect "anchor: shared build cache" grep -q 'shared build cache' "$plugin/hooks/anchor.md"
 
+# --- permission log, prompt alerts ---------------------------------------------
+plog="$plugin/hooks/permission-log.sh"
+palert="$plugin/hooks/prompt-alert.sh"
+alerts="$plugin/scripts/alerts.sh"
+stats="$plugin/scripts/stats.sh"
+
+reset_data
+run_hook "$plog" '{"session_id":"s1","hook_event_name":"PermissionRequest","tool_name":"Bash","permission_mode":"auto","agent_id":"a1","agent_type":"ogxo-route:implementer","tool_input":{"command":"rm secret-file"}}'
+expect "permission-log: exit 0" [ "$code" -eq 0 ]
+expect "permission-log: no output, so no decision" [ -z "$out" ]
+expect "permission-log: fields" jq -e '.event == "PermissionRequest" and .tool == "Bash" and .mode == "auto" and .nested == true and .agent_type == "ogxo-route:implementer"' "$data/permissions.jsonl"
+expect "permission-log: no command text logged" bash -c "! grep -q 'secret-file' '$data/permissions.jsonl'"
+run_hook "$plog" '{"session_id":"s1","hook_event_name":"Notification","notification_type":"permission_prompt","message":"Claude needs permission to run rm secret-file"}'
+expect "permission-log: notification logged" jq -se '.[1].event == "Notification" and .[1].notification_type == "permission_prompt" and .[1].nested == false' "$data/permissions.jsonl"
+expect "permission-log: no message text logged" bash -c "! grep -q 'secret-file' '$data/permissions.jsonl'"
+run_hook "$plog" 'not json'
+expect "permission-log: garbage exits 0" [ "$code" -eq 0 ]
+run_hook "$plog" '{}' PATH="$nojq"
+expect "permission-log: no jq prints notice" grep -q 'jq not found' "$tmp/err"
+
+runx "$stats"
+expect "stats: permission section" grep -q 'Permission requests in the last 7 days: 1 (1 from inside subagents)' <<<"$out"
+expect "stats: notification count" grep -q 'Prompt notifications: 1' <<<"$out"
+expect "stats: permission log path" grep -qF "Permission log: $data/permissions.jsonl" <<<"$out"
+
+# Stand-ins for the notifiers, recording their arguments.
+shim="$tmp/shim"
+mkdir -p "$shim"
+for b in osascript notify-send curl terminal-notifier; do
+  printf '#!/usr/bin/env bash\nprintf "%%s\\n" "%s $*" >>"%s/calls"\n' "$b" "$tmp" >"$shim/$b"
+  chmod +x "$shim/$b"
+done
+note='{"hook_event_name":"Notification","notification_type":"permission_prompt","message":"Claude needs permission to run rm secret-file"}'
+
+reset_data
+rm -f "$tmp/calls"
+run_hook "$palert" "$note" PATH="$shim:$PATH"
+expect "prompt-alert: off by default, exit 0" [ "$code" -eq 0 ]
+expect "prompt-alert: off by default, no notifier" [ ! -e "$tmp/calls" ]
+
+runx "$alerts" on
+expect "alerts: on" grep -q 'Alerts on' <<<"$out"
+expect "alerts: state enabled" jq -e '.enabled == true and (has("push_url") | not)' "$data/alerts.json"
+mv "$shim/terminal-notifier" "$tmp/tn-aside"
+run_hook "$palert" "$note" PATH="$shim:$PATH"
+expect "prompt-alert: desktop notification sent" grep -q '^osascript .*secret-file' "$tmp/calls"
+mv "$tmp/tn-aside" "$shim/terminal-notifier"
+rm -f "$tmp/calls"
+run_hook "$palert" "$note" PATH="$shim:$PATH" __CFBundleIdentifier=com.example.Terminal
+expect "prompt-alert: terminal-notifier preferred" grep -q '^terminal-notifier .*secret-file' "$tmp/calls"
+expect "prompt-alert: click activates the host app" grep -q -- '-activate com.example.Terminal' "$tmp/calls"
+expect "prompt-alert: no osascript when terminal-notifier exists" bash -c "! grep -q '^osascript' '$tmp/calls'"
+cp "$shim/terminal-notifier" "$tmp/tn-ok"
+printf '#!/usr/bin/env bash\nprintf "%%s\\n" "terminal-notifier $*" >>"%s/calls"\nexit 3\n' "$tmp" >"$shim/terminal-notifier"
+rm -f "$tmp/calls"
+run_hook "$palert" "$note" PATH="$shim:$PATH"
+expect "prompt-alert: falls back to osascript when terminal-notifier fails" grep -q '^osascript .*secret-file' "$tmp/calls"
+mv "$tmp/tn-ok" "$shim/terminal-notifier"
+expect "prompt-alert: no push without a URL" bash -c "! grep -q '^curl' '$tmp/calls'"
+
+rm -f "$tmp/calls"
+runx "$alerts" on https://ntfy.example/topic
+expect "alerts: push URL stored" jq -e '.push_url == "https://ntfy.example/topic"' "$data/alerts.json"
+run_hook "$palert" "$note" PATH="$shim:$PATH"
+expect "prompt-alert: push posted" grep -q '^curl .*https://ntfy.example/topic' "$tmp/calls"
+expect "prompt-alert: push carries no prompt text" bash -c "! grep '^curl' '$tmp/calls' | grep -q 'secret-file'"
+
+runx "$alerts" on http://insecure.example
+expect "alerts: non-https push rejected" [ "$code" -eq 2 ]
+runx "$alerts" off
+expect "alerts: off" jq -e '.enabled == false' "$data/alerts.json"
+rm -f "$tmp/calls"
+run_hook "$palert" "$note" PATH="$shim:$PATH"
+expect "prompt-alert: off again, no notifier" [ ! -e "$tmp/calls" ]
+runx "$alerts"
+expect "alerts: status prints state file" grep -qF "State: $data/alerts.json" <<<"$out"
+runx "$alerts" bogus
+expect "alerts: bad action exits 2" [ "$code" -eq 2 ]
+
+expect "hooks: permission-log on PermissionRequest" jq -e '[.hooks.PermissionRequest[].hooks[].command | contains("permission-log.sh")] | any' "$plugin/hooks/hooks.json"
+expect "hooks: alert on permission prompts" jq -e '[.hooks.Notification[] | select(.matcher == "permission_prompt|agent_needs_input") | .hooks[].command | contains("prompt-alert.sh")] | any' "$plugin/hooks/hooks.json"
+expect "hooks: no PermissionRequest decision output anywhere" bash -c "! grep -rq 'behavior' '$plugin/hooks'"
+
 echo "route tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
