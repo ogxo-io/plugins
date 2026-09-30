@@ -1,6 +1,6 @@
 ---
 name: thryx
-description: Use when calling ThryX MCP tools - finding or updating your own tickets, moving a ticket's status, filing a ticket or follow-up tickets for work found mid-task, linking a pull request, searching issues, reading or editing a project document, or any other ThryX workspace call. Also use when the user says thryx, or names a ticket key from their ThryX workspace. Covers how the tools behave; the product-management skill covers PM work such as cycles, status reviews, PRDs, ADRs, and the macro board.
+description: Use when calling ThryX MCP tools - starting, picking up, implementing, or continuing work on a ticket (including one named only in the branch), finding or updating your own tickets, moving a ticket's status, filing a ticket or follow-up tickets for work found mid-task, linking a pull request, searching issues, reading or editing a project document, or any other ThryX workspace call. Also use when the user says thryx, or names a ticket key from their ThryX workspace. Covers how the tools behave; the product-management skill covers PM work such as cycles, status reviews, PRDs, ADRs, and the macro board.
 ---
 
 # ThryX — driving the workspace without flailing
@@ -16,6 +16,35 @@ which comes from `THRYX_WORKSPACE` — not from anything said in the
 conversation. If you are unsure which workspace that is, list projects
 before mutating anything.
 
+## Starting a ticket: mark it before you touch the code
+
+Once work on a ticket begins, the board is the only place the rest of the
+team can see it. Make the ticket say so before your first read of the
+code, not after the change is done. This applies whenever a ticket key
+meets a request to do the work: "work on", "pick up", "implement", "fix",
+"continue", "let's do". It also applies in the two cases where nobody
+says "start": the key is only in the branch name, and you have just filed
+a ticket that you are now going to do.
+
+1. `get_issue` for the ticket's status and assignee.
+2. `list_statuses` for the project. Statuses carry a `category`; the
+   in-progress state is the first one whose category is `started`
+   (usually In Progress). Don't guess the name.
+3. Then, from where the ticket is:
+   - **Triage, Backlog, Ready** (`triage` or `unstarted`): move it to that
+     in-progress state.
+   - **Already `started`**: leave the status alone. In Review stays in
+     Review; say so if you are reopening work that was under review.
+   - **`completed` or `canceled`**: don't move it. Ask whether this is a
+     reopen or new work that needs its own ticket.
+4. **Assignee.** When it has none, set `assignee_email` to the user
+   (`whoami` gives the token owner's email). When someone else holds it,
+   say who and ask before changing either the status or the assignee:
+   it is their ticket.
+
+Status and assignee go in one `update_issue` call. Say in one line what
+you changed ("THRY-12 → In Progress, assigned to you"), then start.
+
 ## Which hat you are wearing
 
 ThryX is the team's tracker, and this server has two kinds of caller: the
@@ -30,8 +59,8 @@ the whole ticket, including the client deliverables it counts toward
 workflow state names are per project, not a fixed vocabulary, so read
 them rather than assume. `update_issue` refuses fields it does not take
 rather than ignoring them: pass `assignee_email` (not `assignee`),
-`status` by name (not `status_id`), and put an estimate in the
-description, since there is no field for it. A status change does not take a ticket out
+`status` by name (not `status_id`), and `estimate` only when the tool
+lists it (otherwise the estimate goes in the description). A status change does not take a ticket out
 of its sprint; to stop work on one, `postpone_issue` sends it to Backlog
 and out of any live cycle. A pull request whose branch or title names
 the ticket key links itself; `link_pull_request` is for the one that did
@@ -41,12 +70,8 @@ is answered by `list_pull_requests`, from the code, not from the status
 field. Put what you found in `add_comment` so the next person does not
 repeat the digging.
 
-**Starting a ticket.** When the user starts work on a ticket, make the
-ticket say so, in one `update_issue` call: move it to the project's
-in-progress state (the name comes from `list_statuses`), and if it has no
-assignee, set `assignee_email` to the user: `whoami` gives the email of
-the person whose token this is. If someone else already holds the
-ticket, say who and ask before reassigning it.
+Starting a ticket has its own section below, because it is the step that
+gets skipped.
 
 **Work found mid-task.** Implementing a ticket turns up things it did not
 ask for: a bug next door, debt in the code you are touching, a missing
@@ -59,8 +84,8 @@ follow-up ticket for each, all in one message. For each follow-up:
 - search first, as for any new ticket;
 - pick `issue_type` from what it is (`bug`, `technical_debt`, `feature`);
 - suggest the current ticket's epic as `parent_issue_key`, and Triage
-  with no cycle and no assignee unless the user says otherwise (see
-  "Settle where a new ticket goes");
+  with no cycle unless the user says otherwise, plus a priority, an
+  estimate, and an assignee (see "Settle where a new ticket goes");
 - write the description for someone who has only that ticket. The
   product-management skill's ticket reference has the full shape; for a
   follow-up, the title plus Today, Should, and Where are enough, along
@@ -118,23 +143,65 @@ the user has not already said:
   rows whose `issue_type` is `epic`; `project_structure` only counts them.
   If one fits, ask "file it under EPIC-KEY?" and pass `parent_issue_key`
   when the user agrees. If none fits, say so rather than forcing a match.
+- **Priority.** Always set it. ThryX has no separate severity field;
+  `priority` (`urgent`, `high`, `medium`, `low`) is it. Pick it from who
+  is affected and what slips without it: a bug that loses data or blocks
+  sign-in is urgent, a cosmetic one is low. The tools say to set it only
+  when the person gave one, which is why it goes to the user for
+  confirmation below: once they confirm it, it is theirs.
+- **Estimate.** Always set it, sized from comparables: `search_issues`
+  with `include_done` in the same project for finished tickets like it,
+  quoting what they cost. When nothing compares, give your best number
+  and say it is a guess. When `create_issue` lists an `estimate` field,
+  pass it (a whole number of story points); when it doesn't, add an
+  **Estimate** line to the description with the comparables it rests on.
+- **Assignee.** The user, the person whose recent work is closest to
+  this ticket (see "Suggesting an assignee" below), or nobody.
 
-Ask these together so the user answers once, along with the assignee
-when you are filing for someone who has not said. If the host has a
+Ask these together so the user answers once. If the host has a
 multiple-choice question tool (in Claude Code, `AskUserQuestion`: up to
 four questions, two to four options each, and it always adds a free-text
-"Other"), use it, one question per decision:
+"Other"), use it, folding the decisions into four questions:
 
-- **State:** Triage, Backlog, Ready.
-- **Cycle:** the running cycle and the next planned one by name, and "No
-  cycle".
+- **Where:** the running cycle and the next planned one by name,
+  "Backlog", and "Triage". A cycle sets the scheduled state itself, so
+  one answer covers both state and cycle; "Other" takes Ready.
 - **Epic:** the one to three epics that fit best, and "No epic". When none
   fits, skip the question and say so.
-- **Assignee:** the user by email, and "Unassigned".
+- **Priority and estimate:** your pair first ("high · 3 points"), with
+  the reason and the comparables in its description, and one or two
+  neighbouring pairs. "Other" takes any correction.
+- **Assignee:** "Me (<email>)", the one or two best-fit people with the
+  evidence in the description ("closed THRY-275 and THRY-223, 3 open
+  tickets"), and "Unassigned". Recommend whichever the analysis
+  supports, which may be the user.
 
 Put your suggestion first in each list, marked "(Recommended)", and give
 each option a one-line reason in its description. Without such a tool,
-ask the same questions in one message, each with your suggestion.
+ask the same questions in one message, each with your suggestion. Either
+way, the ticket is filed with a priority and an estimate.
+
+### Suggesting an assignee
+
+ThryX has no "who knows this" tool, so this is a heuristic built from
+reads you mostly make anyway. Present it as "worked on similar tickets",
+never as expertise.
+
+1. Reuse the duplicate search you already ran for this ticket:
+   `search_issues` with `include_done` in the project. Its rows carry the
+   assignee's name; `semantic_search_issues` rows don't, so take names
+   from `search_issues` or from `get_issue` on the top few semantic hits.
+   Keep only real matches, not low-score noise.
+2. Count assignees across the matches. Someone who holds or closed two
+   of the closest matches counts for more than someone on one distant
+   one.
+3. `get_workload` for the project gives each member's name, email (what
+   `assignee_email` takes), and open ticket count. Say the count next to
+   the name; a close match already carrying a heavy load is worth
+   saying, not hiding.
+
+Offer at most two. When nobody stands out (few matches, or all by the
+user), say that and offer only the user and "Unassigned".
 
 ## Documents are the project's memory
 

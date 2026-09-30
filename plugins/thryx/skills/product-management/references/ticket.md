@@ -50,8 +50,14 @@ should still understand the ticket from Title through Not in scope.
   internal cost, `research` for a question to answer, `decision` for a
   choice to make, and `epic` for a group of tickets. "Task" in the
   person's sentence means "file this", not the type.
-- Leave `priority` out unless the person gave one. A priority you picked
-  looks exactly like one they chose.
+- Every ticket gets a `priority` and an estimate. Choose both yourself
+  and have the person confirm them before filing, since a priority you
+  picked unconfirmed looks exactly like one they chose (the thryx
+  skill's "Settle where a new ticket goes" has the question).
+- Estimate from finished comparables in the same project, and name
+  them. Pass `estimate` (story points) when the create tool lists it;
+  otherwise put an **Estimate** line in the description. With no
+  comparable, give your best number and say it is a guess.
 - Use labels only when the project already uses them for this kind of
   work.
 - Name what you chose in your reply, so a wrong pick takes one click to
@@ -94,5 +100,6 @@ description.
 - Could each Done when check be verified by someone who didn't write it?
 - Did you open every path you named in this session?
 - Did you search for a duplicate?
-- Does the ticket say where it belongs? Settle its state, cycle, and
-  epic as in the thryx skill's "Settle where a new ticket goes".
+- Does the ticket say where it belongs? Settle its state, cycle, epic,
+  priority, estimate, and assignee as in the thryx skill's "Settle where
+  a new ticket goes".
