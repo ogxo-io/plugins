@@ -1,0 +1,1165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Route Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #121419;
+  --frame: #181b21;
+  --bar: #1f232a;
+  --fg: #c0c6d0;
+  --hi: #eef1f6;
+  --dim: #5f6878;
+  --faint: #353b47;
+  --fable: #a99cf6;
+  --opus: #f0a35e;
+  --sonnet: #72a9f2;
+  --haiku: #88d08c;
+  --grok: #f27d98;
+  --codex: #5fd0c4;
+  --ok: #88d08c;
+  --err: #f26d6d;
+  --warn: #e9c85c;
+  --hl: rgba(240, 163, 94, 0.13);
+  --hlerr: rgba(242, 109, 109, 0.15);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #e6e9ee;
+    --frame: #f6f7f9;
+    --bar: #eceff3;
+    --fg: #2f3540;
+    --hi: #0f1319;
+    --dim: #7f8898;
+    --faint: #cdd2da;
+    --fable: #6450d6;
+    --opus: #b35d14;
+    --sonnet: #2467bf;
+    --haiku: #2f8736;
+    --grok: #c2345a;
+    --codex: #127f74;
+    --ok: #2f8736;
+    --err: #c63636;
+    --warn: #8f7000;
+    --hl: rgba(179, 93, 20, 0.1);
+    --hlerr: rgba(198, 54, 54, 0.1);
+  }
+}
+:root[data-theme="light"] {
+  --bg: #e6e9ee;
+  --frame: #f6f7f9;
+  --bar: #eceff3;
+  --fg: #2f3540;
+  --hi: #0f1319;
+  --dim: #7f8898;
+  --faint: #cdd2da;
+  --fable: #6450d6;
+  --opus: #b35d14;
+  --sonnet: #2467bf;
+  --haiku: #2f8736;
+  --grok: #c2345a;
+  --codex: #127f74;
+  --ok: #2f8736;
+  --err: #c63636;
+  --warn: #8f7000;
+  --hl: rgba(179, 93, 20, 0.1);
+  --hlerr: rgba(198, 54, 54, 0.1);
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 0;
+  padding: 24px 16px;
+  min-height: 100vh;
+}
+.window {
+  max-width: 1320px;
+  margin: 0 auto;
+  background: var(--frame);
+  border: 1px solid var(--faint);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.titlebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  background: var(--bar);
+  border-bottom: 1px solid var(--faint);
+  color: var(--dim);
+  font-size: 12px;
+}
+.titlebar i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.titlebar i:nth-child(1) { background: #f2605a; }
+.titlebar i:nth-child(2) { background: #f5bd4f; }
+.titlebar i:nth-child(3) { background: #5fc454; }
+.titlebar span { flex: 1; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.titlebar a { color: var(--dim); text-decoration: none; white-space: nowrap; border-radius: 3px; outline-offset: 2px; }
+.titlebar a:hover { color: var(--hi); }
+.titlebar a:focus-visible { outline: 2px solid var(--sonnet); }
+main { padding: 18px 20px 14px; }
+pre {
+  margin: 0;
+  font: inherit;
+  white-space: pre;
+  overflow: hidden;
+}
+.gap { height: 1.5em; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 0 2ch; }
+@media (max-width: 900px) {
+  .pair { grid-template-columns: 1fr; }
+  .pair > pre + pre { margin-top: 1.5em; }
+}
+@media (max-width: 600px) {
+  body { font-size: 11px; padding: 12px 8px; }
+  main { padding: 12px 10px; }
+}
+#probe { position: absolute; visibility: hidden; white-space: pre; }
+pre .ln { display: block; min-height: 1.5em; }
+
+.fg { color: var(--fg); }
+.hi { color: var(--hi); }
+.dim { color: var(--dim); }
+.faint { color: var(--faint); }
+.fable { color: var(--fable); }
+.opus { color: var(--opus); }
+.sonnet { color: var(--sonnet); }
+.haiku { color: var(--haiku); }
+.grok { color: var(--grok); }
+.codex { color: var(--codex); }
+.main { color: var(--hi); }
+.ok { color: var(--ok); }
+.err { color: var(--err); }
+.warn { color: var(--warn); }
+.b { font-weight: 700; }
+.hl { background: var(--hl); }
+.hlerr { background: var(--hlerr); }
+</style>
+</head>
+<body>
+<div class="window">
+  <div class="titlebar"><i></i><i></i><i></i><span id="wtitle">route board</span><a id="hub" href="../index.html">all boards</a></div>
+  <main>
+    <pre id="head" aria-live="off"></pre>
+    <div class="gap"></div>
+    <pre id="tree"></pre>
+    <div class="gap"></div>
+    <pre id="batch"></pre>
+    <pre id="time"></pre>
+    <div class="gap"></div>
+    <div class="pair">
+      <pre id="tiers"></pre>
+      <pre id="log"></pre>
+    </div>
+    <div class="gap"></div>
+    <pre id="foot"></pre>
+  </main>
+</div>
+<span id="probe">MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM</span>
+<script>
+(() => {
+  'use strict';
+
+  const params = new URLSearchParams(location.search);
+  const DEMO = params.has('demo');
+  const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const TIERS = ['fable', 'opus', 'sonnet', 'haiku', 'grok', 'codex'];
+  const RANK = { haiku: 1, sonnet: 2, opus: 3, fable: 4 };
+  // ogxo-route worker pins, shown until the dispatch reports its resolved model.
+  const PINS = {
+    'ogxo-route:scout': 'sonnet', 'ogxo-route:implementer': 'sonnet', 'ogxo-route:e2e-runner': 'sonnet',
+    'ogxo-route:test-runner': 'haiku', 'ogxo-route:verifier': 'haiku', 'ogxo-route:log-extractor': 'haiku',
+  };
+  const EFFORT = {
+    'ogxo-route:scout': 'low', 'ogxo-route:implementer': 'med', 'ogxo-route:e2e-runner': 'med',
+    'ogxo-route:implementer-risky': 'high',
+  };
+  const ALIAS = { 'general-purpose': 'general', 'implementer-risky': 'impl-risky', 'code-review-agent': 'code-review' };
+  const SPIN = ['|', '/', '-', '\\'];
+
+  // ---------- theme ----------
+  try {
+    const saved = localStorage.getItem('ogxo-route-theme');
+    if (saved) document.documentElement.dataset.theme = saved;
+  } catch (e) { /* storage blocked */ }
+  addEventListener('keydown', (e) => {
+    if (e.key !== 't' || e.metaKey || e.ctrlKey || e.altKey) return;
+    const root = document.documentElement;
+    const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem('ogxo-route-theme', root.dataset.theme); } catch (err) { /* ignore */ }
+  });
+
+  // ---------- state ----------
+  let S;
+  function reset() {
+    S = {
+      t0: null, tAct: null, last: 0, sid: '', repo: '', branch: '', wt: '',
+      working: false, ended: false, turnAt: null, turns: [],
+      main: { key: 'main', ty: 'main', tools: [], tc: 0, marks: [] },
+      agents: new Map(), byU: new Map(), byId: new Map(), pending: [],
+      tools: new Map(), log: [], batch: null,
+      tierTools: {}, tierAgents: {}, toolCount: 0, errors: 0, offline: false, loaded: false,
+      advisor: [], waits: 0,
+    };
+  }
+  reset();
+
+  const tierOf = (m) => {
+    const s = String(m || '').toLowerCase();
+    for (const k of ['fable', 'opus', 'sonnet', 'haiku']) if (s.includes(k)) return k;
+    return null;
+  };
+  const agentTier = (a) => a.x || tierOf(a.rm) || tierOf(a.m) || tierOf(PINS[a.ty]) || 'main';
+  const shortType = (ty) => {
+    const t = String(ty || 'agent');
+    const s = (t.includes(':') ? t.slice(t.indexOf(':') + 1) : t).toLowerCase();
+    return ALIAS[s] || s;
+  };
+  const labelOf = (k) => (k === 'main' ? 'main' : shortType(S.agents.get(k)?.ty));
+
+  function newAgent(key, props) {
+    const a = Object.assign({
+      key, ty: 'general-purpose', d: '', m: null, rm: null, x: null, parent: null,
+      t0: Date.now(), t1: null, state: 'start', verdict: null, tools: [], tc: 0, marks: [],
+      out: 0, returnAt: null,
+    }, props);
+    S.agents.set(key, a);
+    return a;
+  }
+
+  function callerKey(ev) {
+    if (!ev.a) return 'main';
+    let k = S.byId.get(ev.a);
+    if (!k) {
+      k = 'id:' + ev.a;
+      newAgent(k, { ty: ev.at || 'general-purpose', t0: ev.t, state: 'run', id: ev.a });
+      S.byId.set(ev.a, k);
+    }
+    return k;
+  }
+  const actor = (k) => (k === 'main' ? S.main : S.agents.get(k));
+
+  function addLog(t, k, verb, text, cls) {
+    S.log.push({ t, k, verb, text: text || '', cls });
+    if (S.log.length > 400) S.log.splice(0, S.log.length - 400);
+  }
+  function mark(obj, t, kind) {
+    obj.marks.push({ t, kind });
+    if (obj.marks.length > 6000) obj.marks.splice(0, 1000);
+  }
+
+  function ingest(ev) {
+    if (!ev || typeof ev !== 'object') return;
+    const t = typeof ev.t === 'number' ? ev.t : Date.now();
+    if (S.t0 == null || t < S.t0) S.t0 = t;
+    if (ev.e !== 'on' && (S.tAct == null || t < S.tAct)) S.tAct = t;
+    S.last = Math.max(S.last, t);
+    switch (ev.e) {
+      case 'on':
+        S.sid = ev.sid || S.sid; S.repo = ev.repo || S.repo; S.branch = ev.branch || S.branch; S.wt = ev.wt || '';
+        S.ended = false;
+        addLog(t, 'main', 'board', 'dashboard on', 'dim');
+        break;
+      case 'prompt':
+        S.working = true; S.turnAt = t; S.turns.push([t, null]); S.main.wait = null;
+        addLog(t, 'main', 'prompt', 'new turn', 'hi');
+        break;
+      case 'stop':
+        if (S.turns.length && S.turns[S.turns.length - 1][1] == null) S.turns[S.turns.length - 1][1] = t;
+        S.working = false; S.turnAt = null; S.main.wait = null;
+        addLog(t, 'main', 'idle', 'turn finished', 'dim');
+        break;
+      case 'end':
+        S.ended = true; S.working = false;
+        if (S.turns.length && S.turns[S.turns.length - 1][1] == null) S.turns[S.turns.length - 1][1] = t;
+        addLog(t, 'main', 'end', 'session ended', 'dim');
+        break;
+      case 'dispatch': {
+        const key = 'u:' + ev.u;
+        const a = newAgent(key, { ty: ev.ty || 'general-purpose', d: ev.d || '', m: ev.m || null, bg: !!ev.bg, parent: ev.a ? callerKey(ev) : null, t0: t, u: ev.u });
+        S.byU.set(ev.u, key); S.pending.push(key);
+        touchMain(ev, t);
+        addLog(t, a.parent || 'main', 'dispatch', `${shortType(a.ty)}  ${a.d}`, agentTier(a));
+        break;
+      }
+      case 'sstart': {
+        let key = S.byId.get(ev.id);
+        if (!key) {
+          const i = S.pending.findIndex((pk) => String(S.agents.get(pk).ty).toLowerCase() === String(ev.ty || '').toLowerCase());
+          if (i >= 0) key = S.pending.splice(i, 1)[0];
+          else { key = 'id:' + ev.id; newAgent(key, { ty: ev.ty || 'general-purpose', t0: t }); }
+          S.byId.set(ev.id, key);
+        }
+        const a = S.agents.get(key);
+        a.id = ev.id; if (a.state === 'start') a.state = 'run';
+        break;
+      }
+      case 'launched': {
+        let key = S.byU.get(ev.u);
+        if (!key) { key = 'u:' + ev.u; newAgent(key, { ty: ev.ty || 'general-purpose', t0: t, u: ev.u }); S.byU.set(ev.u, key); }
+        const a = S.agents.get(key);
+        if (ev.id) {
+          const other = S.byId.get(ev.id);
+          if (other && other !== key) {
+            // Two same-type dispatches paired the wrong way round: swap what the dispatch said.
+            const b = S.agents.get(other);
+            for (const f of ['d', 'm', 'u', 'bg', 'parent']) { const v = a[f]; a[f] = b[f]; b[f] = v; }
+            S.byU.set(b.u, other); S.byU.set(a.u, key);
+            b.rm = ev.rm || b.rm; b.d = b.d || ev.d || '';
+            break;
+          }
+          S.byId.set(ev.id, key); a.id = ev.id;
+          const pi = S.pending.indexOf(key); if (pi >= 0) S.pending.splice(pi, 1);
+        }
+        if (ev.rm) a.rm = ev.rm;
+        if (ev.d && !a.d) a.d = ev.d;
+        if (ev.done) {
+          a.t1 = a.t1 || t; a.tc = Math.max(a.tc, ev.tc || 0); a.out = ev.out || a.out;
+          if (a.state === 'run' || a.state === 'start') { a.state = 'ok'; a.returnAt = t; }
+        } else if (a.state === 'start') a.state = 'run';
+        break;
+      }
+      case 'sstop': {
+        if (!ev.id) break;
+        const key = S.byId.get(ev.id) || callerKey({ a: ev.id, at: ev.ty, t });
+        const a = S.agents.get(key);
+        a.t1 = t; a.returnAt = t; a.verdict = ev.v || null; a.out = ev.out || a.out; a.wait = null;
+        a.state = ev.v === 'FAIL' ? 'fail' : ev.v === 'RISKY' ? 'risky' : ev.v === 'PASS' ? 'pass' : 'ok';
+        const pi = S.pending.indexOf(key); if (pi >= 0) S.pending.splice(pi, 1);
+        addLog(t, key, 'return', ev.v ? `VERDICT ${ev.v}` : (a.d || 'done'), ev.v === 'FAIL' ? 'err' : ev.v === 'RISKY' ? 'warn' : 'ok');
+        break;
+      }
+      case 'tool': {
+        let key = callerKey(ev);
+        if (key === 'main') touchMain(ev, t);
+        const who = actor(key);
+        who.wait = null;
+        const rec = { n: ev.n || 'tool', s: ev.s || '', t, ok: null };
+        const wtm = key !== 'main' && /(?:^|\/)\.claude\/worktrees\/([^/\s]+)\//.exec(rec.s);
+        if (wtm) who.wt = wtm[1];
+        pushTool(who, rec, t);
+        S.tools.set(ev.u, rec);
+        S.toolCount++;
+        const tier = key === 'main' ? 'main' : agentTier(who);
+        S.tierTools[tier] = (S.tierTools[tier] || 0) + 1;
+        if (ev.x) {
+          const xk = 'x:' + ev.x;
+          let xa = S.agents.get(xk);
+          if (!xa) xa = newAgent(xk, { ty: ev.x, x: ev.x, t0: t, d: 'bridge run', parent: key === 'main' ? null : key });
+          xa.state = 'run'; xa.t1 = null;
+          if (/\brun\b/.test(ev.s)) xa.d = ev.s.replace(/^\S+\s*/, '') || xa.d;
+          if (/\b(show|result)\b/.test(ev.s)) { xa.state = 'ok'; xa.returnAt = t; xa.t1 = t; }
+          pushTool(xa, { n: ev.x, s: ev.s, t, ok: null }, t);
+          S.tierTools[ev.x] = (S.tierTools[ev.x] || 0) + 1;
+        }
+        addLog(t, key, rec.n, rec.s, null);
+        break;
+      }
+      case 'tool_ok': {
+        actor(callerKey(ev)).wait = null;
+        const rec = S.tools.get(ev.u);
+        if (rec) { rec.ok = true; S.tools.delete(ev.u); }
+        break;
+      }
+      case 'tool_err': {
+        const key = callerKey(ev);
+        const rec = S.tools.get(ev.u);
+        if (rec) { rec.ok = false; S.tools.delete(ev.u); }
+        S.errors++;
+        actor(key).wait = null;
+        mark(actor(key), t, 'err');
+        addLog(t, key, 'failed', `${ev.n || (rec && rec.n) || 'tool'} ${rec ? rec.s : ''}`, 'err');
+        break;
+      }
+      case 'advisor':
+        S.advisor.push(t);
+        mark(S.main, t, 'adv');
+        addLog(t, 'main', 'advisor', 'advisor consulted', 'fable');
+        break;
+      case 'perm':
+      case 'wait': {
+        // Claude Code is waiting on the user: a permission dialog or a request
+        // for input. One prompt can send both events; count it once.
+        if (ev.e === 'wait' && ev.k === 'idle_prompt') break;
+        const key = callerKey(ev);
+        const who = actor(key);
+        const what = ev.e === 'perm' ? `permission for ${ev.n || 'a tool'}`
+          : ev.k === 'permission_prompt' ? 'permission prompt'
+          : ev.k === 'agent_needs_input' ? 'needs your input' : (ev.k || 'waiting');
+        if (who.wait) { if (ev.e === 'perm') who.wait.what = what; break; }
+        who.wait = { t, what };
+        S.waits++;
+        mark(who, t, 'wait');
+        addLog(t, key, 'waits', what, 'warn');
+        break;
+      }
+      case 'batch':
+        S.batch = { t, rows: Array.isArray(ev.rows) ? ev.rows : [], mode: ev.mode || '' };
+        addLog(t, 'main', 'batch', `${S.batch.rows.length} tasks`, 'opus');
+        break;
+      default:
+        break;
+    }
+  }
+  function touchMain(ev, t) {
+    if (!S.working && !S.ended) { S.working = true; S.turns.push([t, null]); S.turnAt = t; }
+  }
+  function pushTool(who, rec, t) {
+    who.tools.push(rec);
+    if (who.tools.length > 4) who.tools.shift();
+    who.tc++;
+    mark(who, t, 'tool');
+  }
+
+  // ---------- char grid ----------
+  class Grid {
+    constructor(w, h) {
+      this.w = w; this.h = h;
+      this.c = new Array(w * h).fill(' ');
+      this.k = new Array(w * h).fill('');
+    }
+    put(x, y, s, k = '') {
+      s = String(s);
+      if (y < 0 || y >= this.h) return;
+      for (let i = 0; i < s.length; i++) {
+        const xx = x + i;
+        if (xx < 0 || xx >= this.w) continue;
+        const j = y * this.w + xx;
+        this.c[j] = s[i]; this.k[j] = k;
+      }
+    }
+    paint(x, y, len, k) {
+      if (y < 0 || y >= this.h) return;
+      for (let i = 0; i < len; i++) {
+        const xx = x + i;
+        if (xx < 0 || xx >= this.w) continue;
+        const j = y * this.w + xx;
+        this.k[j] = (this.k[j] ? this.k[j] + ' ' : '') + k;
+      }
+    }
+    box(x, y, w, h, k, dashed) {
+      const hz = dashed ? '- ' : '-';
+      let top = '+';
+      for (let i = 1; i < w - 1; i++) top += hz[(i - 1) % hz.length];
+      top += '+';
+      this.put(x, y, top, k); this.put(x, y + h - 1, top, k);
+      for (let r = 1; r < h - 1; r++) {
+        const g = dashed && r % 2 === 0 ? ':' : '|';
+        this.put(x, y + r, g, k); this.put(x + w - 1, y + r, g, k);
+      }
+    }
+    html() {
+      const esc = (ch) => (ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch === '&' ? '&amp;' : ch);
+      const lines = [];
+      for (let y = 0; y < this.h; y++) {
+        let out = '', run = '', rk = null;
+        for (let x = 0; x < this.w; x++) {
+          const j = y * this.w + x;
+          const k = this.k[j];
+          if (k !== rk) {
+            if (run) out += rk ? `<span class="${rk}">${run}</span>` : run;
+            run = ''; rk = k;
+          }
+          run += esc(this.c[j]);
+        }
+        if (run) out += rk ? `<span class="${rk}">${run}</span>` : run;
+        lines.push(out.replace(/\s+$/, ''));
+      }
+      return lines.join('\n');
+    }
+  }
+
+  // ---------- helpers ----------
+  // paint: write a panel line by line and touch only the lines that changed.
+  // Replacing a whole panel eight times a second drops wheel scrolling in
+  // WebKit (the gesture is tied to the node under the pointer), and a panel
+  // that shrinks makes the page jump; its height only grows.
+  function paint(el, html) {
+    const lines = html ? html.split('\n') : [];
+    const kids = el.children;
+    while (kids.length > lines.length) el.lastChild.remove();
+    while (kids.length < lines.length) {
+      const d = document.createElement('div');
+      d.className = 'ln';
+      el.appendChild(d);
+    }
+    for (let i = 0; i < lines.length; i++) {
+      if (kids[i]._h !== lines[i]) { kids[i].innerHTML = lines[i]; kids[i]._h = lines[i]; }
+    }
+    const h = el.offsetHeight;
+    if (lines.length && h > (el._minH || 0)) { el._minH = h; el.style.minHeight = h + 'px'; }
+  }
+
+  let cw = 8;
+  function measure() {
+    const p = document.getElementById('probe');
+    p.style.fontSize = getComputedStyle(document.body).fontSize;
+    cw = p.getBoundingClientRect().width / 50 || 8;
+  }
+  const colsOf = (el) => Math.max(24, Math.floor(el.clientWidth / cw));
+  const clip = (s, n) => { s = String(s || ''); return n <= 0 ? '' : s.length > n ? s.slice(0, Math.max(0, n - 1)) + '~' : s; };
+  const pad = (s, n) => clip(s, n).padEnd(n);
+  const two = (n) => String(n).padStart(2, '0');
+  const dur = (ms) => {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+    return h ? `${h}:${two(m)}:${two(s % 60)}` : `${two(m)}:${two(s % 60)}`;
+  };
+  const clock = (t) => { const d = new Date(t); return `${two(d.getHours())}:${two(d.getMinutes())}:${two(d.getSeconds())}`; };
+  const kfmt = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(n));
+  function wrap(text, w, maxLines) {
+    const words = String(text || '').split(/\s+/).filter(Boolean);
+    const lines = [];
+    let cur = '';
+    for (const wd of words) {
+      if (!cur) cur = wd;
+      else if ((cur + ' ' + wd).length <= w) cur += ' ' + wd;
+      else { lines.push(cur); cur = wd; }
+    }
+    if (cur) lines.push(cur);
+    if (lines.length > maxLines) { lines.length = maxLines; lines[maxLines - 1] = clip(lines[maxLines - 1] + ' ...', w); }
+    return lines.map((l) => clip(l, w));
+  }
+  const isLive = (a) => a.state === 'run' || a.state === 'start';
+  // waitingNow: [key, actor] pairs Claude Code is waiting on the user for.
+  const waitingNow = () => [['main', S.main], ...[...S.agents.entries()].filter(([, a]) => isLive(a))]
+    .filter(([, o]) => o.wait && !S.ended);
+  const stateTag = (a, f) => {
+    if (a.wait && isLive(a)) return [REDUCE || f % 8 < 5 ? '[ASK]' : '[   ]', 'warn b'];
+    if (a.state === 'start') return ['[..]', 'dim'];
+    if (a.state === 'run') return [REDUCE ? '[..]' : `[${SPIN[f % 4]}.]`, agentTier(a)];
+    if (a.state === 'pass') return ['[PASS]', 'ok b'];
+    if (a.state === 'fail') return ['[FAIL]', 'err b'];
+    if (a.state === 'risky') return ['[RISKY]', 'warn b'];
+    return ['[ok]', 'ok'];
+  };
+  const tierBar = (tier) => {
+    const r = RANK[tier];
+    if (!r) return tier === 'grok' || tier === 'codex' ? '[ext]' : '[?]';
+    return '[' + '#'.repeat(r) + '.'.repeat(4 - r) + ']';
+  };
+
+  let frame = 0;
+  const now = () => (S.ended ? S.last : Math.max(Date.now(), S.last));
+
+  // ---------- header ----------
+  function renderHead(el) {
+    const W = colsOf(el);
+    const g = new Grid(W, 4);
+    const f = frame;
+    const title = 'ROUTE BOARD';
+    g.put(0, 0, title, 'hi b');
+    g.put(title.length + 2, 0, 'ogxo-route live agent map', 'dim');
+    const meta = [S.repo, S.wt ? 'worktree ' + S.wt : '', S.branch, S.sid ? 'session ' + S.sid.slice(0, 8) : ''].filter(Boolean).join('  ');
+    if (meta && W > title.length + 30 + meta.length) g.put(W - meta.length, 0, meta, 'dim');
+
+    g.put(0, 1, '='.repeat(W), 'faint');
+    if (S.working && !REDUCE) {
+      const seg = '==#/#==';
+      const span = W + seg.length;
+      const pos = Math.floor((f * 1.2) % span) - seg.length;
+      g.put(pos, 1, seg, 'opus');
+    }
+
+    let st, sc;
+    if (S.offline && !DEMO) { st = 'o no events.js'; sc = 'err'; }
+    else if (S.ended) { st = '# session ended'; sc = 'dim'; }
+    else if (waitingNow().length) {
+      const [k, o] = waitingNow()[0];
+      st = W >= 90 ? `! waiting on you: ${labelOf(k)}, ${o.wait.what}` : `! waiting: ${labelOf(k)}`; sc = 'warn b';
+    }
+    else if (!DEMO && S.last && Date.now() - S.last > 90000 && (S.working || [...S.agents.values()].some(isLive))) {
+      // Nothing for 90s while work is open: often a permission prompt waiting in the terminal.
+      st = `! quiet ${dur(Date.now() - S.last)}${W >= 90 ? ', check the terminal for a prompt' : ''}`; sc = 'warn b';
+    }
+    else if (S.working || [...S.agents.values()].some(isLive)) { st = (REDUCE || f % 8 < 5 ? '*' : ' ') + ' working'; sc = 'opus'; }
+    else { st = 'o idle'; sc = 'dim'; }
+    const el2 = S.t0 ? dur(now() - S.t0) : '--:--';
+    const right = `${st}   ${el2}`;
+    let x = 0;
+    for (const t of TIERS) {
+      const label = ` ${t}`;
+      if (x + 4 + label.length > W - right.length - 2) break;
+      g.put(x, 2, '[#]', t + ' b'); g.put(x + 3, 2, label, 'fg');
+      x += 3 + label.length + 3;
+    }
+    g.put(W - right.length, 2, st, sc); g.put(W - el2.length, 2, el2, 'hi');
+
+    g.put(2, 3, '> main plans + routes.', 'dim');
+    g.put(25, 3, 'workers ship scoped work.', 'dim');
+    if (W > 80) g.put(52, 3, 'reviews stay at opus+.', 'dim');
+    paint(el, g.html());
+    document.getElementById('wtitle').textContent = `~/${S.repo || 'session'}  route board${DEMO ? '  (demo)' : ''}`;
+  }
+
+  // ---------- agent tree ----------
+  const BOX_H = 11;
+  function drawAgentBox(g, a, x, y, w, f) {
+    const tier = agentTier(a);
+    const live = isLive(a);
+    const failed = a.state === 'fail';
+    const bk = a.wait && live ? 'warn' : failed ? 'err' : live ? tier : 'faint';
+    const tk = live || failed ? tier : 'dim';
+    const ck = live ? 'fg' : 'dim';
+    const iw = w - 4;
+    g.box(x, y, w, BOX_H, bk, !live && !failed);
+    const name = ' ' + clip(shortType(a.ty), iw - 10) + ' ';
+    g.put(x + 2, y, name, tk + ' b');
+    const model = ' ' + (a.x ? 'external' : tier === 'main' ? 'inherit' : tier) + ' ';
+    g.put(x + w - 2 - model.length, y, model, tk);
+
+    const eff = EFFORT[a.ty];
+    const bar = tierBar(tier);
+    g.put(x + 2, y + 1, bar, tk);
+    if (eff) g.put(x + 3 + bar.length, y + 1, eff, ck);
+    const el = dur((a.t1 || now()) - a.t0);
+    g.put(x + w - 2 - el.length, y + 1, el, live ? 'hi' : 'dim');
+
+    const desc = wrap(a.d || (a.x ? 'bridge run' : 'no description'), iw, 2);
+    desc.forEach((l, i) => g.put(x + 2, y + 2 + i, l, live ? 'hi' : 'dim'));
+
+    let sep = '.'.repeat(iw);
+    const tags = [a.parent ? `via ${labelOf(a.parent)}` : '', a.wt ? `wt ${a.wt}` : ''].filter(Boolean).join('  ');
+    if (tags) sep = '.. ' + tags + ' ' + '.'.repeat(Math.max(0, iw - tags.length - 4));
+    g.put(x + 2, y + 4, clip(sep, iw), 'faint');
+    if (a.wt) { const i = sep.indexOf(`wt ${a.wt}`); if (i >= 0 && i < iw) g.put(x + 2 + i, y + 4, clip(`wt ${a.wt}`, iw - i), 'codex'); }
+
+    const tools = a.tools.slice(-3);
+    tools.forEach((r, i) => {
+      const yy = y + 5 + (3 - tools.length) + i;
+      const newest = i === tools.length - 1;
+      let lead = '>', lk = newest && live ? tier : 'faint';
+      if (r.ok === false) { lead = 'x'; lk = 'err'; }
+      else if (r.ok == null && newest && live && !REDUCE) lead = SPIN[f % 4];
+      g.put(x + 2, yy, lead, lk);
+      g.put(x + 4, yy, pad(r.n, 6), newest && live ? 'hi' : 'dim');
+      g.put(x + 11, yy, clip(r.s, iw - 9), newest && live ? 'fg' : 'dim');
+    });
+    if (!tools.length) g.put(x + 2, y + 7, live ? 'starting' + '...'.slice(0, (f >> 2) % 4) : 'no tool calls', 'dim');
+
+    const [tag, tagk] = stateTag(a, f);
+    g.put(x + 2, y + 9, tag, tagk);
+    const stat = [a.tc ? `${a.tc} tools` : '', a.out ? `${kfmt(a.out)} out` : ''].filter(Boolean).join(' ');
+    g.put(x + w - 2 - stat.length, y + 9, stat, 'dim');
+  }
+
+  function drawPath(g, path, a, f) {
+    const live = isLive(a);
+    const tier = agentTier(a);
+    const back = a.returnAt && now() - a.returnAt < 2200 && !REDUCE;
+    path.forEach(([x, y, ch], i) => {
+      let k = live ? 'dim' : 'faint';
+      let glyph = ch;
+      if (live && !REDUCE && ch !== 'v' && (i - Math.floor(f / 1.5)) % 5 === 0) { glyph = ch === '-' ? '=' : ':'; k = tier + ' b'; }
+      if (back && ch !== 'v') {
+        const head = path.length - 1 - Math.floor(((now() - a.returnAt) / 2200) * (path.length + 4));
+        if (i <= head + 1 && i >= head - 1) { glyph = ch === '-' ? '<' : '^'; k = (a.state === 'fail' ? 'err' : 'ok') + ' b'; }
+      }
+      if (ch === 'v') k = live ? tier + ' b' : 'faint';
+      g.put(x, y, glyph, k);
+    });
+  }
+
+  function drawMainBox(g, x, y, w, f) {
+    const live = S.working;
+    g.box(x, y, w, 5, live ? 'hi' : 'dim');
+    g.put(x + 2, y, ' main session ', 'hi b');
+    const tag = ' plans + routes ';
+    if (w > 36) g.put(x + w - 2 - tag.length, y, tag, 'dim');
+    const iw = w - 4;
+    const last = S.main.tools[S.main.tools.length - 1];
+    let line, lk = 'fg';
+    if (!S.loaded && !DEMO) { line = 'loading events.js ...'; lk = 'dim'; }
+    else if (S.offline && !DEMO) { line = 'cannot read events.js next to this page'; lk = 'err'; }
+    else if (!S.t0) { line = 'waiting for the first event from this session'; lk = 'dim'; }
+    else if (S.ended) { line = 'session ended'; lk = 'dim'; }
+    else if (!live) { line = 'idle, waiting for a prompt'; lk = 'dim'; }
+    else if (S.main.wait) { line = `! ${S.main.wait.what}`; lk = 'warn b'; }
+    else if (last && now() - last.t < 4000) line = `${REDUCE ? '>' : SPIN[f % 4]} ${pad(last.n, 6)} ${last.s}`;
+    else { line = 'thinking' + '...'.slice(0, (f >> 2) % 4); lk = 'opus'; }
+    g.put(x + 2, y + 1, 'now ', 'dim');
+    g.put(x + 6, y + 1, clip(line, iw - 4), lk);
+    const all = [...S.agents.values()];
+    const runningAgents = all.filter(isLive);
+    const running = runningAgents.length;
+    if (running) {
+      g.put(x + 2, y + 2, 'with', 'dim');
+      let xx = x + 7;
+      for (const a of runningAgents) {
+        const n = shortType(a.ty);
+        if (xx + n.length > x + w - 3) { g.put(xx, y + 2, '...', 'dim'); break; }
+        g.put(xx, y + 2, n, agentTier(a)); xx += n.length + 2;
+      }
+    }
+    const turn = S.turnAt && live ? dur(now() - S.turnAt) : '--:--';
+    const stats = `turn ${turn}   tools ${S.main.tc}   agents ${running} running / ${all.length}   advisor ${S.advisor.length}`;
+    g.put(x + 2, y + 3, clip(stats, iw), 'dim');
+    if (running) g.put(x + 2 + stats.indexOf('agents') + 7, y + 3, String(running), 'opus b');
+  }
+
+  function pickAgents(max) {
+    const all = [...S.agents.values()].sort((p, q) => p.t0 - q.t0);
+    const live = all.filter(isLive);
+    const done = all.filter((a) => !isLive(a));
+    const room = Math.max(0, max - live.length);
+    const shown = live.slice(-max).concat(done.slice(-room)).sort((p, q) => p.t0 - q.t0);
+    const hidden = all.filter((a) => !shown.includes(a));
+    return { shown, hidden };
+  }
+
+  function renderTree(el) {
+    const W = colsOf(el);
+    const f = frame;
+    const gap = 2;
+    const bw = Math.max(26, Math.min(34, Math.floor((W - gap * 3) / 4)));
+    const perRow = Math.max(1, Math.floor((W + gap) / (bw + gap)));
+    const horizontal = perRow >= 3;
+    const { shown, hidden } = pickAgents(horizontal ? perRow : 4);
+    let H;
+    if (horizontal) H = 5 + 3 + (shown.length ? BOX_H : 1) + (hidden.length ? 2 : 0);
+    else H = 5 + shown.length * (BOX_H + 1) + 1 + (hidden.length ? 2 : 0);
+    const g = new Grid(W, H);
+
+    if (horizontal) {
+      const mw = Math.min(W, 60);
+      const mx = Math.floor((W - mw) / 2);
+      drawMainBox(g, mx, 0, mw, f);
+      const cx = mx + Math.floor(mw / 2);
+      if (!shown.length) {
+        g.put(cx, 5, ':', 'faint');
+        g.put(Math.max(0, cx - 22), 6, 'agents appear here when work is dispatched', 'dim');
+      } else {
+        const totalW = shown.length * bw + (shown.length - 1) * gap;
+        const x0 = Math.floor((W - totalW) / 2);
+        const centers = shown.map((_, i) => x0 + i * (bw + gap) + Math.floor(bw / 2));
+        const lo = Math.min(cx, centers[0]), hi = Math.max(cx, centers[centers.length - 1]);
+        g.put(cx, 5, '|', 'faint');
+        g.put(lo, 6, '+' + '-'.repeat(Math.max(0, hi - lo - 1)) + (hi > lo ? '+' : ''), 'faint');
+        g.put(cx, 6, '+', 'faint');
+        shown.forEach((a, i) => {
+          const c = centers[i];
+          const path = [[cx, 5, '|']];
+          const step = c >= cx ? 1 : -1;
+          for (let xx = cx; xx !== c; xx += step) path.push([xx, 6, xx === cx ? '+' : '-']);
+          path.push([c, 6, '+']);
+          path.push([c, 7, 'v']);
+          drawPath(g, path, a, f);
+          drawAgentBox(g, a, x0 + i * (bw + gap), 8, bw, f);
+        });
+      }
+    } else {
+      const mw = Math.min(W, 60);
+      drawMainBox(g, 0, 0, mw, f);
+      const tx = 2;
+      const boxW = Math.min(W - 6, 44);
+      shown.forEach((a, i) => {
+        const by = 6 + i * (BOX_H + 1);
+        const mid = by + 1;
+        const path = [];
+        for (let yy = 5; yy < mid; yy++) path.push([tx, yy, '|']);
+        path.push([tx, mid, '+']); path.push([tx + 1, mid, '-']); path.push([tx + 2, mid, '-']); path.push([tx + 3, mid, '>']);
+        const drawn = path.map(([x, y, ch]) => [x, y, ch === '>' ? 'v' : ch]);
+        drawPath(g, drawn, a, f);
+        g.put(tx + 3, mid, '>', isLive(a) ? agentTier(a) + ' b' : 'faint');
+        drawAgentBox(g, a, tx + 4, by, boxW, f);
+      });
+      if (!shown.length) g.put(2, 6, 'agents appear here when work is dispatched', 'dim');
+    }
+
+    if (hidden.length) {
+      const y = H - 1;
+      let x = 0;
+      g.put(x, y, 'earlier', 'dim'); x += 9;
+      const list = hidden.slice(-12);
+      for (const a of list) {
+        const [tag, tk] = stateTag(a, f);
+        const n = shortType(a.ty);
+        if (x + n.length + tag.length + 3 > W - 6) break;
+        g.put(x, y, n, agentTier(a)); x += n.length + 1;
+        g.put(x, y, tag, tk); x += tag.length + 2;
+      }
+      const extra = hidden.length - list.length;
+      if (extra > 0) g.put(x, y, `+${extra}`, 'dim');
+    }
+    paint(el, g.html());
+  }
+
+  // ---------- batch ----------
+  function batchState(row) {
+    const w = String(row.writer || '').toLowerCase();
+    const task = String(row.task || '').toLowerCase();
+    let match = null;
+    if (w === 'grok' || w === 'codex') match = S.agents.get('x:' + w) || null;
+    if (!match) {
+      for (const a of S.agents.values()) {
+        const d = String(a.d || '').toLowerCase();
+        if (task && d && (d.includes(task) || task.includes(d))) match = a;
+      }
+    }
+    return match;
+  }
+  function renderBatch(el) {
+    if (!S.batch || !S.batch.rows.length) { paint(el, ''); el.style.marginBottom = '0'; return; }
+    el.style.marginBottom = '1.5em';
+    const W = colsOf(el);
+    const rows = S.batch.rows;
+    const g = new Grid(W, rows.length + 4);
+    const modes = [...new Set(rows.map((r) => r.mode).filter(Boolean))].join('/') || 'shared';
+    g.box(0, 0, W, rows.length + 4, 'faint');
+    g.put(2, 0, ` batch  ${rows.length} tasks  ${modes} `, 'opus b');
+    const cT = Math.max(14, Math.min(32, Math.floor(W * 0.3)));
+    const cW = 12, cS = 10, cM = 20;
+    const cF = Math.max(8, W - 6 - cT - cW - cS - cM - 4);
+    let x = 4;
+    const hdr = [['task', cT], ['writer', cW], ['mode', cM], ['files', cF], ['state', cS]];
+    for (const [h, n] of hdr) { g.put(x, 1, pad(h, n), 'dim'); x += n + 1; }
+    rows.forEach((r, i) => {
+      const y = 2 + i;
+      const a = batchState(r);
+      const live = a && isLive(a);
+      const failed = a && a.state === 'fail';
+      g.put(2, y, live ? '>' : ' ', 'opus b');
+      const wt = String(r.writer || '').toLowerCase();
+      const wk = wt === 'grok' || wt === 'codex' ? wt : a ? agentTier(a) : 'fg';
+      let xx = 4;
+      g.put(xx, y, pad(r.task, cT), live ? 'hi b' : 'fg'); xx += cT + 1;
+      g.put(xx, y, pad(r.writer, cW), wk); xx += cW + 1;
+      const wtn = r.worktree ? String(r.worktree).replace(/\/+$/, '').split('/').pop() : '';
+      g.put(xx, y, pad(wtn ? `wt ${wtn}` : (r.mode || 'shared'), cM), wtn ? 'codex' : 'dim'); xx += cM + 1;
+      const files = Array.isArray(r.files) ? r.files.join(' ') : String(r.files || '');
+      g.put(xx, y, pad(files, cF), 'dim'); xx += cF + 1;
+      const [tag, tk] = a ? stateTag(a, frame) : ['queued', 'dim'];
+      g.put(xx, y, tag, tk);
+      if (live) g.paint(1, y, W - 2, 'hl');
+      if (failed) g.paint(1, y, W - 2, 'hlerr');
+    });
+    paint(el, g.html());
+  }
+
+  // ---------- timeline ----------
+  function renderTime(el) {
+    const W = colsOf(el);
+    const f = frame;
+    const all = [...S.agents.values()].sort((p, q) => p.t0 - q.t0);
+    const lanesMax = 9;
+    const lanes = [{ label: 'main', k: 'main', obj: S.main }]
+      .concat(all.slice(-lanesMax).map((a) => ({ label: shortType(a.ty), k: agentTier(a), obj: a })));
+    const H = lanes.length + 5;
+    const g = new Grid(W, H);
+    g.box(0, 0, W, H, 'faint');
+    g.put(2, 0, ' session timeline ', 'hi b');
+    const lw = 12;
+    const tx = 2 + lw;
+    const tw = Math.max(10, W - tx - 3);
+    const t0 = S.tAct || S.t0 || Date.now();
+    const t1 = Math.max(now(), t0 + 1000);
+    const span = t1 - t0;
+    const bucket = (t) => Math.min(tw - 1, Math.max(0, Math.floor(((t - t0) / span) * tw)));
+
+    lanes.forEach((ln, i) => {
+      const y = 1 + i;
+      g.put(2, y, pad(ln.label, lw - 1), ln.k === 'main' ? 'hi' : ln.k);
+      const counts = new Array(tw).fill(0);
+      const errs = new Array(tw).fill(false);
+      const advs = new Array(tw).fill(false);
+      const waits = new Array(tw).fill(false);
+      for (const m of ln.obj.marks) {
+        const b = bucket(m.t);
+        if (m.kind === 'err') errs[b] = true;
+        else if (m.kind === 'adv') advs[b] = true;
+        else if (m.kind === 'wait') waits[b] = true;
+        else counts[b]++;
+      }
+      const alive = new Array(tw).fill(false);
+      if (ln.obj === S.main) {
+        for (const [s, e] of S.turns) for (let b = bucket(s); b <= bucket(e || t1); b++) alive[b] = true;
+      } else {
+        for (let b = bucket(ln.obj.t0); b <= bucket(ln.obj.t1 || t1); b++) alive[b] = true;
+      }
+      let row = '';
+      const ks = [];
+      for (let b = 0; b < tw; b++) {
+        let ch = '.', k = 'faint';
+        if (errs[b]) { ch = 'x'; k = 'err b'; }
+        else if (waits[b]) { ch = '!'; k = 'warn b'; }
+        else if (advs[b]) { ch = '<'; k = 'fable b'; }
+        else if (b > 0 && advs[b - 1]) { ch = '>'; k = 'fable b'; }
+        else if (counts[b] >= 3) { ch = '#'; k = ln.k; }
+        else if (counts[b] === 2) { ch = '|'; k = ln.k; }
+        else if (counts[b] === 1) { ch = ':'; k = ln.k; }
+        else if (alive[b]) { ch = '='; k = ln.k === 'main' ? 'dim' : ln.k; }
+        row += ch; ks.push(k);
+      }
+      for (let b = 0; b < tw; b++) g.put(tx + b, y, row[b], ks[b] === 'main' ? 'hi' : ks[b]);
+      if (ln.obj.state === 'pass' || ln.obj.state === 'fail' || ln.obj.state === 'risky') {
+        const [tag, tk] = stateTag(ln.obj, f);
+        const b = bucket(ln.obj.t1 || t1);
+        if (b + 2 + tag.length < tw) g.put(tx + b + 2, y, tag, tk);
+      }
+    });
+    const cur = tw - 1;
+    if (!S.ended) for (let i = 0; i < lanes.length; i++) g.put(tx + cur, 1 + i, REDUCE || f % 8 < 5 ? '|' : ' ', 'hi b');
+
+    const ay = lanes.length + 1;
+    let axis = '+';
+    for (let b = 1; b < tw; b++) axis += b % Math.max(8, Math.floor(tw / 6)) === 0 ? '+' : '-';
+    g.put(tx, ay, axis, 'faint');
+    if (S.batch) {
+      const b = bucket(S.batch.t);
+      g.put(tx + b, ay, '^', 'opus b');
+      g.put(tx + Math.min(b, tw - 6), ay + 1, 'batch', 'opus');
+    }
+    g.put(tx, ay + 2, S.t0 ? clock(t0) : '', 'dim');
+    const nowLabel = S.ended ? 'ended ' + clock(t1) : 'now ' + clock(t1);
+    g.put(tx + tw - nowLabel.length, ay + 2, nowLabel, 'dim');
+    const legend = ': 1  | 2  # 3+ calls   = running   x error   ! waited on you   <> advisor';
+    if (tw > legend.length + 30) g.put(tx + Math.floor((tw - legend.length) / 2), ay + 2, legend, 'faint');
+    paint(el, g.html());
+  }
+
+  // ---------- tiers + log ----------
+  const PANEL_H = 12;
+  function renderTiers(el) {
+    const W = colsOf(el);
+    const g = new Grid(W, PANEL_H);
+    g.box(0, 0, W, PANEL_H, 'faint');
+    g.put(2, 0, ' who did the work ', 'hi b');
+    const agentsBy = {};
+    for (const a of S.agents.values()) { const t = agentTier(a); agentsBy[t] = (agentsBy[t] || 0) + 1; }
+    const order = ['main', ...TIERS];
+    const total = Object.values(S.tierTools).reduce((p, q) => p + q, 0);
+    const max = Math.max(1, ...order.map((t) => S.tierTools[t] || 0));
+    const bw = Math.max(6, W - 4 - 8 - 6 - 16);
+    let y = 2;
+    for (const t of order) {
+      const n = S.tierTools[t] || 0;
+      const ag = agentsBy[t] || 0;
+      if (!n && !ag) continue;
+      if (y > PANEL_H - 4) break;
+      const fill = Math.round((n / max) * bw);
+      g.put(2, y, pad(t, 7), t === 'main' ? 'hi' : t);
+      g.put(10, y, '#'.repeat(fill), t === 'main' ? 'hi' : t);
+      g.put(10 + fill, y, '.'.repeat(bw - fill), 'faint');
+      const pct = total ? Math.round((n / total) * 100) : 0;
+      const tail = `${String(pct).padStart(3)}%  ${t === 'main' ? '' : ag + ' ag'}`;
+      g.put(11 + bw, y, tail, 'dim');
+      y++;
+    }
+    if (S.advisor.length && y <= PANEL_H - 4) {
+      g.put(2, y, pad('advisor', 7), 'fable');
+      const marks = '<> '.repeat(Math.min(S.advisor.length, Math.floor(bw / 3))).trimEnd();
+      g.put(10, y, marks, 'fable b');
+      g.put(11 + bw, y, `${S.advisor.length} call${S.advisor.length === 1 ? '' : 's'}`, 'dim');
+      y++;
+    }
+    if (!total) g.put(2, 2, 'tool calls per model tier show up here', 'dim');
+    const cheap = ['sonnet', 'haiku', 'grok', 'codex'].reduce((p, t) => p + (S.tierTools[t] || 0), 0);
+    if (total) {
+      const pct = Math.round((cheap / total) * 100);
+      const line = `${pct}% of tool calls ran below the main session's tier`;
+      g.put(2, PANEL_H - 2, clip(line, W - 4), 'fg');
+      g.put(2, PANEL_H - 2, `${pct}%`, 'haiku b');
+    }
+    paint(el, g.html());
+  }
+
+  function renderLog(el) {
+    const W = colsOf(el);
+    const g = new Grid(W, PANEL_H);
+    g.box(0, 0, W, PANEL_H, 'faint');
+    g.put(2, 0, ' log ', 'hi b');
+    const rows = PANEL_H - 3;
+    const items = S.log.slice(-rows);
+    items.forEach((it, i) => {
+      const y = 1 + (rows - items.length) + i;
+      const newest = i === items.length - 1;
+      const who = it.k === 'main' ? S.main : S.agents.get(it.k);
+      const tk = it.k === 'main' ? 'hi' : who ? agentTier(who) : 'fg';
+      g.put(2, y, clock(it.t), 'faint');
+      g.put(11, y, pad(labelOf(it.k), 12), tk);
+      g.put(24, y, pad(it.verb, 8), it.cls || (newest ? 'hi' : 'dim'));
+      g.put(33, y, clip(it.text, W - 35), it.cls && it.cls !== 'dim' ? it.cls : newest ? 'fg' : 'dim');
+    });
+    const py = PANEL_H - 2;
+    g.put(2, py, 'log >', 'dim');
+    const last = S.log[S.log.length - 1];
+    if (last) g.put(8, py, clip(`${labelOf(last.k)} ${last.verb} ${last.text}`, W - 12), 'fg');
+    const cx = last ? Math.min(W - 3, 9 + clip(`${labelOf(last.k)} ${last.verb} ${last.text}`, W - 12).length) : 8;
+    if (!REDUCE && frame % 8 < 4 && !S.ended) g.put(cx, py, '_', 'hi b');
+    paint(el, g.html());
+  }
+
+  function renderFoot(el) {
+    const W = colsOf(el);
+    const g = new Grid(W, 1);
+    const all = [...S.agents.values()];
+    const running = all.filter(isLive).length;
+    const fails = all.filter((a) => a.state === 'fail').length;
+    const parts = [
+      ['agents', `[${running}/${all.length}]`, running ? 'opus' : 'dim'],
+      ['tools', `[${S.toolCount}]`, 'fg'],
+      ['errors', `[${S.errors}]`, S.errors ? 'err' : 'dim'],
+      ['verifier fails', `[${fails}]`, fails ? 'err' : 'dim'],
+      ['advisor', `[${S.advisor.length}]`, S.advisor.length ? 'fable' : 'dim'],
+      ['waited on you', `[${S.waits}]`, S.waits ? 'warn' : 'dim'],
+    ];
+    if (!S.advisor.length && all.some((a) => a.ty === 'ogxo-route:implementer-risky')) parts.push(['impl-risky ran,', 'no advisor call seen', 'warn']);
+    let x = 0;
+    for (const [k, v, c] of parts) {
+      if (x + k.length + v.length + 3 > W - 18) break;
+      g.put(x, 0, k + ' ', 'dim'); x += k.length + 1;
+      g.put(x, 0, v, c); x += v.length + 3;
+    }
+    const age = S.last ? Math.floor((Date.now() - S.last) / 1000) : null;
+    const right = DEMO ? 'demo replay  t theme' : age == null ? 't theme' : `last event ${age < 60 ? age + 's' : dur(age * 1000)} ago  t theme`;
+    g.put(W - right.length, 0, right, 'faint');
+    paint(el, g.html());
+  }
+
+  // ---------- loop ----------
+  const els = ['head', 'tree', 'batch', 'time', 'tiers', 'log', 'foot'].reduce((o, id) => { o[id] = document.getElementById(id); return o; }, {});
+  function render() {
+    if (document.hidden) return;
+    frame++;
+    renderHead(els.head);
+    renderTree(els.tree);
+    renderBatch(els.batch);
+    renderTime(els.time);
+    renderTiers(els.tiers);
+    renderLog(els.log);
+    renderFoot(els.foot);
+  }
+
+  // ---------- live feed ----------
+  // The hooks append one `E({...});` line per event to events.js next to this
+  // page. A script tag loads from file:// where fetch() usually can't, so the
+  // page re-adds one each poll and ingests only the lines it hasn't seen.
+  let seen = 0, loading = false;
+  function poll() {
+    if (loading) return;
+    loading = true;
+    const got = [];
+    window.E = (ev) => { got.push(ev); };
+    const s = document.createElement('script');
+    s.src = 'events.js?' + Date.now();
+    const done = () => { s.remove(); loading = false; };
+    s.onload = () => {
+      S.loaded = true; S.offline = false;
+      if (got.length < seen) { reset(); S.loaded = true; seen = 0; }
+      // One malformed event must not stop the board: skip it and keep going.
+      for (let i = seen; i < got.length; i++) { try { ingest(got[i]); } catch (err) { console.warn('route board: skipped event', i, err); } }
+      seen = got.length;
+      done();
+    };
+    s.onerror = () => { S.loaded = true; S.offline = true; done(); };
+    document.head.appendChild(s);
+  }
+
+  // ---------- demo ----------
+  function demoScript() {
+    let u = 0;
+    const L = [];
+    const at = (dt, ev) => L.push([dt, ev]);
+    const tool = (dt, a, n, s, fail) => {
+      const id = 'd' + (++u);
+      at(dt, { e: 'tool', a, u: id, n, s });
+      at(dt + 400, { e: fail ? 'tool_err' : 'tool_ok', a, u: id, n });
+    };
+    const spawn = (dt, id, ty, d, rm, m, parent) => {
+      const uid = 'du' + id;
+      at(dt, { e: 'dispatch', a: parent || null, u: uid, ty, d, m: m || null, bg: true });
+      at(dt + 150, { e: 'sstart', id, ty });
+      at(dt + 300, { e: 'launched', a: parent || null, u: uid, id, rm, d });
+    };
+    at(0, { e: 'on', sid: 'demo0000session', repo: 'acme-api', branch: 'feat/rate-limits' });
+    at(600, { e: 'prompt' });
+    tool(1500, null, 'Read', 'docs/plans/rate-limits.md');
+    tool(2600, null, 'Grep', 'RateLimit');
+    at(3200, { e: 'advisor' });
+    spawn(3600, 'a1', 'ogxo-route:scout', 'Map every call site that needs a limiter', 'claude-sonnet-5-5');
+    spawn(3900, 'a2', 'Explore', 'List HTTP handler files', 'claude-haiku-4-5', 'haiku');
+    const s1 = ['Grep  Limiter', 'api/router.go', 'api/handlers/orders.go', 'api/handlers/auth.go', 'internal/limiter/doc.go', 'api/middleware/chain.go'];
+    s1.forEach((s, i) => tool(4700 + i * 1100, 'a1', i === 0 ? 'Grep' : 'Read', s.replace(/^Grep\s+/, '')));
+    ['api/**/*.go', 'cmd/**/main.go', 'api/handlers/README.md'].forEach((s, i) => tool(4500 + i * 900, 'a2', i < 2 ? 'Glob' : 'Read', s));
+    at(8200, { e: 'sstop', id: 'a2', ty: 'Explore', out: 900 });
+    at(11600, { e: 'sstop', id: 'a1', ty: 'ogxo-route:scout', out: 3100 });
+    tool(12300, null, 'Write', 'docs/plans/rate-limits.md');
+    at(13200, { e: 'batch', rows: [
+      { task: 'Token bucket core', writer: 'implementer', files: ['internal/limiter/bucket.go', 'internal/limiter/bucket_test.go'], mode: 'shared' },
+      { task: 'HTTP middleware', writer: 'grok', files: ['api/middleware/ratelimit.go'], mode: 'isolated', worktree: '.claude/worktrees/http-middleware' },
+    ] });
+    spawn(13800, 'a3', 'ogxo-route:implementer', 'Token bucket core', 'claude-sonnet-5-5');
+    tool(14100, null, 'Bash', 'grok-bridge run --write "HTTP middleware"');
+    L[L.length - 2][1].x = 'grok';
+    const s3 = [['Read', 'internal/limiter/doc.go'], ['Write', 'internal/limiter/bucket.go'], ['Write', 'internal/limiter/bucket_test.go'], ['Bash', 'go test ./internal/limiter', true], ['Edit', 'internal/limiter/bucket.go'], ['Bash', 'go test ./internal/limiter']];
+    s3.forEach(([n, s, fl], i) => tool(14800 + i * 1500, 'a3', n, s, fl));
+    at(24000, { e: 'sstop', id: 'a3', ty: 'ogxo-route:implementer', out: 5200 });
+    spawn(24600, 'a4', 'ogxo-route:verifier', 'Verify token bucket diff', 'claude-haiku-4-5');
+    tool(25200, 'a4', 'Bash', 'git diff --stat');
+    tool(26000, 'a4', 'Bash', 'risky-paths.sh');
+    at(27400, { e: 'sstop', id: 'a4', ty: 'ogxo-route:verifier', v: 'FAIL', out: 600 });
+    at(27900, { e: 'advisor' });
+    spawn(28200, 'a5', 'ogxo-route:implementer-risky', 'Token bucket core, retry one tier up', 'claude-opus-5-5');
+    at(32500, { e: 'perm', a: 'a5', n: 'Bash' });
+    at(32600, { e: 'wait', a: 'a5', k: 'permission_prompt' });
+    [['Read', 'internal/limiter/bucket.go'], ['Edit', 'internal/limiter/bucket.go'], ['Edit', 'internal/limiter/bucket_test.go'], ['Bash', 'go test -race ./internal/limiter']].forEach(([n, s], i) => tool([29000, 30400, 31800, 34600][i], 'a5', n, s));
+    at(29500, { e: 'tool', a: null, u: 'gx2', n: 'Bash', s: 'grok-bridge show', x: 'grok' });
+    at(29900, { e: 'tool_ok', a: null, u: 'gx2', n: 'Bash' });
+    at(35000, { e: 'sstop', id: 'a5', ty: 'ogxo-route:implementer-risky', out: 7400 });
+    spawn(35600, 'a6', 'ogxo-route:test-runner', 'Run go test ./...', 'claude-haiku-4-5');
+    spawn(35800, 'a7', 'ogxo-route:verifier', 'Verify token bucket retry', 'claude-haiku-4-5');
+    tool(36300, 'a6', 'Bash', 'go test ./...');
+    tool(36500, 'a7', 'Bash', 'git diff --stat');
+    at(38200, { e: 'sstop', id: 'a7', ty: 'ogxo-route:verifier', v: 'PASS', out: 500 });
+    at(39800, { e: 'sstop', id: 'a6', ty: 'ogxo-route:test-runner', out: 700 });
+    spawn(40500, 'a8', 'ogxo-review:code-review-agent', 'Pre-PR review of feat/rate-limits', 'claude-opus-5-5');
+    ['internal/limiter/bucket.go', 'api/middleware/ratelimit.go', 'api/router.go', 'internal/limiter/bucket_test.go'].forEach((s, i) => tool(41200 + i * 1300, 'a8', 'Read', s));
+    at(47500, { e: 'sstop', id: 'a8', ty: 'ogxo-review:code-review-agent', out: 9800 });
+    at(47800, { e: 'advisor' });
+    tool(48200, null, 'Bash', 'git status --short');
+    at(49500, { e: 'stop' });
+    return L.sort((p, q) => p[0] - q[0]);
+  }
+  function runDemo() {
+    const script = demoScript();
+    const loopMs = 56000;
+    let start = Date.now(), i = 0;
+    S.loaded = true;
+    setInterval(() => {
+      const el = Date.now() - start;
+      while (i < script.length && script[i][0] <= el) {
+        ingest(Object.assign({ t: start + script[i][0] }, script[i][1]));
+        i++;
+      }
+      if (el > loopMs) { reset(); S.loaded = true; start = Date.now(); i = 0; }
+    }, 100);
+  }
+
+  // ---------- boot ----------
+  // The hub sits one level up in the data directory; the demo copy has none.
+  if (DEMO) document.getElementById('hub').remove();
+  measure();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
+  addEventListener('resize', measure);
+  if (DEMO) runDemo();
+  else { poll(); setInterval(() => { if (!document.hidden) poll(); }, 800); }
+  render();
+  setInterval(render, REDUCE ? 1000 : 125);
+})();
+</script>
+</body>
+</html>

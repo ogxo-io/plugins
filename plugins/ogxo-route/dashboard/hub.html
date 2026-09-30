@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Route Boards</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #121419;
+  --frame: #181b21;
+  --bar: #1f232a;
+  --fg: #c0c6d0;
+  --hi: #eef1f6;
+  --dim: #5f6878;
+  --faint: #353b47;
+  --opus: #f0a35e;
+  --ok: #88d08c;
+  --err: #f26d6d;
+  --warn: #e9c85c;
+  --focus: #72a9f2;
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: #e6e9ee;
+    --frame: #f6f7f9;
+    --bar: #eceff3;
+    --fg: #2f3540;
+    --hi: #0f1319;
+    --dim: #7f8898;
+    --faint: #cdd2da;
+    --opus: #b35d14;
+    --ok: #2f8736;
+    --err: #c63636;
+    --warn: #8f7000;
+    --focus: #2467bf;
+  }
+}
+:root[data-theme="light"] {
+  --bg: #e6e9ee;
+  --frame: #f6f7f9;
+  --bar: #eceff3;
+  --fg: #2f3540;
+  --hi: #0f1319;
+  --dim: #7f8898;
+  --faint: #cdd2da;
+  --opus: #b35d14;
+  --ok: #2f8736;
+  --err: #c63636;
+  --warn: #8f7000;
+  --focus: #2467bf;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "calt" 0;
+  padding: 24px 16px;
+  min-height: 100vh;
+}
+.window {
+  max-width: 1100px;
+  margin: 0 auto;
+  background: var(--frame);
+  border: 1px solid var(--faint);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.titlebar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  background: var(--bar);
+  border-bottom: 1px solid var(--faint);
+  color: var(--dim);
+  font-size: 12px;
+}
+.titlebar i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.titlebar i:nth-child(1) { background: #f2605a; }
+.titlebar i:nth-child(2) { background: #f5bd4f; }
+.titlebar i:nth-child(3) { background: #5fc454; }
+.titlebar span { flex: 1; text-align: center; margin-right: 52px; }
+main { padding: 18px 20px 14px; }
+pre { margin: 0; font: inherit; white-space: pre; overflow: hidden; }
+.cards { display: grid; gap: 1em; margin: 1.5em 0; }
+a.card { display: block; color: inherit; text-decoration: none; border-radius: 4px; outline-offset: 3px; }
+a.card:hover pre .edge { color: var(--hi); }
+a.card:focus-visible { outline: 2px solid var(--focus); }
+@media (max-width: 600px) {
+  body { font-size: 11px; padding: 12px 8px; }
+  main { padding: 12px 10px; }
+}
+#probe { position: absolute; visibility: hidden; white-space: pre; }
+pre .ln { display: block; min-height: 1.5em; }
+.fg { color: var(--fg); }
+.hi { color: var(--hi); }
+.dim { color: var(--dim); }
+.faint { color: var(--faint); }
+.opus { color: var(--opus); }
+.ok { color: var(--ok); }
+.err { color: var(--err); }
+.warn { color: var(--warn); }
+.b { font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="window">
+  <div class="titlebar"><i></i><i></i><i></i><span>route boards</span></div>
+  <main>
+    <pre id="head"></pre>
+    <div class="cards" id="cards"></div>
+    <pre id="foot"></pre>
+  </main>
+</div>
+<span id="probe">MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM</span>
+<script>
+(() => {
+  'use strict';
+
+  const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const QUIET_MS = 90000;
+
+  try {
+    const saved = localStorage.getItem('ogxo-route-theme');
+    if (saved) document.documentElement.dataset.theme = saved;
+  } catch (e) { /* storage blocked */ }
+  addEventListener('keydown', (e) => {
+    if (e.key !== 't' || e.metaKey || e.ctrlKey || e.altKey) return;
+    const root = document.documentElement;
+    const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    root.dataset.theme = dark ? 'light' : 'dark';
+    try { localStorage.setItem('ogxo-route-theme', root.dataset.theme); } catch (err) { /* ignore */ }
+  });
+
+  // ---------- char grid (same renderer as the board) ----------
+  class Grid {
+    constructor(w, h) { this.w = w; this.h = h; this.c = new Array(w * h).fill(' '); this.k = new Array(w * h).fill(''); }
+    put(x, y, s, k = '') {
+      s = String(s);
+      if (y < 0 || y >= this.h) return;
+      for (let i = 0; i < s.length; i++) {
+        const xx = x + i;
+        if (xx < 0 || xx >= this.w) continue;
+        this.c[y * this.w + xx] = s[i]; this.k[y * this.w + xx] = k;
+      }
+    }
+    box(x, y, w, h, k, dashed) {
+      const hz = dashed ? '- ' : '-';
+      let top = '+';
+      for (let i = 1; i < w - 1; i++) top += hz[(i - 1) % hz.length];
+      top += '+';
+      this.put(x, y, top, k); this.put(x, y + h - 1, top, k);
+      for (let r = 1; r < h - 1; r++) { this.put(x, y + r, '|', k); this.put(x + w - 1, y + r, '|', k); }
+    }
+    html() {
+      const esc = (ch) => (ch === '<' ? '&lt;' : ch === '>' ? '&gt;' : ch === '&' ? '&amp;' : ch);
+      const lines = [];
+      for (let y = 0; y < this.h; y++) {
+        let out = '', run = '', rk = null;
+        for (let x = 0; x < this.w; x++) {
+          const j = y * this.w + x;
+          if (this.k[j] !== rk) { if (run) out += rk ? `<span class="${rk}">${run}</span>` : run; run = ''; rk = this.k[j]; }
+          run += esc(this.c[j]);
+        }
+        if (run) out += rk ? `<span class="${rk}">${run}</span>` : run;
+        lines.push(out.replace(/\s+$/, ''));
+      }
+      return lines.join('\n');
+    }
+  }
+  // paint: update a panel line by line, touching only lines that changed, so
+  // wheel scrolling over it isn't dropped (see the board's paint()).
+  function paint(el, html) {
+    const lines = html ? html.split('\n') : [];
+    const kids = el.children;
+    while (kids.length > lines.length) el.lastChild.remove();
+    while (kids.length < lines.length) { const d = document.createElement('div'); d.className = 'ln'; el.appendChild(d); }
+    for (let i = 0; i < lines.length; i++) if (kids[i]._h !== lines[i]) { kids[i].innerHTML = lines[i]; kids[i]._h = lines[i]; }
+  }
+  let cw = 8;
+  function measure() {
+    const p = document.getElementById('probe');
+    p.style.fontSize = getComputedStyle(document.body).fontSize;
+    cw = p.getBoundingClientRect().width / 50 || 8;
+  }
+  const colsOf = (el) => Math.max(24, Math.floor(el.clientWidth / cw));
+  const clip = (s, n) => { s = String(s || ''); return n <= 0 ? '' : s.length > n ? s.slice(0, Math.max(0, n - 1)) + '~' : s; };
+  const two = (n) => String(n).padStart(2, '0');
+  const dur = (ms) => {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+    return h ? `${h}h${two(m)}m` : m ? `${m}m${two(s % 60)}s` : `${s}s`;
+  };
+  const clock = (t) => { const d = new Date(t); return `${two(d.getHours())}:${two(d.getMinutes())}`; };
+  const day = (t) => { const d = new Date(t); return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`; };
+
+  // ---------- data ----------
+  // dash.sh rewrites boards.js (one `B({...});` per board) when a board is
+  // turned on or off; each board's own events.js is summarised here.
+  let boards = [];
+  let loadedOnce = false, registryMissing = false;
+  const stats = new Map();
+
+  function loadScript(src, bind) {
+    return new Promise((resolve) => {
+      const got = [];
+      bind((x) => got.push(x));
+      const s = document.createElement('script');
+      s.src = src + '?' + Date.now();
+      s.onload = () => { s.remove(); resolve(got); };
+      s.onerror = () => { s.remove(); resolve(null); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function summarise(events) {
+    const st = { t0: null, last: 0, working: false, ended: false, tools: 0, errors: 0, agents: 0, running: 0, fails: 0, advisor: 0, waiting: false };
+    const live = new Set();
+    const waits = new Set();
+    const launchedDone = new Set();
+    for (const ev of events) {
+      if (!ev || typeof ev !== 'object') continue;
+      const t = typeof ev.t === 'number' ? ev.t : 0;
+      if (t) { if (st.t0 == null || t < st.t0) st.t0 = t; st.last = Math.max(st.last, t); }
+      switch (ev.e) {
+        case 'prompt': st.working = true; waits.delete('main'); break;
+        case 'stop': st.working = false; waits.delete('main'); break;
+        case 'advisor': st.advisor++; break;
+        case 'perm': waits.add(ev.a || 'main'); break;
+        case 'wait': if (ev.k !== 'idle_prompt') waits.add(ev.a || 'main'); break;
+        case 'tool_ok': waits.delete(ev.a || 'main'); break;
+        case 'end': st.ended = true; st.working = false; break;
+        case 'dispatch': st.agents++; break;
+        case 'sstart': live.add(ev.id); break;
+        case 'sstop': live.delete(ev.id); waits.delete(ev.id); if (ev.v === 'FAIL') st.fails++; break;
+        case 'launched': if (ev.done && ev.id) { launchedDone.add(ev.id); live.delete(ev.id); } break;
+        case 'tool': st.tools++; waits.delete(ev.a || 'main'); if (!ev.a) st.working = st.working || !st.ended; break;
+        case 'tool_err': st.errors++; waits.delete(ev.a || 'main'); break;
+        default: break;
+      }
+    }
+    st.running = st.ended ? 0 : live.size;
+    st.waiting = !st.ended && waits.size > 0;
+    return st;
+  }
+
+  async function refresh() {
+    const got = await loadScript('boards.js', (fn) => { window.B = fn; });
+    loadedOnce = true;
+    registryMissing = got == null;
+    if (got) {
+      const seen = new Map();
+      for (const b of got) if (b && /^[A-Za-z0-9_-]{1,128}$/.test(String(b.sid || ''))) seen.set(b.sid, b);
+      boards = [...seen.values()];
+    }
+    for (const b of boards) {
+      const prev = stats.get(b.sid);
+      // Boards that are off only change when turned back on; read them once.
+      if (prev && !b.on && prev.ended) continue;
+      const ev = await loadScript(`${b.sid}/events.js`, (fn) => { window.E = fn; });
+      if (ev) stats.set(b.sid, summarise(ev));
+    }
+  }
+
+  // ---------- render ----------
+  let frame = 0;
+  const headEl = document.getElementById('head');
+  const cardsEl = document.getElementById('cards');
+  const footEl = document.getElementById('foot');
+
+  function stateOf(b, st) {
+    const now = Date.now();
+    if (!st) return ['loading', 'dim', 0];
+    const open = st.working || st.running > 0;
+    if (!b.on || st.ended) return [st.ended ? 'session ended' : 'recording off', 'dim', 3];
+    if (st.waiting) return ['! waiting on you, answer the prompt in the terminal', 'warn b', 0];
+    if (open && st.last && now - st.last > QUIET_MS) return [`! quiet ${dur(now - st.last)}, check for a prompt`, 'warn b', 0];
+    if (open) return [(REDUCE || frame % 8 < 5 ? '*' : ' ') + ' working', 'opus', 1];
+    return ['o idle', 'dim', 2];
+  }
+
+  function renderHead() {
+    const W = colsOf(headEl);
+    const g = new Grid(W, 3);
+    g.put(0, 0, 'ROUTE BOARDS', 'hi b');
+    g.put(14, 0, 'every session with a board, newest activity first', 'dim');
+    g.put(0, 1, '='.repeat(W), 'faint');
+    const on = boards.filter((b) => b.on && !(stats.get(b.sid) || {}).ended).length;
+    const busy = boards.filter((b) => { const st = stats.get(b.sid); return b.on && st && !st.ended && (st.working || st.running); }).length;
+    g.put(0, 2, `${on} recording`, on ? 'hi' : 'dim');
+    g.put(on > 9 ? 14 : 13, 2, `${busy} working`, busy ? 'opus' : 'dim');
+    paint(headEl, g.html());
+  }
+
+  function cardHTML(b, W) {
+    const st = stats.get(b.sid);
+    const [label, lk] = stateOf(b, st);
+    const off = !b.on || (st && st.ended);
+    const g = new Grid(W, 5);
+    g.box(0, 0, W, 5, off ? 'faint edge' : lk === 'warn b' ? 'warn edge' : 'dim edge', off);
+    const repo = ` ${clip((b.repo || 'session') + (b.wt ? ` / ${b.wt}` : ''), W - 30)} `;
+    g.put(2, 0, repo, off ? 'dim b' : 'hi b');
+    if (b.branch) {
+      const br = ` ${clip(b.branch, W - repo.length - 8)} `;
+      g.put(W - 2 - br.length, 0, br, 'dim');
+    }
+    g.put(2, 1, clip(label, W - 4), lk);
+    if (st) {
+      const parts = [
+        ['agents', st.running ? `${st.running} running / ${st.agents}` : String(st.agents), st.running ? 'opus' : 'fg'],
+        ['tools', String(st.tools), 'fg'],
+        ['errors', String(st.errors), st.errors ? 'err' : 'fg'],
+        ['verifier fails', String(st.fails), st.fails ? 'err' : 'fg'],
+        ['advisor', String(st.advisor), 'fg'],
+      ];
+      let x = 2;
+      for (const [k, v, c] of parts) {
+        if (x + k.length + v.length + 2 > W - 3) break;
+        g.put(x, 2, k, 'dim'); x += k.length + 1;
+        g.put(x, 2, v, off ? 'dim' : c); x += v.length + 3;
+      }
+      const ago = st.last ? `last event ${dur(Date.now() - st.last)} ago` : 'no events yet';
+      if (W > 70) g.put(W - 2 - ago.length, 1, ago, 'dim');
+    }
+    const started = st && st.t0 ? `${day(st.t0)} ${clock(st.t0)}` : '';
+    const where = [`session ${String(b.sid).slice(0, 8)}`, started, b.cwd || ''].filter(Boolean).join('   ');
+    g.put(2, 3, clip(where, W - 4), 'dim');
+    return g.html();
+  }
+
+  function render() {
+    if (document.hidden) return;
+    frame++;
+    renderHead();
+    const W = Math.max(24, Math.floor(cardsEl.clientWidth / cw));
+    const sorted = boards.slice().sort((p, q) => {
+      const sp = stateOf(p, stats.get(p.sid))[2], sq = stateOf(q, stats.get(q.sid))[2];
+      if (sp !== sq) return sp - sq;
+      return ((stats.get(q.sid) || {}).last || 0) - ((stats.get(p.sid) || {}).last || 0);
+    });
+    const keep = new Set();
+    for (const b of sorted) {
+      keep.add(b.sid);
+      let a = cardsEl.querySelector(`a[data-sid="${b.sid}"]`);
+      if (!a) {
+        a = document.createElement('a');
+        a.className = 'card'; a.dataset.sid = b.sid; a.href = `${b.sid}/index.html`;
+        a.appendChild(document.createElement('pre'));
+      }
+      a.setAttribute('aria-label', `Open the board for ${b.repo || 'session'} ${b.branch || ''}`);
+      cardsEl.appendChild(a);
+      const html = cardHTML(b, W);
+      paint(a.firstChild, html);
+    }
+    for (const a of [...cardsEl.children]) if (!keep.has(a.dataset.sid)) a.remove();
+    if (!sorted.length) {
+      cardsEl.innerHTML = '';
+      const p = document.createElement('pre');
+      p.className = 'dim';
+      p.textContent = !loadedOnce ? 'loading boards.js ...'
+        : registryMissing ? 'No boards yet. Run /ogxo-route:dashboard in a Claude Code session to start one.'
+        : 'No boards recorded. Run /ogxo-route:dashboard in a Claude Code session to start one.';
+      cardsEl.appendChild(p);
+    }
+    const fw = colsOf(footEl);
+    const g = new Grid(fw, 1);
+    const right = 'boards off for 7 days are pruned   t theme';
+    g.put(0, 0, 'enter opens a board', 'faint');
+    g.put(fw - right.length, 0, right, 'faint');
+    paint(footEl, g.html());
+  }
+
+  measure();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
+  addEventListener('resize', measure);
+  let busy = false;
+  const tick = async () => { if (busy || document.hidden) return; busy = true; try { await refresh(); } finally { busy = false; } };
+  tick();
+  setInterval(tick, 2000);
+  render();
+  setInterval(render, REDUCE ? 1000 : 250);
+})();
+</script>
+</body>
+</html>

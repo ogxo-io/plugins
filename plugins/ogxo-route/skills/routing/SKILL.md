@@ -139,6 +139,22 @@ registry table, fixture list) always conflict when merged. Tell each worker
 to add its entries in one contiguous block headed by the task id, not
 interleaved with others.
 
+**Live board.** Before the first batch in a session, offer the user
+`/ogxo-route:dashboard` once: a local HTML page, updated by hooks, showing
+this session's agents, their tool calls, and the batch. When the board is
+on, record the Batch table on it and use each row's task name in that
+task's dispatch description, so the board can link rows to agents:
+
+```bash
+CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" bash "${CLAUDE_PLUGIN_ROOT}/scripts/dash.sh" batch <<'JSON'
+[{"task": "<task>", "writer": "<grok|codex|implementer>", "files": ["<path>"], "mode": "shared"}]
+JSON
+```
+
+For an isolated task, set `"mode": "isolated"` and add `"worktree": ".claude/worktrees/<task>"`.
+
+When the board is off, the script prints a note and writes nothing.
+
 ### Shared tree (default)
 
 All writers edit the user's checkout. This is cheap and needs no setup.

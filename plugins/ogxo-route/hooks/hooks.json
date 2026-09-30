@@ -1,5 +1,5 @@
 {
-  "description": "ogxo-route: session-start routing summary (Claude Code only), a warning when Explore/general-purpose/Plan is dispatched without a model, a local log of each subagent dispatch and of permission requests and prompt notifications, marking grok off for routing when it reports an exhausted balance (HTTP 402), opt-in alerts when Claude Code waits on a permission prompt, and a count of the session's advisor calls read from its transcript. Warns, never blocks. Requires jq.",
+  "description": "ogxo-route: session-start routing summary (Claude Code only), a warning when Explore/general-purpose/Plan is dispatched without a model, a local log of each subagent dispatch and of permission requests and prompt notifications, marking grok off for routing when it reports an exhausted balance (HTTP 402), opt-in alerts when Claude Code waits on a permission prompt, a count of the session's advisor calls read from its transcript, and an opt-in recorder for a live HTML board of the session's agents and tool calls (/ogxo-route:dashboard), which appends events only while that session's board flag file exists. Warns, never blocks. Requires jq.",
   "hooks": {
     "SessionStart": [
       {
@@ -19,6 +19,15 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/generic-warn.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dash-event.sh\""
           }
         ]
       }
@@ -41,6 +50,80 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/quota-watch.sh\""
           }
         ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dash-event.sh\""
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dash-event.sh\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dash-event.sh\""
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dash-event.sh\""
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dash-event.sh\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dash-event.sh\""
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dash-event.sh\""
+          },
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/advisor-count.sh\""
+          }
+        ]
       }
     ],
     "PermissionRequest": [
@@ -49,6 +132,14 @@
           {
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/permission-log.sh\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dash-event.sh\""
           }
         ]
       }
@@ -66,19 +157,18 @@
             "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/prompt-alert.sh\""
           }
         ]
-      }
-    ],
-    "PreCompact": [
+      },
       {
+        "matcher": "permission_prompt|agent_needs_input",
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/advisor-count.sh\""
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/dash-event.sh\""
           }
         ]
       }
     ],
-    "SessionEnd": [
+    "PreCompact": [
       {
         "hooks": [
           {
