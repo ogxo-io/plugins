@@ -82,6 +82,12 @@ Plugins backed by a product (an MCP server or binary) pin to a release tag and
 commit sha in that product's repository. Content-only plugins — skills, agents,
 and commands with no product behind them — are vendored here under `plugins/`.
 
+## The live board
+
+`/ogxo-route:dashboard` opens a live page of everything a session is doing: the agents it dispatched and on which model, their tool calls, failed calls with their errors, tokens and list-price cost per worker, and, with ogxo-statusline installed, how much of your plan's 5-hour and weekly windows is left. `/ogxo-route:dashboard serve` makes it reachable over HTTP on this machine. Details are in the [ogxo-route README](plugins/ogxo-route/README.md#live-board).
+
+![The ogxo-route live board replaying its built-in demo](docs/images/route-board-demo.gif)
+
 ## License
 
 MIT — see [LICENSE](LICENSE). Each vendored plugin ships its own copy.

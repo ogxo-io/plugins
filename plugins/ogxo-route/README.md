@@ -71,7 +71,7 @@ Review fix rounds use `ogxo-review:code-review-agent`'s re-review mode. After tw
 
 `/ogxo-route:dashboard` opens a local HTML page that follows the current session as it runs: the main session and every subagent it dispatches (model tier, description, its last tool calls, and the verifier's PASS/FAIL/RISKY), grok and codex bridge runs, the batch table, a timeline of tool calls per agent, how the tool calls split across model tiers, a running log, the failed tool calls with their errors, and how much of your plan's 5-hour and weekly windows is left. Before the first parallel batch, Claude offers to open it.
 
-![The live board replaying its built-in demo: agents dispatched and returning, the batch table, the timeline, and the log](../../docs/images/route-board-demo.gif)
+![The live board replaying its built-in demo: plan usage left, agents dispatched and returning, the batch table, the timeline, the log, a failed test in the errors panel, and tokens and cost per worker](../../docs/images/route-board-demo.gif)
 
 The replay above is `/ogxo-route:dashboard demo`, a made-up session, shown at twice its speed.
 
