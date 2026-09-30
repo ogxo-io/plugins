@@ -34,7 +34,7 @@ Haiku has no effort setting, so Haiku workers have none. The Agent tool has no e
 
 ## Hooks
 
-All six warn, log, alert, or set the routing marker; none rejects a tool call or answers a permission prompt.
+All seven warn, log, alert, or set the routing marker; none rejects a tool call or answers a permission prompt.
 
 - **anchor** (SessionStart): prints the routing summary. Prints nothing unless `CLAUDECODE=1`, so it stays quiet under Grok Build.
 - **generic-warn** (PreToolUse `Agent|Task`): when Explore, general-purpose, or Plan is dispatched without a `model`, adds a note for Claude suggesting `haiku` or `sonnet`. The dispatch has already started on the session model; the note steers the next one.
@@ -42,11 +42,12 @@ All six warn, log, alert, or set the routing marker; none rejects a tool call or
 - **permission-log** (PermissionRequest, and Notification `permission_prompt|agent_needs_input`): appends the time, session id, event, tool name, notification type, permission mode, whether it came from inside a subagent, and which subagent to `permissions.jsonl` in the plugin's data directory. No command or message text. It prints nothing, so it leaves the permission decision to Claude Code. The log shows where workers wait on prompts; whether these events fire for a background worker's prompt is not documented, and this log is how the team finds out.
 - **prompt-alert** (Notification `permission_prompt|agent_needs_input`): off until you run `/ogxo-route:alerts on`. Then a desktop notification when Claude Code waits on you: on macOS through `terminal-notifier` if installed (`brew install terminal-notifier`; clicking it brings the app running Claude Code forward), otherwise, or when macOS has not allowed `terminal-notifier`'s notifications (System Settings → Notifications), `osascript` (clicking it opens Script Editor, which owns those notifications); on Linux through `notify-send`. With a push URL it also sends a POST of a fixed message to it (for example an ntfy topic). The push never includes the prompt's text. A prompt still waits until you answer it.
 - **dispatch-log** (PostToolUse `Agent|Task`): appends the time, session id, agent type, requested model, whether it ran inside a subagent, and which subagent dispatched it to `dispatches.jsonl` in the plugin's data directory. No prompt text or paths.
+- **advisor-count** (PreCompact, SessionEnd): counts the session's advisor calls and appends the time, session id, that count, and the number of assistant entries read to `advisor.jsonl` in the plugin's data directory. The advisor runs on the API side, so no tool hook sees it; this reads the session transcript and counts `server_tool_use` entries named `advisor`, once per id. The transcript format is Claude Code's own and undocumented, so a change to it shows up in stats as transcripts with no assistant entries recognised rather than as zero calls. Only the main session's transcript is read. A session killed before it ends or compacts logs nothing. No text or paths.
 
 ## Commands
 
 - `/ogxo-route:external [on|off grok|codex [hours]]`: mark an external agent off for routing when its quota or login runs out (default 24 hours), back on, or show status (with the path of the state file it uses). A grok or codex run you ask for by name is not affected.
-- `/ogxo-route:stats [days]`: dispatches per agent and requested model, and how many generic dispatches ran with no model, then the log's path; then permission requests and prompt notifications by mode and by main session or subagent. Keeps 30 days.
+- `/ogxo-route:stats [days]`: dispatches per agent and requested model, and how many generic dispatches ran with no model, then the log's path; then permission requests and prompt notifications by mode and by main session or subagent; then advisor calls across ended sessions, and how many sessions that dispatched `implementer-risky` have no recorded advisor call (which can also mean the advisor tool was not enabled). Keeps 30 days.
 - `/ogxo-route:alerts [on [https-push-url] | off | test]`: turn prompt alerts on or off, send a test alert, or show status.
 
 ## Parallel work

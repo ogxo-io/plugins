@@ -333,6 +333,14 @@ for a in implementer implementer-risky; do
 done
 expect "anchor: shared build cache" grep -q 'shared build cache' "$plugin/hooks/anchor.md"
 
+# --- advisor ------------------------------------------------------------------
+expect "skill: advisor step" grep -q '^## Step 6: advisor' "$skill"
+expect "skill: advisor before choosing an approach on risky work" grep -q 'before choosing an approach on risky' "$skill"
+expect "skill: advisor before declaring risky work or a branch done" grep -q 'before declaring a risky task or a branch done' "$skill"
+expect "skill: advisor when stuck after an escalation" grep -q 'when stuck after an escalation' "$skill"
+expect "skill: no advisor for standard work" grep -q 'Do not consult it for standard work' "$skill"
+expect "anchor: advisor rule" grep -q 'If the advisor tool exists' "$plugin/hooks/anchor.md"
+
 # --- permission log, prompt alerts ---------------------------------------------
 plog="$plugin/hooks/permission-log.sh"
 palert="$plugin/hooks/prompt-alert.sh"
@@ -415,6 +423,61 @@ expect "alerts: bad action exits 2" [ "$code" -eq 2 ]
 expect "hooks: permission-log on PermissionRequest" jq -e '[.hooks.PermissionRequest[].hooks[].command | contains("permission-log.sh")] | any' "$plugin/hooks/hooks.json"
 expect "hooks: alert on permission prompts" jq -e '[.hooks.Notification[] | select(.matcher == "permission_prompt|agent_needs_input") | .hooks[].command | contains("prompt-alert.sh")] | any' "$plugin/hooks/hooks.json"
 expect "hooks: no PermissionRequest decision output anywhere" bash -c "! grep -rq 'behavior' '$plugin/hooks'"
+
+# --- advisor count -------------------------------------------------------------
+acount="$plugin/hooks/advisor-count.sh"
+tr_file="$tmp/transcript.jsonl"
+cat >"$tr_file" <<'JSONL'
+{"type":"user","message":{"role":"user","content":"ask the advisor about secret-file"}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"secret-file"},{"type":"server_tool_use","id":"srv1","name":"advisor","input":{}}]}}
+{"type":"assistant","message":{"content":[{"type":"server_tool_use","id":"srv1","name":"advisor","input":{}}]}}
+{"type":"assistant","message":{"content":[{"type":"server_tool_use","id":"srv2","name":"advisor","input":{}},{"type":"server_tool_use","id":"srv9","name":"web_search","input":{}}]}}
+not json
+{"type":"assistant","message":{"content":"plain text"}}
+{"type":"assistant","message":{"content":[{"type":"server_tool_use","id":"srv3","name":"advisor","input":{}}]}}
+JSONL
+
+reset_data
+run_hook "$acount" "{\"session_id\":\"s1\",\"hook_event_name\":\"SessionEnd\",\"transcript_path\":\"$tr_file\"}"
+expect "advisor-count: exit 0" [ "$code" -eq 0 ]
+expect "advisor-count: prints nothing" [ -z "$out" ]
+expect "advisor-count: unique advisor ids counted" jq -e '.session_id == "s1" and .advisor_calls == 3 and .assistant_entries == 5' "$data/advisor.jsonl"
+expect "advisor-count: no text or paths logged" bash -c "! grep -qE 'secret-file|transcript' '$data/advisor.jsonl'"
+run_hook "$acount" '{"session_id":"s1","hook_event_name":"SessionEnd"}'
+expect "advisor-count: no transcript_path exits 0" [ "$code" -eq 0 ]
+run_hook "$acount" "{\"session_id\":\"s1\",\"transcript_path\":\"$tmp/missing.jsonl\"}"
+expect "advisor-count: missing transcript exits 0" [ "$code" -eq 0 ]
+run_hook "$acount" 'not json'
+expect "advisor-count: garbage exits 0" [ "$code" -eq 0 ]
+expect "advisor-count: nothing logged for bad input" [ "$(lines "$data/advisor.jsonl")" = 1 ]
+run_hook "$acount" '{}' PATH="$nojq"
+expect "advisor-count: no jq prints notice" grep -q 'jq not found' "$tmp/err"
+expect "hooks: advisor count on SessionEnd" jq -e '[.hooks.SessionEnd[].hooks[].command | contains("advisor-count.sh")] | any' "$plugin/hooks/hooks.json"
+expect "hooks: advisor count on PreCompact" jq -e '[.hooks.PreCompact[].hooks[].command | contains("advisor-count.sh")] | any' "$plugin/hooks/hooks.json"
+
+# stats: latest line per session, risky sessions without a call, unrecognised transcripts.
+reset_data
+now_ts=$(date +%s)
+{
+  printf '{"ts":%s,"session_id":"s1","advisor_calls":1,"assistant_entries":10}\n' "$now_ts"
+  printf '{"ts":%s,"session_id":"s1","advisor_calls":4,"assistant_entries":50}\n' "$now_ts"
+  printf '{"ts":%s,"session_id":"s2","advisor_calls":0,"assistant_entries":30}\n' "$now_ts"
+  printf '{"ts":%s,"session_id":"s3","advisor_calls":0,"assistant_entries":0}\n' "$now_ts"
+} >"$data/advisor.jsonl"
+{
+  printf '{"ts":%s,"session_id":"s1","subagent_type":"ogxo-route:implementer-risky","requested_model":null,"nested":false,"agent_type":null}\n' "$now_ts"
+  printf '{"ts":%s,"session_id":"s2","subagent_type":"ogxo-route:implementer-risky","requested_model":null,"nested":false,"agent_type":null}\n' "$now_ts"
+  printf '{"ts":%s,"session_id":"s4","subagent_type":"ogxo-route:implementer-risky","requested_model":null,"nested":false,"agent_type":null}\n' "$now_ts"
+} >"$data/dispatches.jsonl"
+runx "$stats"
+expect "stats: advisor total uses the latest line per session" grep -q 'Advisor calls in the last 7 days: 4 across 2 ended sessions (1 with at least one)' <<<"$out"
+expect "stats: risky sessions with no advisor call" grep -q 'Sessions that dispatched implementer-risky with no recorded advisor call: 1 of 2' <<<"$out"
+expect "stats: unrecognised transcripts flagged" grep -q 'Transcripts with no assistant entries recognised: 1' <<<"$out"
+expect "stats: advisor log path" grep -qF "Advisor log: $data/advisor.jsonl" <<<"$out"
+rm -f "$data/dispatches.jsonl"
+runx "$stats"
+expect "stats: advisor section without dispatch log" grep -q 'Advisor calls in the last 7 days: 4' <<<"$out"
+expect "stats: no risky sessions without dispatch log" grep -q 'no recorded advisor call: 0 of 0' <<<"$out"
 
 echo "route tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

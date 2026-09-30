@@ -1,5 +1,5 @@
 ---
-description: Show ogxo-route's subagent dispatch counts per agent and requested model
+description: Show ogxo-route's subagent dispatch counts per agent and requested model, permission prompts, and advisor calls
 argument-hint: "[days]"
 allowed-tools: Bash(CLAUDE_PLUGIN_DATA=*)
 ---
@@ -11,3 +11,5 @@ CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" bash "${CLAUDE_PLUGIN_ROOT}/scripts/s
 ```
 
 "Requested model" is the `model` passed on the dispatch; "pin/inherit" means none was passed and the agent's own pin or the session model applied. A high "Generic dispatches with no model" count means Explore/general-purpose/Plan ran on the session model.
+
+Advisor counts cover sessions that have ended or compacted; a session still running is not in them yet.

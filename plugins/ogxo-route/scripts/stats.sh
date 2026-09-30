@@ -9,8 +9,9 @@ days=${1:-7}
 [[ "$days" =~ ^[0-9]+$ ]] && [ "$days" -gt 0 ] || { echo "usage: stats [days]" >&2; exit 2; }
 file="${CLAUDE_PLUGIN_DATA:-}/dispatches.jsonl"
 perms="${CLAUDE_PLUGIN_DATA:-}/permissions.jsonl"
+advisor="${CLAUDE_PLUGIN_DATA:-}/advisor.jsonl"
 now=$(date +%s)
-trap 'rm -f "$file.tmp.$$" "$perms.tmp.$$"' EXIT
+trap 'rm -f "$file.tmp.$$" "$perms.tmp.$$" "$advisor.tmp.$$"' EXIT
 
 # prune <log>: drop entries older than 30 days and malformed lines. Rewrites
 # only when something is dropped: a rewrite replaces the file, and a hook
@@ -51,9 +52,40 @@ permission_report() {
   echo "Permission log: $perms"
 }
 
+# advisor_report: advisor calls per session from the advisor-count hook, and
+# the sessions that dispatched implementer-risky with no recorded advisor call.
+# A session logs a line at each compaction and at its end; the latest line
+# (the most assistant entries) is its count. Sessions still running have no
+# line yet and are left out rather than counted as zero.
+advisor_report() {
+  local risky
+  [ -n "${CLAUDE_PLUGIN_DATA:-}" ] && [ -s "$advisor" ] || return 0
+  prune "$advisor" || return 0
+  risky=$(jq -R -c -s --argjson cut $((now - days * 86400)) '
+    [split("\n")[] | fromjson? | objects
+     | select((.ts | type) == "number" and .ts >= $cut)
+     | select((.subagent_type // "") | endswith("implementer-risky"))
+     | .session_id | strings] | unique' "$file" 2>/dev/null)
+  [ -n "$risky" ] || risky='[]'
+  echo ""
+  jq -s -r --argjson cut $((now - days * 86400)) --argjson days "$days" --argjson risky "$risky" '
+    map(select(.session_id != null)) | group_by(.session_id) | map(max_by(.assistant_entries))
+    | map(select(.ts >= $cut)) as $s
+    | ($s | map(select(.assistant_entries == 0))) as $unknown
+    | ($s | map(select(.assistant_entries > 0))) as $ok
+    | "Advisor calls in the last \($days) days: \($ok | map(.advisor_calls) | add // 0) across \($ok | length) ended sessions (\($ok | map(select(.advisor_calls > 0)) | length) with at least one)",
+    "Sessions that dispatched implementer-risky with no recorded advisor call: \($ok | map(select(.advisor_calls == 0 and (.session_id as $id | $risky | any(. == $id)))) | length) of \($ok | map(select(.session_id as $id | $risky | any(. == $id))) | length)",
+    "  (no call can also mean the advisor tool was not enabled in that session)",
+    (if ($unknown | length) > 0 then "Transcripts with no assistant entries recognised: \($unknown | length) (the transcript format may have changed; advisor counts for these are unknown)" else empty end)
+  ' "$advisor"
+  echo ""
+  echo "Advisor log: $advisor"
+}
+
 if [ -z "${CLAUDE_PLUGIN_DATA:-}" ] || [ ! -s "$file" ]; then
   echo "No dispatches recorded yet (log: $file)."
   permission_report
+  advisor_report
   exit 0
 fi
 
@@ -74,3 +106,4 @@ jq -s -r --argjson cut $((now - days * 86400)) --argjson days "$days" '
 echo ""
 echo "Log: $file"
 permission_report
+advisor_report
