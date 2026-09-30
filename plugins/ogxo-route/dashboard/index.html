@@ -335,6 +335,10 @@ pre .ln { display: block; min-height: 1.5em; }
       }
       case 'sstop': {
         if (!ev.id) break;
+        // Claude Code's own helpers (for example the progress summaries it
+        // writes while background agents run) fire SubagentStop with no
+        // agent type and no start or dispatch before it: not a worker.
+        if (!S.byId.has(ev.id) && !ev.ty) break;
         const key = S.byId.get(ev.id) || callerKey({ a: ev.id, at: ev.ty, t });
         const a = S.agents.get(key);
         a.t1 = t; a.returnAt = t; a.verdict = ev.v || null; a.out = ev.out || a.out; a.wait = null;
@@ -344,6 +348,9 @@ pre .ln { display: block; min-height: 1.5em; }
         break;
       }
       case 'tool': {
+        // Claude Code's own helpers also run tools, under an agent id that
+        // never started and with no agent type; a worker's calls carry its type.
+        if (ev.a && !S.byId.has(ev.a) && !ev.at) break;
         let key = callerKey(ev);
         if (key === 'main') touchMain(ev, t);
         const who = actor(key);
@@ -370,12 +377,14 @@ pre .ln { display: block; min-height: 1.5em; }
         break;
       }
       case 'tool_ok': {
+        if (ev.a && !S.byId.has(ev.a)) break;
         actor(callerKey(ev)).wait = null;
         const rec = S.tools.get(ev.u);
         if (rec) { rec.ok = true; S.tools.delete(ev.u); }
         break;
       }
       case 'tool_err': {
+        if (ev.a && !S.byId.has(ev.a) && !S.tools.has(ev.u)) break;
         const key = callerKey(ev);
         const rec = S.tools.get(ev.u);
         if (rec) { rec.ok = false; S.tools.delete(ev.u); }
@@ -716,7 +725,8 @@ pre .ln { display: block; min-height: 1.5em; }
     const live = all.filter(isLive);
     const done = all.filter((a) => !isLive(a));
     const room = Math.max(0, max - live.length);
-    const shown = live.slice(-max).concat(done.slice(-room)).sort((p, q) => p.t0 - q.t0);
+    // slice(-0) is slice(0), every item: take no finished agents when there is no room.
+    const shown = live.slice(-max).concat(room ? done.slice(-room) : []).sort((p, q) => p.t0 - q.t0);
     const hidden = all.filter((a) => !shown.includes(a));
     return { shown, hidden };
   }

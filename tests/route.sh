@@ -837,6 +837,9 @@ if command -v git >/dev/null 2>&1; then
   out=$(cd "$gr" && env CLAUDE_PLUGIN_DATA="$data" bash "$dctl" on mainsess 2>"$tmp/err")
   expect "dash.sh: main checkout has no wt" jq -e '.repo == "mainrepo" and .wt == ""' "$data/dash/mainsess/meta.json"
 fi
+expect "dashboard: a stop with no start and no type is not a worker" grep -qF "if (!S.byId.has(ev.id) && !ev.ty) break;" "$page"
+expect "dashboard: tool calls from an unstarted untyped agent are skipped" grep -qF "if (ev.a && !S.byId.has(ev.a) && !ev.at) break;" "$page"
+expect "dashboard: no finished cards when the row is full of running ones" grep -qF "room ? done.slice(-room) : []" "$page"
 expect "dashboard: agents are tagged with their worktree" grep -qF '.claude\/worktrees\/([^/\s]+)\/' "$page"
 expect "skill: isolated batch rows carry the worktree" grep -qF '"worktree": ".claude/worktrees/<task>"' "$skill"
 
