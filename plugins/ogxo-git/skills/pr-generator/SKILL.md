@@ -1,7 +1,7 @@
 ---
 name: pr-generator
 description: Generate PR titles and descriptions by analyzing commits and file changes. Detects ThryX issue keys and PR templates. Use when creating or drafting a pull request.
-allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git status:*), Bash(python3:*), Bash(gh pr:*), Read, Glob, Grep
+allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git status:*), Bash(git push:*), Bash(python3:*), Bash(gh pr:*), Read, Glob, Grep
 effort: low
 ---
 

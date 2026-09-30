@@ -19,4 +19,4 @@ claude plugin install ogxo-git@ogxo
 - `/ogxo-git:release-notes` (skill)
 - `/ogxo-git:release` (command)
 - `/ogxo-git:quick-fix` (command)
-- `/ogxo-git:ship-feature` (command)
+- `/ogxo-git:ship-feature [--no-gates] [base]` (command): security review, tests, and build, then branch (when on the default branch), commit what you staged, push, and open the PR with `pr-generator`, after one confirmation. `--no-gates` skips the checks for work already tested.

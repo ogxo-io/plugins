@@ -67,7 +67,7 @@
     {
       "name": "ogxo-git",
       "description": "Git and GitHub workflow skills: Conventional Commit messages, PR titles and descriptions with template detection, resolving PR review threads (its workflow instructs it to present its analysis and wait for approval before replying or resolving), and a catchup command to restore branch context. Also release, quick-fix, and ship-feature workflows, and changelog-generator and release-notes skills.",
-      "version": "0.2.4",
+      "version": "0.2.5",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
