@@ -373,11 +373,18 @@ for b in osascript notify-send curl terminal-notifier; do
   printf '#!/usr/bin/env bash\nprintf "%%s\\n" "%s $*" >>"%s/calls"\n' "$b" "$tmp" >"$shim/$b"
   chmod +x "$shim/$b"
 done
+# PATH for prompt-alert runs: the stand-ins plus jq and bash only, so a real
+# terminal-notifier, osascript, or notify-send on the machine never fires.
+sys="$tmp/sys"
+mkdir -p "$sys"
+for b in bash jq cat git basename dirname; do
+  p=$(command -v "$b") && ln -sf "$p" "$sys/$b"
+done
 note='{"hook_event_name":"Notification","notification_type":"permission_prompt","message":"Claude needs permission to run rm secret-file"}'
 
 reset_data
 rm -f "$tmp/calls"
-run_hook "$palert" "$note" PATH="$shim:$PATH"
+run_hook "$palert" "$note" PATH="$shim:$sys"
 expect "prompt-alert: off by default, exit 0" [ "$code" -eq 0 ]
 expect "prompt-alert: off by default, no notifier" [ ! -e "$tmp/calls" ]
 
@@ -385,26 +392,46 @@ runx "$alerts" on
 expect "alerts: on" grep -q 'Alerts on' <<<"$out"
 expect "alerts: state enabled" jq -e '.enabled == true and (has("push_url") | not)' "$data/alerts.json"
 mv "$shim/terminal-notifier" "$tmp/tn-aside"
-run_hook "$palert" "$note" PATH="$shim:$PATH"
+run_hook "$palert" "$note" PATH="$shim:$sys"
 expect "prompt-alert: desktop notification sent" grep -q '^osascript .*secret-file' "$tmp/calls"
 mv "$tmp/tn-aside" "$shim/terminal-notifier"
 rm -f "$tmp/calls"
-run_hook "$palert" "$note" PATH="$shim:$PATH" __CFBundleIdentifier=com.example.Terminal
+run_hook "$palert" "$note" PATH="$shim:$sys" __CFBundleIdentifier=com.example.Terminal
 expect "prompt-alert: terminal-notifier preferred" grep -q '^terminal-notifier .*secret-file' "$tmp/calls"
 expect "prompt-alert: click activates the host app" grep -q -- '-activate com.example.Terminal' "$tmp/calls"
 expect "prompt-alert: no osascript when terminal-notifier exists" bash -c "! grep -q '^osascript' '$tmp/calls'"
 cp "$shim/terminal-notifier" "$tmp/tn-ok"
 printf '#!/usr/bin/env bash\nprintf "%%s\\n" "terminal-notifier $*" >>"%s/calls"\nexit 3\n' "$tmp" >"$shim/terminal-notifier"
 rm -f "$tmp/calls"
-run_hook "$palert" "$note" PATH="$shim:$PATH"
+run_hook "$palert" "$note" PATH="$shim:$sys"
 expect "prompt-alert: falls back to osascript when terminal-notifier fails" grep -q '^osascript .*secret-file' "$tmp/calls"
 mv "$tmp/tn-ok" "$shim/terminal-notifier"
 expect "prompt-alert: no push without a URL" bash -c "! grep -q '^curl' '$tmp/calls'"
 
+# Where and who: project, worktree, and the asking subagent.
+rm -f "$tmp/calls"
+run_hook "$palert" "$note" PATH="$shim:$sys"
+expect "prompt-alert: no cwd keeps the plain title" grep -q -- '-title Claude Code -subtitle main session ' "$tmp/calls"
+if command -v git >/dev/null 2>&1; then
+  ar="$tmp/alertrepo"
+  git init -q "$ar" && git -C "$ar" -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -q --allow-empty -m init
+  git -C "$ar" worktree add -q "$ar/.claude/worktrees/wt-a" -b wt-a 2>/dev/null
+  rm -f "$tmp/calls"
+  run_hook "$palert" "{\"cwd\":\"$ar\",\"notification_type\":\"permission_prompt\",\"message\":\"m\"}" PATH="$shim:$sys"
+  expect "prompt-alert: title names the project" grep -q -- '-title Claude Code · alertrepo -subtitle main session ' "$tmp/calls"
+  rm -f "$tmp/calls"
+  run_hook "$palert" "{\"cwd\":\"$ar/.claude/worktrees/wt-a\",\"agent_type\":\"ogxo-route:implementer-risky\",\"notification_type\":\"permission_prompt\",\"message\":\"m\"}" PATH="$shim:$sys"
+  expect "prompt-alert: worktree names the main repo" grep -q -- '-title Claude Code · alertrepo ' "$tmp/calls"
+  expect "prompt-alert: subtitle has worktree and subagent" grep -q -- '-subtitle worktree wt-a · ogxo-route:implementer-risky ' "$tmp/calls"
+fi
+rm -f "$tmp/calls"
+run_hook "$palert" "{\"cwd\":\"$tmp\",\"message\":\"m\"}" PATH="$shim:$sys"
+expect "prompt-alert: outside a repo names the folder" grep -q -- "-title Claude Code · $(basename "$tmp") " "$tmp/calls"
+
 rm -f "$tmp/calls"
 runx "$alerts" on https://ntfy.example/topic
 expect "alerts: push URL stored" jq -e '.push_url == "https://ntfy.example/topic"' "$data/alerts.json"
-run_hook "$palert" "$note" PATH="$shim:$PATH"
+run_hook "$palert" "$note" PATH="$shim:$sys"
 expect "prompt-alert: push posted" grep -q '^curl .*https://ntfy.example/topic' "$tmp/calls"
 expect "prompt-alert: push carries no prompt text" bash -c "! grep '^curl' '$tmp/calls' | grep -q 'secret-file'"
 
@@ -413,7 +440,7 @@ expect "alerts: non-https push rejected" [ "$code" -eq 2 ]
 runx "$alerts" off
 expect "alerts: off" jq -e '.enabled == false' "$data/alerts.json"
 rm -f "$tmp/calls"
-run_hook "$palert" "$note" PATH="$shim:$PATH"
+run_hook "$palert" "$note" PATH="$shim:$sys"
 expect "prompt-alert: off again, no notifier" [ ! -e "$tmp/calls" ]
 runx "$alerts"
 expect "alerts: status prints state file" grep -qF "State: $data/alerts.json" <<<"$out"
@@ -454,6 +481,7 @@ run_hook "$acount" '{}' PATH="$nojq"
 expect "advisor-count: no jq prints notice" grep -q 'jq not found' "$tmp/err"
 expect "hooks: advisor count on SessionEnd" jq -e '[.hooks.SessionEnd[].hooks[].command | contains("advisor-count.sh")] | any' "$plugin/hooks/hooks.json"
 expect "hooks: advisor count on PreCompact" jq -e '[.hooks.PreCompact[].hooks[].command | contains("advisor-count.sh")] | any' "$plugin/hooks/hooks.json"
+expect "hooks: advisor count has a timeout above the SessionEnd default" jq -e '[.hooks.SessionEnd[].hooks[] | select(.command | contains("advisor-count.sh")) | .timeout >= 10] | all and length == 1' "$plugin/hooks/hooks.json"
 
 # stats: latest line per session, risky sessions without a call, unrecognised transcripts.
 reset_data

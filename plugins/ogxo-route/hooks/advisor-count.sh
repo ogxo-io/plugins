@@ -20,16 +20,21 @@ transcript=$(jq -r '.transcript_path // empty' <<<"$input" 2>/dev/null)
 session=$(jq -r '.session_id // empty' <<<"$input" 2>/dev/null)
 mkdir -p "$CLAUDE_PLUGIN_DATA" 2>/dev/null || exit 0
 
-line=$(jq -n -R -c --arg s "$session" '
-  reduce (inputs | fromjson? | objects | select(.type == "assistant")) as $m
-    ({n: 0, ids: []};
-     .n += 1
-     | .ids += [$m.message.content? | arrays | .[] | objects
-                | select(.type == "server_tool_use" and .name == "advisor") | .id])
-  | {ts: (now | floor),
-     session_id: (if $s == "" then null else $s end),
-     advisor_calls: (.ids | unique | length),
-     assistant_entries: .n}' "$transcript" 2>/dev/null) || exit 0
+# grep first: jq parsing every line of a long transcript is far slower. Even
+# so, a 750 MB transcript takes about 8 s with macOS's grep, past the 1.5 s
+# SessionEnd default, so hooks.json gives this hook a 30 s timeout.
+# assistant_entries is the number of lines naming an assistant entry; if the
+# format changes it drops to 0 and stats reports the transcript as not
+# recognised.
+entries=$(LC_ALL=C grep -c '"type":"assistant"' "$transcript" 2>/dev/null)
+entries=${entries//[!0-9]/}
+calls=$(LC_ALL=C grep -F '"server_tool_use"' "$transcript" 2>/dev/null | jq -R -r '
+  fromjson? | objects | select(.type == "assistant")
+  | .message.content? | arrays | .[] | objects
+  | select(.type == "server_tool_use" and .name == "advisor") | .id | strings' 2>/dev/null | sort -u | wc -l)
+calls=${calls//[!0-9]/}
+line=$(jq -n -c --arg s "$session" --argjson c "${calls:-0}" --argjson n "${entries:-0}" \
+  '{ts: (now | floor), session_id: (if $s == "" then null else $s end), advisor_calls: $c, assistant_entries: $n}' 2>/dev/null) || exit 0
 [ -n "$line" ] || exit 0
 printf '%s\n' "$line" >>"$CLAUDE_PLUGIN_DATA/advisor.jsonl" 2>/dev/null
 exit 0

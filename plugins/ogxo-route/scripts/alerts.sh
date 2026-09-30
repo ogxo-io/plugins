@@ -50,7 +50,7 @@ case "$action" in
     ;;
   test)
     jq -e '.enabled == true' "$file" >/dev/null 2>&1 || { echo "Alerts are off; run /ogxo-route:alerts on first."; exit 0; }
-    printf '{"hook_event_name":"Notification","notification_type":"permission_prompt","message":"ogxo-route test alert"}' |
+    jq -nc --arg cwd "$PWD" '{hook_event_name: "Notification", notification_type: "permission_prompt", cwd: $cwd, message: "ogxo-route test alert"}' |
       CLAUDE_PLUGIN_DATA="$dir" bash "$(dirname "$0")/../hooks/prompt-alert.sh"
     echo "Test alert sent."
     ;;
