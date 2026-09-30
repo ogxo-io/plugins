@@ -69,6 +69,9 @@ jobs:
       - name: thryx connect tests
         run: bash tests/thryx.sh
 
+      - name: browser-testing runner tests
+        run: bash tests/browser-testing.sh
+
       # Informational: distribution copy that claims something cannot happen
       # needs a citation or a mechanism (see CLAUDE.md). Most hits are
       # disclaimers, so this lists them for review instead of failing.

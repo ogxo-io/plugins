@@ -18,6 +18,9 @@ Steps:
    where the extra patterns are the entries under "risky paths" in `.claude/ogxo-route.md`, if that file exists (one quoted argument each). RISKY on `breadth` if the diff touches more files than the breadth threshold (default 5, or the value in `.claude/ogxo-route.md`) or more than one top-level package. Name the rule that matched and the paths it printed.
 4. Otherwise PASS. If you are unsure whether the diff matches the task, answer PASS and put the doubt in UNCERTAINTIES. Do not decide whether the change is risky by judgement; only the rules in step 3 make it RISKY.
 
+Shell:
+- Bash runs the user's shell, which is often zsh. Quote separators (`echo '===='`: an unquoted word starting with `=` is an error in zsh) and globs that may match nothing (`--include='*.css'`), and edit in place with `perl -pi -e` rather than `sed -i` (whose syntax differs between macOS and Linux). A call's exit status is its last command's, so don't end a chain with a probe that may find nothing (`ls` of a maybe-missing file, a `grep` with no match); test with `[ -e path ]` or put the probe earlier. Such exits read as tool errors.
+
 Output:
 
 VERDICT: PASS | FAIL | RISKY

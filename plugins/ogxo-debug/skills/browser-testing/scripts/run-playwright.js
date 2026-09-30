@@ -14,6 +14,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { spawnSync } = require('child_process');
 
 // Dependencies live in a writable per-user directory: BROWSER_TESTING_HOME (set by the
 // skill to ${CLAUDE_PLUGIN_DATA}/browser-testing), else ${CLAUDE_PLUGIN_DATA}/browser-testing,
@@ -32,24 +33,122 @@ require('module').Module._initPaths();
 process.chdir(HOME);
 
 /**
- * Check if Playwright is installed
+ * Where Playwright comes from, in order: HOME (the plugin data dir), then the project
+ * the runner was started in (its `playwright` or `@playwright/test`, when that version's
+ * Chromium is downloaded), then a one-time install into HOME. Returns false when none works.
  */
-function checkPlaywrightInstalled() {
+function chromiumReady(mod) {
   try {
-    require.resolve('playwright');
-    return true;
+    const exe = require(mod).chromium.executablePath();
+    return Boolean(exe) && fs.existsSync(exe);
   } catch (e) {
     return false;
   }
 }
 
+function homePlaywright() {
+  try {
+    return require.resolve('playwright', { paths: [HOME] });
+  } catch (e) {
+    return null;
+  }
+}
+
+function projectPlaywright() {
+  for (const name of ['playwright', '@playwright/test']) {
+    let mod;
+    try {
+      mod = require.resolve(name, { paths: [ORIG_CWD] });
+    } catch (e) {
+      continue;
+    }
+    if (chromiumReady(mod)) return { name, mod };
+  }
+  return null;
+}
+
+// Scripts call require('playwright'); point that at the project's copy. @playwright/test
+// re-exports the same API (chromium, firefox, webkit, devices) plus test and expect.
+function aliasPlaywright(mod) {
+  const Module = require('module');
+  const resolve = Module._resolveFilename;
+  Module._resolveFilename = function (request, ...rest) {
+    if (request === 'playwright') return mod;
+    return resolve.call(this, request, ...rest);
+  };
+}
+
+function sleep(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+function run(cmd, args) {
+  console.error(`$ ${cmd} ${args.join(' ')}`);
+  const r = spawnSync(cmd, args, { cwd: HOME, stdio: ['ignore', 2, 2], shell: process.platform === 'win32' });
+  return r.status === 0;
+}
+
 /**
- * Report a missing Playwright install. The runner does not install anything itself:
- * setup downloads packages and a browser build, which the user should agree to first.
+ * One-time install of the pinned Playwright and Chromium into HOME. A lock directory
+ * keeps parallel runs from installing twice: a second run waits for the first. Set
+ * BROWSER_TESTING_NO_INSTALL=1 to report instead of installing.
+ */
+function install() {
+  if (process.env.BROWSER_TESTING_NO_INSTALL === '1') return false;
+  const lock = path.join(HOME, '.installing');
+  const deadline = Date.now() + 15 * 60 * 1000;
+  for (;;) {
+    try {
+      fs.mkdirSync(lock);
+      break;
+    } catch (e) {
+      if (e.code !== 'EEXIST') return false;
+      let age = 0;
+      try { age = Date.now() - fs.statSync(lock).mtimeMs; } catch (_) { continue; }
+      if (age > 15 * 60 * 1000) { fs.rmSync(lock, { recursive: true, force: true }); continue; }
+      if (Date.now() > deadline) return false;
+      console.error('⏳ Another run is installing Playwright; waiting...');
+      sleep(5000);
+      if (homePlaywright() && chromiumReady(homePlaywright())) return true;
+    }
+  }
+  try {
+    console.error(`📦 Installing Playwright and Chromium into ${HOME} (one time, downloads a browser build; BROWSER_TESTING_NO_INSTALL=1 skips this).`);
+    if (!homePlaywright()) {
+      for (const f of ['package.json', 'package-lock.json']) fs.copyFileSync(path.join(SKILL_DIR, f), path.join(HOME, f));
+      if (!run('npm', ['ci', '--no-audit', '--no-fund'])) return false;
+    }
+    const mod = homePlaywright();
+    if (!mod) return false;
+    if (!chromiumReady(mod) && !run('npx', ['playwright', 'install', 'chromium'])) return false;
+    return chromiumReady(mod);
+  } finally {
+    fs.rmSync(lock, { recursive: true, force: true });
+  }
+}
+
+function ensurePlaywright() {
+  const home = homePlaywright();
+  if (home && chromiumReady(home)) return true;
+  const project = projectPlaywright();
+  if (project) {
+    console.log(`Using the project's Playwright (${project.name}) from ${path.dirname(project.mod)}`);
+    aliasPlaywright(project.mod);
+    return true;
+  }
+  return install();
+}
+
+/**
+ * Report a missing Playwright install.
  */
 function reportMissingPlaywright() {
-  console.error('❌ Playwright is not installed in', HOME);
-  console.error('Run the Setup block in the browser-testing SKILL.md (npm ci + a Chromium download into that directory) after the user agrees.');
+  console.error('❌ Playwright is not available: not in', HOME, 'nor in the project at', ORIG_CWD);
+  if (process.env.BROWSER_TESTING_NO_INSTALL === '1') {
+    console.error('BROWSER_TESTING_NO_INSTALL=1 is set, so nothing was installed. Unset it, or run the Setup block in the browser-testing SKILL.md.');
+  } else {
+    console.error('The one-time install failed (see the npm or playwright output above). Fix that, or run the Setup block in the browser-testing SKILL.md.');
+  }
 }
 
 /**
@@ -172,8 +271,8 @@ async function main() {
   // Clean up old temp files from previous runs
   cleanupOldTempFiles();
 
-  // Check Playwright installation
-  if (!checkPlaywrightInstalled()) {
+  // Find or install Playwright
+  if (!ensurePlaywright()) {
     reportMissingPlaywright();
     process.exit(1);
   }

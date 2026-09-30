@@ -4,11 +4,12 @@
 # /ogxo-route:dashboard has turned the board on for this session, append one
 # `E(<json>);` line to ${CLAUDE_PLUGIN_DATA}/dash/<session_id>/events.js for
 # the page next to it. Records tool names, short summaries (paths, the first
-# words of a command, a pattern or host) and agent metadata; prompt text,
-# file contents and tool output are not copied. Runs on every tool call, so
-# it exits in pure bash unless this session's board is on: first when no
-# board is on anywhere, then when this session's own flag is missing, so
-# other sessions' boards don't make it start jq. Prints nothing; exits 0.
+# words of a command, a pattern or host), agent metadata, and for a failed
+# tool call the last line of its error (140 characters at most); prompt
+# text, file contents and successful tool output are not copied. Runs on
+# every tool call, so it exits in pure bash unless this session's board is
+# on: first when no board is on anywhere, then when this session's own flag
+# is missing, so other sessions' boards don't make it start jq. Prints nothing; exits 0.
 # The early exits still drain stdin: exiting with a large payload unread
 # (a Write's content) leaves Claude Code writing into a closed pipe (EPIPE).
 [ -n "${CLAUDE_PLUGIN_DATA:-}" ] || { cat >/dev/null; exit 0; }
@@ -57,6 +58,11 @@ out=$(jq -r --arg sq "'" "$vdef"'
       ((capture("^mcp__(?<s>.+?)__(?<t>.+)$") // null) as $m
        | if $m then ($m.s | sub("^plugin_[^_]+_"; "") | sub("^claude_ai_"; "")) + ":" + $m.t else . end)
     else . end;
+  def reason: if (.interrupt | type) == "string" then "interrupted: " + (.interrupt | cap(40))
+    else (.error | str | gsub("\u001b\\[[0-9;?]*[A-Za-z]"; "")) as $e
+      | (($e | capture("^Exit code (?<c>[0-9]+)")) // null) as $x
+      | ([$e | split("\n")[] | gsub("^\\s+|\\s+$"; "") | select(. != "" and (test("^Exit code [0-9]+$") | not))] | last // "") as $l
+      | (if $x then "exit " + $x.c + (if $l != "" then ": " else "" end) else "" end) + $l | cap(140) end;
   def host: str | sub("^[A-Za-z][A-Za-z0-9+.-]*://"; "") | sub("[/?#].*$"; "") | sub("^.*@"; "") | sub(":[0-9]*$"; "");
   # Bash: drop leading VAR=value assignments and a leading `cd <dir> &&`.
   def strip: ("^(?:[A-Za-z_][A-Za-z0-9_]*=(?:" + quoted + "|[^\\s\"" + $sq + "]*)\\s+)+") as $env
@@ -119,7 +125,7 @@ out=$(jq -r --arg sq "'" "$vdef"'
           done: (if $o then $r.status == "completed" else null end),
           tc: ($r.totalToolUseCount // null), out: (($r.usage | obj | .output_tokens) // null)}
      elif $h == "PostToolUse" then {t: $t, e: "tool_ok", a: $a, u: $u, n: (.tool_name | name)}
-     elif $h == "PostToolUseFailure" then {t: $t, e: "tool_err", a: $a, u: $u, n: (.tool_name | name)}
+     elif $h == "PostToolUseFailure" then {t: $t, e: "tool_err", a: $a, u: $u, n: (.tool_name | name), r: reason}
      elif $h == "PermissionRequest" then {t: $t, e: "perm", a: $a, n: (.tool_name | name)}
      elif $h == "Notification" then {t: $t, e: "wait", a: $a, k: (.notification_type | cap(40))}
      else null end | tojson),

@@ -18,7 +18,15 @@ description: Browser and web app testing with Playwright. Auto-detects dev serve
 
 Comprehensive browser testing using Playwright. Auto-detects running dev servers, writes clean test scripts to /tmp, performs E2E tests, accessibility checks, responsive design validation, and more.
 
-## Setup (First Time Only)
+## Setup
+
+None needed. Run the runner from the project's directory; it takes Playwright from, in order:
+
+1. the plugin's data directory (`${CLAUDE_PLUGIN_DATA}/browser-testing`), once installed there;
+2. the project it was started in: its `playwright` or `@playwright/test` package, when that version's Chromium is already downloaded (it prints "Using the project's Playwright");
+3. otherwise a one-time install into the data directory: `npm ci` of the pinned package files, then `npx playwright install chromium`. This downloads packages and a browser build; the runner says so on stderr. Parallel runs wait for one install instead of repeating it.
+
+Set `BROWSER_TESTING_NO_INSTALL=1` to have the runner report instead of installing. To install ahead of time by hand:
 
 ```bash
 BT="${CLAUDE_PLUGIN_DATA}/browser-testing"
@@ -26,7 +34,7 @@ mkdir -p "$BT" && cp "${CLAUDE_PLUGIN_ROOT}/skills/browser-testing/package.json"
   && (cd "$BT" && npm ci && npx playwright install chromium)
 ```
 
-Installs Playwright and Chromium into the plugin's data directory (not the plugin copy, which updates replace). It downloads packages and a browser build, so tell the user before running it. Only needed once per plugin install; the runner installs nothing itself and exits with a pointer to this block when Playwright is missing.
+With the project's Playwright, only what that project installed is available: `@axe-core/playwright` (the accessibility template) needs the data-directory install.
 
 ## Decision Tree: Choosing Your Approach
 
@@ -249,13 +257,11 @@ await browser.close();
 
 ## Troubleshooting
 
-**Playwright not installed:**
-```bash
-Run the setup block above (it installs into the plugin data directory).
-```
+**Playwright not available:**
+The runner prints why: `BROWSER_TESTING_NO_INSTALL=1` is set, or the one-time install failed (the npm or playwright output is above the message; often no network). Report that output instead of working around it with hand-written scripts.
 
 **Module not found:**
-Run scripts through run-playwright.js with `BROWSER_TESTING_HOME` set (as in the commands above), after the setup step
+Run scripts through run-playwright.js with `BROWSER_TESTING_HOME` set (as in the commands above), from the project's directory
 
 **Browser doesn't open:**
 Check `headless: false` and display available

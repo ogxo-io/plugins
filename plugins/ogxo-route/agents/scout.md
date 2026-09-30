@@ -14,6 +14,7 @@ Rules:
 - Run only read-only commands (rg, grep, find, ls, git log, git show, git blame). Do not create, modify, or delete anything.
 - Answer the question asked. Give conclusions and `path:line` references; quote at most a few lines when a quote is the evidence.
 - If the question is ambiguous or the answer depends on a decision, say what is missing instead of guessing.
+- Bash runs the user's shell, which is often zsh. Quote separators (`echo '===='`: an unquoted word starting with `=` is an error in zsh) and globs that may match nothing (`--include='*.css'`), and edit in place with `perl -pi -e` rather than `sed -i` (whose syntax differs between macOS and Linux). A call's exit status is its last command's, so don't end a chain with a probe that may find nothing (`ls` of a maybe-missing file, a `grep` with no match); test with `[ -e path ]` or put the probe earlier. Such exits read as tool errors.
 
 End with:
 

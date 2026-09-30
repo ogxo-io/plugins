@@ -9,7 +9,7 @@
 # session_id defaults to $CLAUDE_CODE_SESSION_ID. Board: the page, events.js
 # (appended by hooks/dash-event.sh while the `on` flag exists), meta.json and
 # the flag, in ${CLAUDE_PLUGIN_DATA}/dash/<session_id>/. The hub is
-# dash/index.html; it reads dash/boards.js, rewritten here on on/off/hub.
+# dash/index.html; it reads dash/boards.js, rewritten here on on/off/status/hub.
 set -uo pipefail
 
 usage() { echo "usage: dashboard [on|off|status|batch|hub|demo] [session_id]" >&2; exit 2; }
@@ -32,8 +32,41 @@ fi
 re='^[A-Za-z0-9_-]{1,128}$'
 base="$data/dash"
 
+# started <pid>: the process's start time on one line, spaces squeezed.
+started() { ps -o lstart= -p "$1" 2>/dev/null | tr -s ' ' | sed 's/^ //; s/ $//'; }
+
+# owner: print "<pid> <start time>" of the Claude Code process this script
+# runs under: the nearest ancestor whose executable (ps comm) names claude,
+# skipping shells. Prints nothing when there is none (CI, a plain shell).
+owner() {
+  local p=$PPID _ c
+  for _ in 1 2 3 4 5 6; do
+    [[ $p =~ ^[0-9]+$ ]] && [ "$p" -gt 1 ] || return 1
+    c=$(ps -o comm= -p "$p" 2>/dev/null) || return 1
+    case ${c##*/} in
+      bash | zsh | sh | dash | fish | -*) ;;
+      *) case $c in *[Cc]laude*) printf '%s %s\n' "$p" "$(started "$p")"; return 0 ;; esac ;;
+    esac
+    p=$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ')
+  done
+  return 1
+}
+
+# gone <board dir>: true when the board records an owner process and that
+# process has exited (same pid with another start time counts as exited).
+# A session that ends without its SessionEnd hook (killed, or running hooks
+# from before the board existed) leaves its flag on; this catches it.
+gone() {
+  local pid start
+  [ -f "$1/owner" ] || return 1
+  read -r pid start <"$1/owner" || [ -n "$pid" ] || return 1
+  [[ $pid =~ ^[0-9]+$ ]] || return 1
+  [ "$(started "$pid")" != "$start" ]
+}
+
 # registry: rewrite boards.js, one `B({...});` per board, for the hub. It is
 # small and only written here, so a temp file and mv keep readers whole.
+# Boards whose owner process is gone are turned off first, with an end event.
 registry() {
   local tmp="$base/boards.js.tmp.$$" d name on
   : >"$tmp" || return 1
@@ -41,6 +74,10 @@ registry() {
     name=${d##*/}
     [[ $name =~ $re ]] || continue
     if [ ! -d "$d" ] || [ -L "$d" ]; then continue; fi
+    if [ -e "$d/on" ] && gone "$d"; then
+      rm -f "$d/on"
+      printf 'E({"t":%s,"e":"end"});\n' "$(($(date +%s) * 1000))" >>"$d/events.js"
+    fi
     if [ -e "$d/on" ]; then on=true; else on=false; fi
     { jq -c --arg sid "$name" --argjson on "$on" \
         '{sid: $sid, repo: (.repo // ""), branch: (.branch // ""), wt: (.wt // ""), cwd: (.cwd // ""), on: $on}' \
@@ -74,6 +111,8 @@ case $action in
     mkdir -p "$dir" || exit 1
     cp "$root/dashboard/index.html" "$dir/index.html" || exit 1
     : >"$dir/on" || exit 1
+    rm -f "$dir/owner"
+    if [ "$sid" = "${CLAUDE_CODE_SESSION_ID:-}" ] && own=$(owner); then printf '%s\n' "$own" >"$dir/owner"; fi
     top=$(git rev-parse --show-toplevel 2>/dev/null) || top=""
     repo=$(basename "${top:-$PWD}")
     branch=$(git branch --show-current 2>/dev/null) || branch=""
@@ -112,9 +151,16 @@ case $action in
     echo "Route board off for session ${sid:0:8}; the board files stay at $dir for replay."
     ;;
   status)
+    [ -d "$base" ] && registry
     if [ -e "$dir/on" ]; then state=on; else state=off; fi
     echo "Route board: $state (session ${sid:0:8})"
     echo "Path: $dir/index.html"
+    # Only the on event, a minute later: this session's hooks aren't writing,
+    # usually because they were loaded before the board existed.
+    if [ "$state" = on ] && [ "$(wc -l <"$dir/events.js" 2>/dev/null | tr -d ' ')" = 1 ] &&
+      [ -n "$(find "$dir/on" -mmin +1 2>/dev/null)" ]; then
+      echo "No hook events since the board was turned on. If this session has run tools since, its hooks predate the board: run /reload-plugins."
+    fi
     ;;
   batch)
     rows=$(jq -cs 'if length == 1 and (.[0] | type) == "array" and (.[0] | all(type == "object"))

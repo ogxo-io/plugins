@@ -331,6 +331,9 @@ for a in implementer implementer-risky; do
   expect "$a: failing test first" grep -q 'it must fail' "$plugin/agents/$a.md"
   expect "$a: no browser runs" grep -q 'Do not launch browsers' "$plugin/agents/$a.md"
 done
+for a in e2e-runner implementer implementer-risky log-extractor scout test-runner verifier; do
+  expect "$a: shell note (zsh separators, globs, probes)" grep -qF "Quote separators (\`echo '===='\`" "$plugin/agents/$a.md"
+done
 expect "anchor: shared build cache" grep -q 'shared build cache' "$plugin/hooks/anchor.md"
 
 # --- advisor ------------------------------------------------------------------
@@ -613,8 +616,18 @@ hk '{"session_id":"s1","hook_event_name":"PostToolUse","tool_name":"Task","tool_
 expect "dash-event: launched with non-object response" last_ev s1 '.e == "launched" and .u == "tu4" and .id == null and .rm == null and .done == null and .tc == null and .out == null'
 hk '{"session_id":"s1","hook_event_name":"PostToolUse","tool_name":"Bash","tool_use_id":"tb1","agent_id":"ag1","tool_input":{"command":"ls"},"tool_response":{"stdout":"SECRET-OUTPUT"}}'
 expect "dash-event: tool_ok event" last_ev s1 '.e == "tool_ok" and .a == "ag1" and .u == "tb1" and .n == "Bash" and (keys | sort) == ["a", "e", "n", "t", "u"]'
-hk '{"session_id":"s1","hook_event_name":"PostToolUseFailure","tool_name":"mcp__github__get_issue","tool_use_id":"tb2","tool_input":{},"error":"SECRET-ERROR"}'
-expect "dash-event: tool_err event" last_ev s1 '.e == "tool_err" and .a == null and .u == "tb2" and .n == "github:get_issue"'
+hk '{"session_id":"s1","hook_event_name":"PostToolUseFailure","tool_name":"mcp__github__get_issue","tool_use_id":"tb2","tool_input":{},"error":"SECRET-ERROR-DETAIL\nnot found"}'
+expect "dash-event: tool_err event" last_ev s1 '.e == "tool_err" and .a == null and .u == "tb2" and .n == "github:get_issue" and .r == "not found"'
+# reason <payload fields>: the r field recorded for a failure with these fields.
+reason() { hk "$(jq -nc --argjson x "$1" '$x + {session_id:"s1", hook_event_name:"PostToolUseFailure", tool_name:"Bash", tool_use_id:"tr1"}')"; events s1 | jq -r '.[-1].r'; }
+expect "dash-event: error reason is the exit code and the last line, without colours" [ "$(reason '{"error":"Exit code 1\nearly output\n\u001b[31m(eval):1: ===== not found\u001b[0m\n  \n"}')" = "exit 1: (eval):1: ===== not found" ]
+expect "dash-event: error reason with only an exit code" [ "$(reason '{"error":"Exit code 101"}')" = "exit 101" ]
+expect "dash-event: error reason for an interrupt" [ "$(reason '{"error":null,"interrupt":"user_cancel"}')" = "interrupted: user_cancel" ]
+expect "dash-event: error reason for a plain message" [ "$(reason '{"error":"File does not exist."}')" = "File does not exist." ]
+expect "dash-event: error reason is empty without an error" [ "$(reason '{}')" = "" ]
+expect "dash-event: error reason keeps the last line only" [ "$(reason '{"error":"Exit code 2\nSECRET-EARLIER-LINE\nlast"}')" = "exit 2: last" ]
+long=$(printf 'x%.0s' $(seq 1 300))
+expect "dash-event: error reason capped at 140 characters" [ "$(reason "$(jq -nc --arg e "$long" '{error: $e}')" | wc -c | tr -d ' ')" = 141 ]
 
 tr="$tmp/transcript.jsonl"
 cat >"$tr" <<'JSONL'
@@ -758,6 +771,61 @@ expect "dash.sh: prune keeps fresh boards" [ -e "$d/fresh/events.js" ]
 expect "dash.sh: prune keeps this session's board" [ -e "$d/$sid/events.js" ]
 expect "dash.sh: prune skips names that are not session ids" [ -e "$d/bad.name/events.js" ]
 expect "dash.sh: prune leaves symlinks and their targets alone" test -L "$d/link" -a -e "$tmp/outside/keep"
+
+# Owner process: a ps stub answers from $PS_TABLE ("pid ppid lstart... comm"
+# per line, lstart as one word); a pid missing from it has exited. Any other
+# pid (dash.sh's real parent) reads as a shell whose parent is $PS_ROOT.
+psbin="$tmp/psbin"
+mkdir -p "$psbin"
+cat >"$psbin/ps" <<'STUB'
+#!/usr/bin/env bash
+f=""; p=""
+while [ $# -gt 0 ]; do case $1 in -o) f=$2; shift 2 ;; -p) p=$2; shift 2 ;; *) shift ;; esac; done
+row=$(awk -v p="$p" '$1 == p' "$PS_TABLE")
+if [ -z "$row" ]; then
+  [ -n "${PS_ROOT:-}" ] || exit 1
+  case $f in comm=) echo /bin/zsh ;; ppid=) echo "$PS_ROOT" ;; *) echo x ;; esac
+  exit 0
+fi
+set -- $row
+case $f in ppid=) echo "$2" ;; lstart=) echo "$3" ;; comm=) echo "$4" ;; esac
+STUB
+chmod +x "$psbin/ps"
+export PS_TABLE="$tmp/pstable"
+printf '%s\n' '900 1 Mon-10:00 /Users/x/.local/bin/claude' '901 900 Mon-10:01 /usr/bin/sandbox-wrap' >"$PS_TABLE"
+reset_data
+ctl PATH="$psbin:$PATH" PS_ROOT=901 -- on
+expect "owner: on records the nearest claude ancestor" [ "$(cat "$bdir/owner" 2>/dev/null)" = "900 Mon-10:00" ]
+ctl PATH="$psbin:$PATH" PS_ROOT=901 -- status
+expect "owner: a live owner keeps the board on" [ -e "$bdir/on" ]
+expect "owner: a live owner adds no end event" last_ev "$sid" '.e == "on"'
+printf '%s\n' '900 1 Tue-09:00 /Users/x/.local/bin/claude' >"$PS_TABLE"
+ctl PATH="$psbin:$PATH" -- status
+expect "owner: same pid, other start time counts as exited" [ ! -e "$bdir/on" ]
+expect "owner: status then reports off" grep -q '^Route board: off' <<<"$out"
+expect "owner: an end event is appended" last_ev "$sid" '.e == "end" and (.t | type == "number")'
+expect "owner: the registry lists it off" grep -qF '"on":false' "$data/dash/boards.js"
+: >"$PS_TABLE"
+ctl PATH="$psbin:$PATH" PS_ROOT=901 -- on
+expect "owner: no claude ancestor records no owner" [ ! -e "$bdir/owner" ]
+ctl PATH="$psbin:$PATH" -- hub
+expect "owner: a board without an owner is left on" [ -e "$bdir/on" ]
+printf '%s\n' '900 1 Mon-10:00 /Users/x/.local/bin/claude' >"$PS_TABLE"
+ctl PATH="$psbin:$PATH" PS_ROOT=900 -- on other99
+expect "owner: an explicit other session id records no owner" [ ! -e "$data/dash/other99/owner" ]
+ctl PATH="$psbin:$PATH" PS_ROOT=900 -- on
+: >"$PS_TABLE"
+ctl PATH="$psbin:$PATH" -- on other98
+expect "owner: turning another board on sweeps exited sessions" [ ! -e "$bdir/on" ]
+expect "owner: other boards' flags are kept" [ -e "$data/dash/other99/on" ]
+reset_data
+ctl -- on
+touch -t 202001010000 "$bdir/on"
+ctl -- status
+expect "status: only the on event after a minute suggests /reload-plugins" grep -qF '/reload-plugins' <<<"$out"
+printf 'E({"t":1,"e":"stop"});\n' >>"$bdir/events.js"
+ctl -- status
+expect "status: no hint once hooks write" bash -c '! grep -qF /reload-plugins <<<"$1"' _ "$out"
 
 hj="$plugin/hooks/hooks.json"
 for ev in UserPromptSubmit PreToolUse PostToolUse PostToolUseFailure SubagentStart SubagentStop Stop SessionEnd; do

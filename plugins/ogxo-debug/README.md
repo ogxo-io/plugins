@@ -15,4 +15,6 @@ claude plugin install ogxo-debug@ogxo
 - `/ogxo-debug:css-alignment-debug` (skill)
 - `/ogxo-debug:browser-testing` (skill)
 
+browser-testing needs no setup step: its runner uses the project's own Playwright when that has Chromium downloaded, and otherwise installs Playwright and Chromium once into the plugin's data directory, which downloads a browser build (`BROWSER_TESTING_NO_INSTALL=1` turns that off).
+
 browser-testing writes scripts and screenshots under `/tmp` with a name per run (the templates add a `RUN` id), so parallel sessions don't overwrite each other's files.

@@ -165,6 +165,7 @@ pre .ln { display: block; min-height: 1.5em; }
       <pre id="log"></pre>
     </div>
     <div class="gap"></div>
+    <div id="errwrap" hidden><pre id="errors"></pre><div class="gap"></div></div>
     <pre id="usage"></pre>
     <div class="gap"></div>
     <pre id="foot"></pre>
@@ -231,7 +232,7 @@ pre .ln { display: block; min-height: 1.5em; }
       working: false, ended: false, turnAt: null, turns: [],
       main: { key: 'main', ty: 'main', tools: [], tc: 0, marks: [] },
       agents: new Map(), byU: new Map(), byId: new Map(), pending: [],
-      tools: new Map(), log: [], batch: null,
+      tools: new Map(), log: [], batch: null, errs: [],
       tierTools: {}, tierAgents: {}, toolCount: 0, errors: 0, offline: false, loaded: false,
       advisor: [], waits: 0,
       // Token usage records: {who: 'main' | 'advisor' | agent key, m: model, u: {in, out, cr, cw5, cw1}}.
@@ -423,6 +424,8 @@ pre .ln { display: block; min-height: 1.5em; }
         const rec = S.tools.get(ev.u);
         if (rec) { rec.ok = false; S.tools.delete(ev.u); }
         S.errors++;
+        S.errs.push({ t, k: key, n: ev.n || (rec && rec.n) || 'tool', s: rec ? rec.s : '', r: typeof ev.r === 'string' ? ev.r : '' });
+        if (S.errs.length > 500) S.errs.splice(0, S.errs.length - 500);
         actor(key).wait = null;
         mark(actor(key), t, 'err');
         addLog(t, key, 'failed', `${ev.n || (rec && rec.n) || 'tool'} ${rec ? rec.s : ''}`, 'err');
@@ -1026,6 +1029,37 @@ pre .ln { display: block; min-height: 1.5em; }
     paint(el, g.html());
   }
 
+  // Failed tool calls, newest first: when, who, the call's summary, and the
+  // last line of its error as the hook recorded it.
+  const ERR_ROWS = 12;
+  function renderErrors(el) {
+    const wrap = document.getElementById('errwrap');
+    wrap.hidden = !S.errs.length;
+    if (!S.errs.length) return;
+    const W = colsOf(el);
+    const items = S.errs.slice(-ERR_ROWS).reverse();
+    const H = items.length + 3;
+    const g = new Grid(W, H);
+    g.box(0, 0, W, H, 'faint');
+    g.put(2, 0, ' errors ', 'err b');
+    const note = S.errs.length > items.length ? ` newest ${items.length} of ${S.errs.length} ` : ` ${S.errs.length} `;
+    g.put(W - note.length - 2, 0, note, 'dim');
+    const callW = Math.max(12, Math.min(40, Math.floor((W - 30) * 0.4)));
+    g.put(2, 1, pad('time', 8), 'dim');
+    g.put(11, 1, pad('who', 12), 'dim');
+    g.put(24, 1, pad('call', callW), 'dim');
+    g.put(25 + callW, 1, 'error', 'dim');
+    items.forEach((it, i) => {
+      const y = 2 + i;
+      const who = it.k === 'main' ? S.main : S.agents.get(it.k);
+      g.put(2, y, clock(it.t), 'faint');
+      g.put(11, y, pad(labelOf(it.k), 12), it.k === 'main' ? 'hi' : who ? agentTier(who) : 'fg');
+      g.put(24, y, pad(`${it.n} ${it.s}`.trim(), callW), 'fg');
+      g.put(25 + callW, y, clip(it.r || '(no message recorded)', W - callW - 27), it.r ? 'err' : 'dim');
+    });
+    paint(el, g.html());
+  }
+
   // Tokens and list-price cost per agent type, and what the workers' tokens
   // would have cost on the main session's model.
   function renderUsage(el) {
@@ -1155,7 +1189,7 @@ pre .ln { display: block; min-height: 1.5em; }
   }
 
   // ---------- loop ----------
-  const els = ['head', 'tree', 'batch', 'time', 'tiers', 'log', 'usage', 'foot'].reduce((o, id) => { o[id] = document.getElementById(id); return o; }, {});
+  const els = ['head', 'tree', 'batch', 'time', 'tiers', 'log', 'errors', 'usage', 'foot'].reduce((o, id) => { o[id] = document.getElementById(id); return o; }, {});
   function render() {
     if (document.hidden) return;
     frame++;
@@ -1165,6 +1199,7 @@ pre .ln { display: block; min-height: 1.5em; }
     renderTime(els.time);
     renderTiers(els.tiers);
     renderLog(els.log);
+    renderErrors(els.errors);
     renderUsage(els.usage);
     renderFoot(els.foot);
   }
@@ -1202,7 +1237,7 @@ pre .ln { display: block; min-height: 1.5em; }
     const tool = (dt, a, n, s, fail) => {
       const id = 'd' + (++u);
       at(dt, { e: 'tool', a, u: id, n, s });
-      at(dt + 400, { e: fail ? 'tool_err' : 'tool_ok', a, u: id, n });
+      at(dt + 400, fail ? { e: 'tool_err', a, u: id, n, r: typeof fail === 'string' ? fail : '' } : { e: 'tool_ok', a, u: id, n });
     };
     const spawn = (dt, id, ty, d, rm, m, parent) => {
       const uid = 'du' + id;
@@ -1230,7 +1265,7 @@ pre .ln { display: block; min-height: 1.5em; }
     spawn(13800, 'a3', 'ogxo-route:implementer', 'Token bucket core', 'claude-sonnet-5-5');
     tool(14100, null, 'Bash', 'grok-bridge run --write "HTTP middleware"');
     L[L.length - 2][1].x = 'grok';
-    const s3 = [['Read', 'internal/limiter/doc.go'], ['Write', 'internal/limiter/bucket.go'], ['Write', 'internal/limiter/bucket_test.go'], ['Bash', 'go test ./internal/limiter', true], ['Edit', 'internal/limiter/bucket.go'], ['Bash', 'go test ./internal/limiter']];
+    const s3 = [['Read', 'internal/limiter/doc.go'], ['Write', 'internal/limiter/bucket.go'], ['Write', 'internal/limiter/bucket_test.go'], ['Bash', 'go test ./internal/limiter', 'exit 1: --- FAIL: TestBucketRefill (0.00s)'], ['Edit', 'internal/limiter/bucket.go'], ['Bash', 'go test ./internal/limiter']];
     s3.forEach(([n, s, fl], i) => tool(14800 + i * 1500, 'a3', n, s, fl));
     at(20500, { e: 'use', use: { 'claude-opus-5-5': { in: 120, out: 8000, cr: 2100000, cw5: 0, cw1: 160000 } } });
     at(24000, { e: 'sstop', id: 'a3', ty: 'ogxo-route:implementer', out: 5200, use: { 'claude-sonnet-5-5': { in: 90, out: 5200, cr: 1400000, cw5: 88000, cw1: 0 } } });
