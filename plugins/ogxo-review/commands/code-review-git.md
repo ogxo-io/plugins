@@ -139,7 +139,7 @@ Instruct the sub-task to follow its full **code-metrics-analyst** workflow:
 1. Identify all changed/added functions from the diff
 2. Compute cognitive complexity (SonarSource model) and cyclomatic complexity (McCabe) per function
 3. Measure function length, parameter count, and nesting depth
-4. Run test coverage tools and map uncovered lines to the PR diff
+4. Run test coverage tools and map uncovered lines to the PR diff, unless the project's `CLAUDE.md` or test setup shows the test command has side effects (code generation, snapshot updates, resetting a shared test database) or writes reports into the tracked tree; then report coverage as not run and give the command
 5. Maintainability index per file, only when a tool computes it
 6. Identify risk hotspots (high complexity + low coverage)
 7. Apply its thresholds and confidence scoring — only findings 8+/10
@@ -222,7 +222,7 @@ Use the GitHub CLI to submit a **pull request review** with line-level comments.
 
 Write the payload to a JSON file and post it with `gh api --input`; inline `--field` breaks on the markdown, backticks, code suggestions, and nested quotes in comment bodies.
 
-**Step 1**: Create the review payload at `/tmp/pr-review.json` using the **Write tool**:
+**Step 1**: Create the review payload at `/tmp/pr-review-{owner}-{repo}-{pr_number}.json` using the **Write tool**. The name carries the PR, so reviews of different PRs running at the same time write separate files:
 
 ```json
 {
@@ -244,7 +244,7 @@ Write the payload to a JSON file and post it with `gh api --input`; inline `--fi
 ```bash
 gh api repos/{owner}/{repo}/pulls/{pr_number}/reviews \
   --method POST \
-  --input /tmp/pr-review.json
+  --input /tmp/pr-review-{owner}-{repo}-{pr_number}.json
 ```
 
 **Important rules for posting:**

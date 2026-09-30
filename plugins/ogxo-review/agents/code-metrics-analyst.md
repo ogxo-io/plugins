@@ -162,7 +162,7 @@ For each changed/added function:
 ### Step 3: Run Coverage Analysis
 
 1. Detect the project's test framework and coverage tool
-2. Run coverage if possible (skip if no test infrastructure or if it would take too long)
+2. Run coverage if possible and the caller allows it (skip if no test infrastructure, if it would take too long, or if the project's `CLAUDE.md` or test setup shows the test command has side effects such as code generation, snapshot updates, or resetting a shared test database; then report coverage as not run and give the command)
 3. Parse coverage report for changed files
 4. Map uncovered lines to PR diff lines
 5. Calculate per-file and per-function coverage for changed code

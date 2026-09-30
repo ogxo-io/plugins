@@ -203,6 +203,11 @@ as an error saying how many seconds to wait (`retry_after`) and that
 nothing was written, so wait and send it again; no half-finished write
 needs cleaning up. A loop of singular calls is what hits the limit.
 
+Several write calls sent at once, in one message, can also be refused by
+the network edge in front of ThryX, well under 120 a minute. Send write
+calls one per message, never in parallel, and after a rate-limit error
+wait before sending the same call again.
+
 ## Prefer the summarizing reads
 
 `project_structure`, `project_brief`, and `get_workload` answer in one call

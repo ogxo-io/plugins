@@ -10,7 +10,7 @@ description: Browser and web app testing with Playwright. Auto-detects dev serve
 **Before starting browser testing:**
 
 1. For a localhost target without a user-provided URL, run server auto-detection first (skip it for static HTML or an external URL)
-2. Write test scripts to /tmp/playwright-test-*.js, not the plugin directory — files written there pollute the installed plugin and are lost on update
+2. Write test scripts to /tmp/playwright-test-*.js, not the plugin directory — files written there pollute the installed plugin and are lost on update. Give scripts and screenshots a name unique to the run (for example `/tmp/playwright-test-<task>.js`, `/tmp/playwright-<task>-home.png`), so browser runs in parallel sessions don't overwrite each other's files
 3. After `goto`, wait for the element/state you need (`await expect(locator).toBeVisible()`) before inspecting or asserting -- never rely on `networkidle` in tests (Playwright marks it DISCOURAGED)
 
 
@@ -104,14 +104,14 @@ const TARGET_URL = 'http://localhost:3000'; // From Step 1
     
     // Test logic here
     
-    await page.screenshot({ path: '/tmp/screenshot.png', fullPage: true });
+    await page.screenshot({ path: '/tmp/playwright-<task>-page.png', fullPage: true });
     console.log('📸 Screenshot saved');
     
     console.log('✅ Test completed');
     
   } catch (error) {
     console.error('❌ Test failed:', error.message);
-    await page.screenshot({ path: '/tmp/error-screenshot.png' });
+    await page.screenshot({ path: '/tmp/playwright-<task>-error.png' });
     throw error;
   } finally {
     await browser.close();
@@ -144,7 +144,7 @@ await expect(page.getByRole('main')).toBeVisible();
 ### 2. Inspect Rendered State
 ```javascript
 // Take screenshot for visual reference
-await page.screenshot({ path: '/tmp/inspection.png', fullPage: true });
+await page.screenshot({ path: '/tmp/playwright-<task>-inspection.png', fullPage: true });
 
 // Get all buttons
 const buttons = await page.$$eval('button', btns =>
@@ -220,7 +220,7 @@ BROWSER_TESTING_HOME="${CLAUDE_PLUGIN_DATA}/browser-testing" node "${CLAUDE_PLUG
 const browser = await chromium.launch({ headless: false });
 const page = await browser.newPage();
 await page.goto('http://localhost:3000');
-await page.screenshot({ path: '/tmp/quick.png', fullPage: true });
+await page.screenshot({ path: '/tmp/playwright-<task>-quick.png', fullPage: true });
 console.log('Screenshot saved');
 await browser.close();
 "
@@ -273,7 +273,7 @@ Process:
 2. Write responsive test to /tmp/playwright-test-marketing.js
 3. Test desktop, tablet, mobile viewports
 4. Execute: BROWSER_TESTING_HOME="${CLAUDE_PLUGIN_DATA}/browser-testing" node "${CLAUDE_PLUGIN_ROOT}/skills/browser-testing/scripts/run-playwright.js" /tmp/playwright-test-marketing.js
-5. Report: "✅ Tested across 3 viewports. Screenshots in /tmp/"
+5. Report: "✅ Tested across 3 viewports. Screenshots in /tmp/playwright-marketing-*.png"
 ```
 
 ```

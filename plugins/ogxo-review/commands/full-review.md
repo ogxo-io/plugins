@@ -116,6 +116,7 @@ Instruct the sub-task to run its full workflow, and, for this dispatch only, to 
 - `severity`: critical | warning | suggestion
 - `confidence`: 1-10 score
 - `body`: clear explanation with context, impact, and recommendation
+- `verified`: `ran <command>` or `read`
 
 #### 3b: CodeRabbit CLI — direct Bash call (if available)
 

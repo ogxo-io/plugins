@@ -55,8 +55,10 @@ Establish a measurable baseline with language-appropriate tools (details in the 
 | Python | `py-spy`, `cProfile` | `memory_profiler`, `scalene` |
 | Go | `go tool pprof` | `go tool pprof -heap` |
 | Rust | `cargo flamegraph` | `heaptrack`, `valgrind` |
-| Database | `EXPLAIN ANALYZE` | `pg_stat_statements` |
+| Database | `EXPLAIN ANALYZE` (see below) | `pg_stat_statements` |
 | Frontend | Lighthouse, DevTools | Chrome Memory tab |
+
+`EXPLAIN ANALYZE` executes the statement. For `INSERT`, `UPDATE`, `DELETE`, or anything with side effects, use plain `EXPLAIN`, or run it inside a transaction you roll back (`BEGIN; EXPLAIN ANALYZE ...; ROLLBACK;`), and only against a database the user named as safe to use; a shared or remote database is not one by default.
 
 ### 3. Identify bottlenecks
 
@@ -94,7 +96,7 @@ Common levers (see references for language-specific patterns):
 
 ### 6. Verify and report
 
-Benchmark after (`wrk`/`ab` for HTTP, `hyperfine` for commands), confirm tests still pass and no regressions, then report:
+Benchmark after (`wrk`/`ab` for HTTP, `hyperfine` for commands; load-test only a local or staging target the user named, never production or a shared environment without asking), confirm tests still pass and no regressions, then report:
 
 ```markdown
 ## Performance Optimization Complete

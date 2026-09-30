@@ -3,6 +3,8 @@ const { chromium } = require('playwright');
 // Configuration
 const TARGET_URL = 'http://localhost:3000'; // Auto-detected or user-provided
 const HEADLESS = false; // Visible browser by default
+// Unique per run, so parallel runs don't overwrite each other's screenshots
+const RUN = process.env.PLAYWRIGHT_RUN || `${Date.now()}-${process.pid}`;
 
 (async () => {
   const browser = await chromium.launch({
@@ -32,16 +34,16 @@ const HEADLESS = false; // Visible browser by default
 
     // Take screenshot
     await page.screenshot({
-      path: '/tmp/test-screenshot.png',
+      path: `/tmp/playwright-${RUN}-page.png`,
       fullPage: true
     });
-    console.log('📸 Screenshot saved to /tmp/test-screenshot.png');
+    console.log(`📸 Screenshot saved to /tmp/playwright-${RUN}-page.png`);
 
     console.log('✅ Test completed successfully');
 
   } catch (error) {
     console.error('❌ Test failed:', error.message);
-    await page.screenshot({ path: '/tmp/error-screenshot.png' });
+    await page.screenshot({ path: `/tmp/playwright-${RUN}-error.png` });
     throw error;
   } finally {
     await browser.close();

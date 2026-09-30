@@ -3,6 +3,8 @@ const { AxeBuilder } = require('@axe-core/playwright');
 
 // Configuration
 const TARGET_URL = 'http://localhost:3000'; // Auto-detected or user-provided
+// Unique per run, so parallel runs don't overwrite each other's screenshots
+const RUN = process.env.PLAYWRIGHT_RUN || `${Date.now()}-${process.pid}`;
 
 (async () => {
   const browser = await chromium.launch({ headless: false });
@@ -46,7 +48,7 @@ const TARGET_URL = 'http://localhost:3000'; // Auto-detected or user-provided
 
   } catch (error) {
     console.error('❌ Accessibility test failed:', error.message);
-    await page.screenshot({ path: '/tmp/accessibility-error.png' });
+    await page.screenshot({ path: `/tmp/playwright-${RUN}-accessibility-error.png` });
     throw error;
   } finally {
     await browser.close();

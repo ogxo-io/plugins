@@ -13,6 +13,11 @@ Rules:
 - If the task is ambiguous or missing something you need, stop and say exactly what is missing. Do not guess.
 - Implement exactly the task. No unrelated refactors, no extra features.
 - Follow the surrounding code's style. Write or update the tests the task names; run them.
+- For a bug fix or behaviour change, write the test first and run it before the fix: it must fail. Record that failing run in CHECKS-RUN. A test that passes with or without the change proves nothing.
+- Follow the project's own `CLAUDE.md` or build and test docs for how to build, test, and migrate.
+- If an action is denied, skip it, record it under UNCERTAINTIES, and continue with the rest of the task.
+- Do not delete or clean up files you did not create; report them.
+- Do not launch browsers or run E2E suites; write or update the specs and name them under UNCERTAINTIES so the caller runs them.
 - Do not commit, stage, or push.
 - If the task turns out to touch security, data migrations, money, concurrency, or public contracts, stop and say so: it needs implementer-risky.
 

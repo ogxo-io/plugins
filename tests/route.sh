@@ -314,5 +314,24 @@ expect "skill: grok via bridge with --write" grep -qF 'grok-bridge.mjs run --bac
 expect "anchor: mentions parallel batches" grep -qi 'parallel' "$plugin/hooks/anchor.md"
 expect "README: parallel work section" grep -q '^## Parallel work' "$plugin/README.md"
 
+# --- self-review 2026-09: build cache, cleanup, blocked workers, review loops ---
+expect "skill: no per-task build output example" bash -c '! grep -qF "CARGO_TARGET_DIR=target/<task>" "$1"' _ "$skill"
+expect "skill: build caches shared by default" grep -q 'Build outputs and dependency caches are shared by default' "$skill"
+expect "skill: free-disk check before a worktree" grep -qF 'df -Pk .' "$skill"
+expect "skill: cleanup removes what was created outside the worktree" grep -q 'nothing created outside it' "$skill"
+expect "skill: watchers act on half-finished work" grep -q 'half-finished work' "$skill"
+expect "skill: append in a block headed by the task id" grep -q 'block headed by the task id' "$skill"
+expect "skill: fix-round drift check" grep -qF 'status --porcelain' "$skill"
+expect "skill: external writes one call per message" grep -q 'one call per message' "$skill"
+expect "skill: denied actions are skipped and reported" grep -q 'If an action is denied, skip it' "$skill"
+expect "skill: no compound cd in briefs" grep -qF 'not `cd <dir> && ...`' "$skill"
+expect "skill: review stopping rule" grep -q 'After two fix rounds' "$skill"
+for a in implementer implementer-risky; do
+  expect "$a: denied actions are skipped" grep -q 'If an action is denied, skip it' "$plugin/agents/$a.md"
+  expect "$a: failing test first" grep -q 'it must fail' "$plugin/agents/$a.md"
+  expect "$a: no browser runs" grep -q 'Do not launch browsers' "$plugin/agents/$a.md"
+done
+expect "anchor: shared build cache" grep -q 'shared build cache' "$plugin/hooks/anchor.md"
+
 echo "route tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

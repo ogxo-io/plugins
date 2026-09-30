@@ -48,12 +48,18 @@ All four warn, log, or set the routing marker; none rejects a tool call.
 
 ## Parallel work
 
-Before running several implementation tasks at once, the routing skill has Claude write a batch table (task, writer, files it may edit, off-limits files, mode).
+Before running several implementation tasks at once, the routing skill has Claude write a batch table (task, writer, files it may edit, off-limits files, mode, and anything created for the task outside the repository files, such as a build directory or test database, so it is removed afterwards).
 
-- **Shared tree (default):** every writer edits your checkout. Tasks run in parallel only on disjoint files, at most two writers at a time, each brief lists its allowed and off-limits files and tells the worker not to run git state-changing commands, and checks re-run on the combined tree before each task is committed.
-- **Isolated batch (opt-in, Claude asks first):** one git worktree per task under `.claude/worktrees/`, created from `HEAD` so unpushed commits are included (uncommitted changes are not). After tests and the verifier pass in the worktree and you approve the diff, Claude runs `git merge --squash` so the task arrives staged for you to commit, then removes the worktree. Worktrees isolate files only: test databases, ports and containers are still shared. Add `.claude/worktrees/` to `.gitignore`.
+- **Build outputs:** shared by default. Worker briefs keep the machine's and project's build cache settings (for example Cargo `target-dir`, `GOCACHE`, the pnpm store) instead of giving each task its own output, which rebuilds every dependency per task. A per-task output is used only when build flags differ or a watcher holds the build lock.
+
+- **Shared tree (default):** every writer edits your checkout. Tasks run in parallel only on disjoint files, at most two writers at a time, each brief lists its allowed and off-limits files and tells the worker not to run git state-changing commands, and checks re-run on the combined tree before each task is committed. Tasks that touch migrations, schema, or generated files go to an isolated batch when a watcher or dev server runs on your checkout, because it can apply or generate from a half-finished file.
+- **Isolated batch (opt-in, Claude asks first):** one git worktree per task under `.claude/worktrees/`, created from `HEAD` so unpushed commits are included (uncommitted changes are not). After tests and the verifier pass in the worktree and you approve the diff, Claude runs `git merge --squash` so the task arrives staged for you to commit, then removes the worktree. Claude checks free disk first and stops below 20 GiB. Removing a worktree also removes the build directories, test databases, and containers listed for it. Worktrees isolate files only: test databases, ports and containers are still shared. Add `.claude/worktrees/` to `.gitignore`.
 
 grok is run through its bridge script from Bash with `--write`, because dispatching the `grok-build:grok-delegate` agent in auto mode can have its nested write denied.
+
+Worker briefs also tell workers to skip a denied action and report it rather than stop, not to delete files they did not create, to run commands with directory flags or absolute paths instead of `cd <dir> && ...`, and to leave browser and E2E runs to the main session. A background worker's permission prompt waits in the main session until you answer it. Writes to external or production systems go one call at a time.
+
+Review fix rounds use `ogxo-review:code-review-agent`'s re-review mode. After two rounds whose re-reviews report nothing above WARNING, the rest becomes follow-ups instead of another round.
 
 ## Status line
 
@@ -61,7 +67,7 @@ With `ogxo-statusline` set up, the status line shows this session's subagent cou
 
 ## Per-repository settings
 
-Create `.claude/ogxo-route.md` in a repository to add risky paths (for example `contracts/`) or change the breadth threshold (default: more than 5 files, or more than one top-level package). The routing skill and the verifier read it.
+Create `.claude/ogxo-route.md` in a repository to add risky paths (for example `contracts/`), change the breadth threshold (default: more than 5 files, or more than one top-level package), or change the free-disk threshold for worktrees (default 20 GiB). The routing skill and the verifier read it.
 
 ## Limits
 

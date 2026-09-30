@@ -1,6 +1,6 @@
 ---
 description: Complete feature delivery workflow from code to PR with testing and security
-allowed-tools: Bash(git status:*), Bash(git branch:*), Bash(git diff:*), Bash(git commit:*), Bash(npm:*), Bash(cargo:*), Bash(go:*), Read, Glob, Grep, Agent
+allowed-tools: Bash(git status:*), Bash(git branch:*), Bash(git diff:*), Bash(git commit:*), Bash(npm:*), Bash(pnpm:*), Bash(yarn:*), Bash(cargo:*), Bash(go:*), Bash(uv:*), Bash(pytest:*), Read, Glob, Grep, Agent
 ---
 
 # Ship Feature
@@ -28,7 +28,7 @@ Complete workflow to ship a feature with testing, security review, commit, and p
 Execute in this order. Stop immediately if any quality gate fails:
 
 1. **Security Review**: Invoke the `ogxo-review:security-auditor` agent (from the ogxo-review plugin) to scan for OWASP Top 10 vulnerabilities; if that agent isn't installed, tell the user and ask whether to continue without the security gate
-2. **Run Tests**: Execute test suite (npm test, cargo test, go test, etc.) to ensure all tests pass
+2. **Run Tests**: Run the project's own test command, as its `CLAUDE.md`, Makefile, or package scripts define it (for example `pnpm test`, `cargo test`, `uv run pytest`, `go test ./...`), in non-watch mode, to ensure all tests pass
 3. **Build Verification**: Run production build to catch compilation or build errors
 4. **Review & Stage**: Present the changed-file list and ask the user to stage what should ship (staging is manual by design; suggest excluding planning artifacts like `plan.md` or task notes)
 5. **Generate Commit**: Invoke the **git-commit-generator** skill (`ogxo-git:git-commit-generator`) to create the conventional commit message

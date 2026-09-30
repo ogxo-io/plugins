@@ -14,3 +14,5 @@ claude plugin install ogxo-debug@ogxo
 - `/ogxo-debug:live-debug` (skill)
 - `/ogxo-debug:css-alignment-debug` (skill)
 - `/ogxo-debug:browser-testing` (skill)
+
+browser-testing writes scripts and screenshots under `/tmp` with a name per run (the templates add a `RUN` id), so parallel sessions don't overwrite each other's files.

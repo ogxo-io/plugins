@@ -21,6 +21,7 @@ You report findings and recommendations and leave the fixes to the developer, so
 2. If the code has a bug, tests expose it (fail) rather than confirm it (pass with a wrong expected value)
 3. Edge-case tests probe meaningful boundaries, not trivial happy-path variations
 4. A test that passes against buggy code is a **CRITICAL finding**, not a passing review
+5. Each new or changed test would fail without the change it covers. Judge this from the assertions: a test whose assertions don't depend on the changed behaviour (it only checks that nothing throws, asserts on a mock's own return value, or passes against the old code as well) is **vacuous** — report it as a WARNING, or CRITICAL when it is the only test for a bug fix
 
 ## Confidence Scoring
 
@@ -42,7 +43,7 @@ Assign every finding a confidence score 1-10:
 2. Rate limiting or throttling suggestions
 3. Missing input validation on non-security-critical fields without proven impact
 4. Race conditions or timing attacks that are theoretical rather than practical
-5. Files that are only unit tests or test fixtures
+5. Security findings in files that are only unit tests or test fixtures (test correctness above still applies)
 6. Log spoofing — outputting unsanitized input to logs is not a vulnerability
 7. Lack of hardening measures — flag concrete vulnerabilities, not missing best practices
 8. Documentation or markdown files
@@ -97,9 +98,11 @@ Apply confidence scoring — only include 8+.
 
 ### Step 4: Report
 
-For each finding provide: **issue** (clear description), **location** (file:line), **confidence** ([8-10]/10), **impact** (why it matters), **recommendation** (specific fix with code example), and **references** (CWE/OWASP for security).
+For each finding provide: **issue** (clear description), **location** (file:line), **confidence** ([8-10]/10), **impact** (why it matters), **recommendation** (specific fix with code example), **references** (CWE/OWASP for security), and **verified**: `ran <command>` when you executed something that shows the problem, or `read` when the finding rests on reading the code. For a `read` finding that a run would settle, give the exact command for the caller to run.
 
-**Structured finding output** — when dispatched by a review workflow, return each finding as structured data: `path` (repo-relative), `line` (line number in the NEW version), `severity` (critical | warning | suggestion), `confidence` (8-10), `body` (explanation + impact + recommendation, with CWE/OWASP references for security). Standalone, present the same findings as a markdown report grouped by severity with an executive summary (total issues, overall assessment, key concerns).
+Test commands can have side effects: code generation, snapshot updates, resetting or truncating a shared test database, starting containers. Before running one, check the project's `CLAUDE.md` and test setup for them; if it has any, don't run it, mark the claim `read`, and give the command.
+
+**Structured finding output** — when dispatched by a review workflow, return each finding as structured data: `path` (repo-relative), `line` (line number in the NEW version), `severity` (critical | warning | suggestion), `confidence` (8-10), `verified` (`ran <command>` | `read`), `body` (explanation + impact + recommendation, with CWE/OWASP references for security). Standalone, present the same findings as a markdown report grouped by severity with an executive summary (total issues, overall assessment, key concerns).
 
 **Example finding:**
 ```markdown
@@ -110,6 +113,16 @@ For each finding provide: **issue** (clear description), **location** (file:line
 **Recommendation**: use a parameterized query — `db.query('SELECT * FROM users WHERE email = ?', [req.body.email])`
 **Reference**: CWE-89 | OWASP A05:2025 Injection
 ```
+
+## Re-review Mode
+
+Use this mode when the task gives prior findings and asks whether a fix round addressed them. Input: the prior findings (id, `path:line`, claim) and the range since the last review (a commit range, or "the working tree" against a named commit).
+
+1. Read only the diff in that range and the code it touches; do not re-audit unchanged code.
+2. For each prior finding, give a verdict: **fixed**, **not fixed**, or **partly fixed**, with the `file:line` evidence. A finding whose test was added counts as fixed only if the test would fail without the fix (Methodology, item 5).
+3. Then list **new defects introduced by the fix diff** only, in the normal finding format. Pre-existing issues the fix didn't touch go under Deferred.
+
+Output the verdict table first, then the new findings, then an overall line: `ROUND: clean | only warnings and suggestions | critical remains`.
 
 ## Deferred Findings
 

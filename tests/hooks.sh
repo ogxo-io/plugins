@@ -9,6 +9,8 @@ guards="$root/plugins/ogxo-guards/hooks/hooks.json"
 format="$root/plugins/ogxo-format/hooks/hooks.json"
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
+# Hook commands that run a bundled script find it through this variable.
+export CLAUDE_PLUGIN_ROOT="$root/plugins/ogxo-guards"
 
 pass=0
 fail=0
@@ -63,6 +65,39 @@ bash_case 0 'git add README.md'
 bash_case 0 'git add docs/env.md environment.ts'
 bash_case 0 'git commit -m "add .env docs"'
 bash_case 0 'git addx .env'
+bash_case 2 'git add config/.env.local'
+bash_case 2 'git add id_rsa'
+bash_case 2 'git add certs/server.key'
+bash_case 0 'git add id_rsa.pub'
+bash_case 0 'git add .env.example'
+# The rest of the command is not what gets staged.
+bash_case 0 'cp .env ../wt/ && git add src/a.rs'
+bash_case 0 'set -a && . ./.env && git add src/a.rs'
+bash_case 0 'git status --porcelain | grep -v ".envrc" ; git add src/x.ts'
+bash_case 0 'FOO=1 git add README.md # .env'
+
+# repo_case <expected exit> <description> <git command line>: runs in $repo.
+repo_case() {
+  jq -n --arg c "$3" --arg d "$repo" '{cwd: $d, tool_input: {command: $c}}' >"$tmp/payload"
+  check "$1" "env-file-guard: $2" "$env_guard" "$tmp/payload"
+}
+repo="$tmp/repo"
+git init -q "$repo"
+mkdir -p "$repo/src" "$repo/.claude"
+echo x >"$repo/src/a.rs"
+echo SECRET=1 >"$repo/.env"
+repo_case 2 'add -A with an untracked .env' 'git add -A'
+repo_case 2 'add . with an untracked .env' 'git add .'
+repo_case 0 'add of a directory without secrets' 'git add src'
+repo_case 0 'add -u ignores untracked .env' 'git add -u'
+repo_case 2 'git -C <repo> add -A' "git -C $repo add -A"
+echo .env >"$repo/.gitignore"
+repo_case 0 'add -A with .env ignored' 'git add -A'
+echo npmrc >"$repo/.npmrc"
+repo_case 0 'add -A with .npmrc, no repo list' 'git add -A'
+printf '# repo additions\n(^|/)\\.npmrc$\n' >"$repo/.claude/ogxo-guards-sensitive"
+repo_case 2 'add -A with .npmrc in the repo list' 'git add -A'
+repo_case 2 'add .npmrc named in the repo list' 'git add .npmrc'
 
 protect=$(hook_cmd "$guards" "ogxo-guards/file-protection")
 for f in /r/package-lock.json package-lock.json /r/web/pnpm-lock.yaml /r/yarn.lock \

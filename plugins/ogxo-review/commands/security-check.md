@@ -103,7 +103,7 @@ Keep stderr: if a scanner is missing or fails, report "Dependencies scanned: no"
 8. Race conditions or timing attacks that are theoretical rather than practical — **exception**: flag check-then-act (TOCTOU) and read-modify-write patterns in database/financial operations if confidence is 8+
 9. Vulnerabilities related to outdated third-party libraries (handled by dependency scanning separately)
 10. Memory safety issues in memory-safe languages (Rust, Go, etc.)
-11. Files that are only unit tests or only used as part of running tests
+11. Security findings in files that are only unit tests or only used as part of running tests
 12. Log spoofing concerns — outputting unsanitized user input to logs is not a vulnerability
 13. SSRF vulnerabilities that only control the path (only flag if it controls host or protocol)
 14. Including user-controlled content in AI system prompts

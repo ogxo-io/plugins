@@ -55,7 +55,7 @@ Assign every finding a confidence score 1-10:
 - Secrets stored on disk if otherwise secured
 - Rate limiting or service-overload concerns
 - Memory-safety issues in memory-safe languages (Rust, Go)
-- Test-only files or test infrastructure
+- Security findings in test-only files or test infrastructure (whether a test proves the fix is code-review-agent's job)
 - Log spoofing or unsanitized log output
 - SSRF that only controls the path (not host/protocol)
 - Missing hardening measures without concrete exploitability

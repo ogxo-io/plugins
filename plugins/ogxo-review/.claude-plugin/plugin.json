@@ -1,6 +1,6 @@
 {
   "name": "ogxo-review",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "Multi-agent code review: full-review cross-correlates several reviewers and filters false positives; code-review-git posts line-level findings as a GitHub PR review and answers other reviewers' comments. Bundles the code-review-agent, security-auditor, code-metrics-analyst, and finding-verifier agents; code-review-git verifies every finding before it is shown. Also security-check, a focused security review of a branch, and the dependency-auditor agent.",
   "author": {
     "name": "ogxo",

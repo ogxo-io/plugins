@@ -19,3 +19,10 @@ claude plugin install ogxo-review@ogxo
 - `/ogxo-review:security-check` (command)
 - `ogxo-review:dependency-auditor` (agent)
 - `ogxo-review:finding-verifier` (agent)
+
+## Review behaviour
+
+- `code-review-agent` has a **re-review mode**: give it the prior findings and the range since the last review, and it returns fixed, not fixed, or partly fixed per finding, plus only the new defects the fix introduced.
+- Each finding says whether it was verified by running a command or by reading the code. Test commands with side effects (code generation, snapshot updates, shared test-database resets) are not run; the finding gives the command instead. `code-review-git` skips its coverage run for the same reason.
+- A test that would pass without the change it covers is reported as vacuous. The test-file exclusions in `code-review-agent`, `security-auditor`, and `security-check` apply to security findings only.
+- `code-review-git` writes its review payload to a file named after the owner, repository, and PR number, so parallel reviews of different PRs don't share one file.

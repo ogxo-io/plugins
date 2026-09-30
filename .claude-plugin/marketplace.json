@@ -29,7 +29,7 @@
     {
       "name": "thryx",
       "description": "ThryX project management over MCP: issues, projects, cycles, milestones, the client-facing macro board, and documents in your ThryX workspace, plus a product-management skill for writing tickets, PRDs, ADRs, and project docs and running follow-ups.",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -48,7 +48,7 @@
     {
       "name": "ogxo-review",
       "description": "Multi-agent code review: full-review cross-correlates several reviewers and filters false positives; code-review-git posts line-level findings as a GitHub PR review and answers other reviewers' comments. Bundles the code-review-agent, security-auditor, code-metrics-analyst, and finding-verifier agents; code-review-git verifies every finding before it is shown. Also security-check, a focused security review of a branch, and the dependency-auditor agent.",
-      "version": "0.2.4",
+      "version": "0.3.0",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -67,7 +67,7 @@
     {
       "name": "ogxo-git",
       "description": "Git and GitHub workflow skills: Conventional Commit messages, PR titles and descriptions with template detection, resolving PR review threads (its workflow instructs it to present its analysis and wait for approval before replying or resolving), and a catchup command to restore branch context. Also release, quick-fix, and ship-feature workflows, and changelog-generator and release-notes skills.",
-      "version": "0.2.3",
+      "version": "0.2.4",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -86,7 +86,7 @@
     {
       "name": "ogxo-debug",
       "description": "Debug a running web app by driving the browser: reproduce the symptom, read console and network errors, fix, and verify in the page. Also css-alignment-debug, which injects temporary outline overlays and reads a screenshot of the rendered page for layout bugs that won't resolve from reading source. Also browser-testing: Playwright test scripts with dev-server detection; Playwright installs into the plugin's data directory during a one-time setup.",
-      "version": "0.3.2",
+      "version": "0.3.3",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -143,8 +143,8 @@
     },
     {
       "name": "ogxo-guards",
-      "description": "Safety hooks: reject a `git add` whose command text names a .env/credentials/.secret/.pem file, reject Edit/Write calls on lock files and on node_modules/, vendor/, and .git/ paths, and reject single file writes over 1,048,576 characters. Pattern-based, so it does not catch everything; see the README. Requires jq.",
-      "version": "0.1.0",
+      "description": "Safety hooks: reject a `git add` that would stage a .env, key, certificate, or credentials file (the pathspecs it names, and for broad adds what git status lists), reject Edit/Write calls on lock files and on node_modules/, vendor/, and .git/ paths, and reject single file writes over 1,048,576 characters. Pattern-based, so it does not catch everything; see the README. Requires jq.",
+      "version": "0.2.0",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -181,7 +181,7 @@
     {
       "name": "ogxo-specialists",
       "description": "Specialist subagents that take a noisy job and return one structured report: log-analyst (correlate logs to a root cause), codebase-archaeologist (map an unfamiliar or legacy system), performance-optimizer (measure, fix by impact, re-measure), and migration-specialist (breaking-change catalog and a phased plan with rollback points).",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -220,7 +220,7 @@
     {
       "name": "ogxo-route",
       "description": "Cost-aware routing for Claude Code: a routing skill and session-start summary that tell the main session which tier handles which task, worker subagents pinned to Sonnet or Haiku with explicit tool lists, and hooks that warn when a generic subagent is dispatched without a model and log each dispatch. Risky work and reviews stay at Opus or above. Warns, never blocks. Claude Code only. Requires jq.",
-      "version": "0.1.4",
+      "version": "0.2.0",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
