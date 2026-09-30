@@ -21,7 +21,8 @@ Marketplace name: `ogxo` → plugins install as `<plugin>@ogxo`.
   `tests/bundle.sh`; CI fails until one of the two happens. `install.sh
   --all` installs the bundle. Versions live in each
   `plugin.json` and its catalog entry, not here; CI fails when the two
-  disagree. The hook
+  disagree, or when the Status column of README.md's plugin table
+  (`tests/readme.sh`) doesn't match the catalog. The hook
   plugins require `jq`; each hook prints a notice and does nothing when it is
   missing. ogxo-statusline installs through a setup skill because the status
   line setting lives in the user's own config: setup copies the script to

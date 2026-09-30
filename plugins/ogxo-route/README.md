@@ -71,6 +71,10 @@ Review fix rounds use `ogxo-review:code-review-agent`'s re-review mode. After tw
 
 `/ogxo-route:dashboard` opens a local HTML page that follows the current session as it runs: the main session and every subagent it dispatches (model tier, description, its last tool calls, and the verifier's PASS/FAIL/RISKY), grok and codex bridge runs, the batch table, a timeline of tool calls per agent, how the tool calls split across model tiers, and a running log. Before the first parallel batch, Claude offers to open it.
 
+![The live board replaying its built-in demo: agents dispatched and returning, the batch table, the timeline, and the log](../../docs/images/route-board-demo.gif)
+
+The replay above is `/ogxo-route:dashboard demo`, a made-up session, shown at twice its speed.
+
 - **One page per session, one hub for all of them.** Each session's board lives in the plugin's data directory under `dash/<session id>/`, so two projects running at once get separate pages. `/ogxo-route:dashboard hub` opens `dash/index.html`, which lists every board (repo, branch, working or idle, agents running, time since the last event) with a link to each, newest activity first; each board links back to it.
 - **Local only.** The pages read `events.js` and `boards.js` from their own folders, so there is no server and no port. Press `t` to switch between the light and dark themes.
 - **What it records.** Each event is built field by field in `hooks/dash-event.sh:60-107`: the event kind, the tool name, and a short summary, which is a file path relative to the project, the first two words of a shell command, a search pattern, a URL's host, a subagent's description, or, for a grok bridge run, up to 60 characters of its brief. The prompt, file contents, tool output, and a permission prompt's message are not among the fields it copies.

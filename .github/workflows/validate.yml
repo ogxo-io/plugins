@@ -60,6 +60,9 @@ jobs:
       - name: Bundle covers every plugin
         run: bash tests/bundle.sh
 
+      - name: README lists every plugin at its catalog version
+        run: bash tests/readme.sh
+
       - name: Install script tests
         run: bash tests/install.sh
 
