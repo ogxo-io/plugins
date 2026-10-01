@@ -143,8 +143,12 @@ This is normal right after an import, or for a project that has only
 ever been tracked internally.
 
 1. Read the work first: `project_structure`, the open epics (see "Settle
-   where a new ticket goes" in the thryx skill), `list_milestones`, and the
-   repository sources above.
+   where a new ticket goes" in the thryx skill), `list_milestones`,
+   `list_macro_items` so nothing is proposed twice, and the repository
+   sources above. Reading a whole repository takes many calls; when your
+   host has a cheaper exploring subagent, hand it that reading and work
+   from its summary of what shipped, what is in flight, and what is
+   planned.
 2. Propose everything in one message and wait for an answer. That means
    milestones as dated checkpoints the client would recognise. It also
    means deliverables as outcomes, usually one per epic or feature
@@ -152,12 +156,21 @@ ever been tracked internally.
    "Stripe webhook handler"). Give each deliverable a public
    description, its milestone, a target date, and the tickets that back
    it. Name the tickets that fit no deliverable. Not all work is the
-   client's business, and leaving it off the board is fine.
+   client's business, and leaving it off the board is fine. Name the
+   other direction too: a deliverable with no tickets behind it would
+   sit at 0%, so propose the epic and tickets to file for it. Mark
+   every date and estimate that is a guess.
 3. Once the user agrees, write in order: `create_milestone`, then
    `create_macro_item` with `milestone_title`, then
    `link_macro_item_issues` (at most 20 keys per call). Everything is
    still hidden at this point.
 4. Ask separately which milestones and items to show.
+5. Run the health check below on what you wrote, or the server's
+   `macro_board` prompt, and report anything it still flags.
+
+For a project that already has a board, start with the health check
+instead and compare the board with the repository: stale dates, items
+at 0%, and deliverables the code has already shipped.
 
 ## Checking the board's health
 

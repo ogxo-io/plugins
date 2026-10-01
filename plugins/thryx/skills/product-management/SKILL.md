@@ -1,6 +1,6 @@
 ---
 name: product-management
-description: Use when the user asks for product or project management work in ThryX - define, plan, review, or close a cycle or sprint; what's the status, a standup, weekly review, or post-release check; write a spec or PRD, record a decision (ADR), or write or refresh the project overview; break down an epic or rewrite a vague ticket; build or audit milestones and the client-facing macro board.
+description: Use when the user asks for product or project management work in ThryX - define, plan, review, or close a cycle or sprint; what's the status, a standup, weekly review, or post-release check; write a spec or PRD, record a decision (ADR), or write or refresh the project overview; break down an epic or rewrite a vague ticket; build or audit milestones and the client-facing macro board, including building a project's roadmap (milestones and client deliverables) from what its repository has shipped and plans.
 ---
 
 # Managing a product with ThryX
@@ -45,7 +45,7 @@ guess about the code as something you read.
 | The page that says what the project is | `references/project-doc.md` |
 | Defining a cycle: its goal, its tickets, its description, closing it | `references/cycle.md` |
 | Standup, weekly review, after a release | `references/follow-up.md` |
-| Milestones, the macro board, anything a client reads | `references/client-board.md` |
+| Milestones, the macro board, anything a client reads, or a roadmap built from the repository | `references/client-board.md` |
 
 The server also ships prompts for some of this work (`write_ticket`,
 `plan_cycle`, `organize_project`, `macro_board`, `project_status`; the
