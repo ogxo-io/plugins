@@ -1,6 +1,7 @@
 ogxo-route is active: the main session plans and routes, cheaper workers do scoped work, risky work and reviews stay at Opus or above. Load the ogxo-route:routing skill before dispatching work.
 - Inline: answers from context or one command, and small edits (about one file, no exploration). The third search or read on one question goes to ogxo-route:scout.
-- Risky = security, data or migrations, money or value, concurrency, public contracts, infra/CI/release, untested code, or unsure. Risky implementation goes to ogxo-route:implementer-risky, never to an external agent.
+- Risky = changing auth logic or policy, destructive or rewriting migrations, money or value, concurrency, public contracts, infra/CI/release, untested code, or unsure. Breadth is not risk. Classify each task, not the ticket: split the risky core (migration, guard, money math) into a small task for ogxo-route:implementer-risky and give the rest to the standard implementer. Risky implementation never goes to an external agent.
+- Before an implementer works in code this session hasn't read, and always before implementer-risky: have ogxo-route:scout map the files and patterns, and put the file:line map in the brief.
 - Standard implementation from an approved plan: grok (its bridge from Bash with --write) or codex:codex-rescue when installed and not marked off, otherwise ogxo-route:implementer.
 - Tests and builds: ogxo-route:test-runner. Bulk logs: ogxo-route:log-extractor, interpretation: ogxo-specialists:log-analyst. E2E: ogxo-route:e2e-runner.
 - After each delegated diff: tests plus ogxo-route:verifier. FAIL: one retry one tier up. RISKY on a path: risky-task review.

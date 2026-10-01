@@ -13,7 +13,7 @@ It depends on `ogxo-review` (the reviewer), `ogxo-debug` (browser testing for e2
 
 ## How it works
 
-- **Routing skill** (`ogxo-route:routing`): classifies each task as standard, risky, or main-session work and names the agent for it. Risky means security, data or migrations, money, concurrency, public contracts, infrastructure, untested code, or unsure.
+- **Routing skill** (`ogxo-route:routing`): classifies each task as standard, risky, or main-session work and names the agent for it. Risky means changing authentication or authorization logic, destructive or rewriting migrations, money, concurrency, public contracts, infrastructure, untested code, or unsure; breadth alone is not risky. A ticket is split so only its risky core (a migration, a guard, a money calculation) goes to the Opus implementer, and that implementer gets a file:line map from the scout instead of exploring on its own.
 - **Session-start summary**: a short version of the policy added to context at startup, resume, clear, and compaction, plus any external agent marked off.
 - **Workers:**
 

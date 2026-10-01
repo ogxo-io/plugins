@@ -30,8 +30,8 @@ worktrees. Do not treat it as removing any trigger below.
 | Main session | Design, debugging with an unclear root cause, ambiguous requirements, anything that needs the user's judgement. Keep it in the main session. |
 
 Risk triggers, any one is enough:
-1. Security: authentication or authorization, crypto, secrets, input validation at a trust boundary, permissions.
-2. Data: migrations, schema changes, deletes, backfills.
+1. Security: changing authentication or authorization logic or policy (who may do what), crypto, secrets, input validation at a trust boundary. A new endpoint or query that applies an existing guard unchanged is not this trigger.
+2. Data: destructive or rewriting migrations (drop, rename, type change, backfill, a new NOT NULL column without a default), deletes, and changes to existing data. An additive migration (a new table, index, or nullable or defaulted column) with tests is not this trigger.
 3. Money or value: payments, billing, balances, smart contracts.
 4. Concurrency or shared state: locks, races, cache invalidation, distributed state.
 5. Public contracts: exported APIs, wire formats, CLI flags, config schemas, manifests.
@@ -40,7 +40,18 @@ Risk triggers, any one is enough:
 8. Unsure: classify up, never down.
 
 Breadth threshold: more than 5 files, or more than one top-level package
-(unless `.claude/ogxo-route.md` sets another value).
+(unless `.claude/ogxo-route.md` sets another value). Breadth is not a risk
+trigger: it decides reviews (Step 4), never the implementer's tier.
+
+Classify each task, not the ticket. When one part of a ticket hits a
+trigger (the migration, the authorization guard, the money calculation),
+split it out as a small risky task for `ogxo-route:implementer-risky` that
+runs first, and give the rest (services, routes, UI, tests around it) to
+the standard implementer as its own task. A long risky task is the most
+expensive thing to route: every tool call re-reads the agent's whole
+context at Opus prices. The parts moved down still pass the verifier, which marks a diff RISKY when
+a path matches `scripts/risky-paths.sh` (migration, auth, and similar path
+segments), and a RISKY path gets the risky-task review.
 
 ## Step 3: route
 
@@ -100,6 +111,7 @@ effort, because the advisor is consulted less often at low effort.
 ## Step 7: hand-off format
 
 - Pass paths, `file:line` ranges, and commit SHAs, not pasted file content.
+- Map before dispatching an implementer into code this session has not read, and always before `ogxo-route:implementer-risky`: have `ogxo-route:scout` list the files, functions, and existing patterns the task touches (where the guard helpers, the closest similar endpoint, the test fixtures live), and put that map in the brief as `file:line` references. The worker starts from the map instead of searching, and exploration runs on the cheaper model.
 - Give each worker a self-contained task: goal, files, acceptance checks.
 - Dispatch independent read-only work (scout, test-runner, log-extractor) in parallel, in one message. Parallel implementation follows Step 8.
 - Writes to external or production systems (MCP servers, issue trackers, APIs) go one call per message, never in a parallel batch. On a rate-limit error (HTTP 429 or the service's equivalent), wait the `retry_after` it gives, or back off, before resending.
@@ -107,6 +119,7 @@ effort, because the advisor is consulted less often at low effort.
 
 Every implementation brief also says:
 - If an action is denied, skip it, record it under UNCERTAINTIES, and continue with the rest of the task.
+- Start from the map in this brief; search only for what it does not cover.
 - Do not delete or clean up files you did not create; report them instead.
 - Run commands from the target directory with the tool's own directory flag where it has one (for example `git -C`, `pnpm --dir`, `uv --directory`, `go -C`, `cargo --manifest-path`) or with absolute paths, not `cd <dir> && ...`: a `cd` in a compound command can trigger a permission prompt.
 - Do not launch browsers or run E2E suites; write or update the specs and say which to run. The main session runs them, or dispatches `ogxo-route:e2e-runner`.

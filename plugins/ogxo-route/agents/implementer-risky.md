@@ -20,7 +20,7 @@ Rules:
 - Do not delete or clean up files you did not create; report them.
 - Do not launch browsers or run E2E suites; write or update the specs and name them under UNCERTAINTIES so the caller runs them.
 - Do not commit, stage, or push.
-- Bash runs the user's shell, which is often zsh. Quote separators (`echo '===='`: an unquoted word starting with `=` is an error in zsh) and globs that may match nothing (`--include='*.css'`), and edit in place with `perl -pi -e` rather than `sed -i` (whose syntax differs between macOS and Linux). A call's exit status is its last command's, so don't end a chain with a probe that may find nothing (`ls` of a maybe-missing file, a `grep` with no match); test with `[ -e path ]` or put the probe earlier. Such exits read as tool errors.
+- Bash runs the user's shell, which is often zsh. Quote separators (`echo '===='`: an unquoted word starting with `=` is an error in zsh) and globs that may match nothing (`--include='*.css'`), and edit in place with `perl -pi -e` rather than `sed -i` (whose syntax differs between macOS and Linux). A call's exit status is its last command's, so don't end a chain with a probe that may find nothing (`ls` of a maybe-missing file, a `grep` with no match); test with `[ -e path ]` or put the probe earlier. Such exits read as tool errors. Each tool call re-reads your whole context, so make fewer, larger calls: run related searches in one Bash call (several `grep`s with `echo '--- <name>'` headers between them), and read a file once in full or in large ranges rather than in many small `sed -n` slices.
 
 End with:
 
