@@ -44,27 +44,8 @@ fi
 # dash.sh needs jq to turn a board on, so no jq means nothing to record.
 command -v jq >/dev/null 2>&1 || exit 0
 
-vdef='def verdict: if type == "string"
-  then [match("VERDICT:\\**\\s*\\**\\s*(PASS|FAIL|RISKY)\\b"; "g")] | last | .captures[0].string
-  else null end;'
-
-# Token usage per model from assistant messages. A message's usage lists its
-# iterations when the advisor ran inside it (type advisor_message, with its
-# own model); otherwise the usage itself is one iteration. Cache writes are
-# split into 1-hour and 5-minute entries because they are priced apart.
-# shellcheck disable=SC2016 # jq variables, not shell ones
-udef='def num: if type == "number" then . else 0 end;
-  def rows: (.usage | if type == "object" then . else {} end) as $u
-    | ((.model // "unknown") | tostring) as $mm
-    | (if ($u.iterations | type) == "array" and ($u.iterations | length) > 0 then $u.iterations[] else $u end)
-    | objects
-    | ((.cache_creation | if type == "object" then .ephemeral_1h_input_tokens else 0 end) | num) as $c1
-    | {k: (if .type == "advisor_message" then "adv:" + ((.model // "advisor") | tostring) else $mm end),
-       in: (.input_tokens | num), out: (.output_tokens | num), cr: (.cache_read_input_tokens | num),
-       cw1: $c1, cw5: ([((.cache_creation_input_tokens | num) - $c1), 0] | max)}
-    | select(.in + .out + .cr + .cw1 + .cw5 > 0);
-  def bucket: reduce .[] as $r ({}; .[$r.k] |= {in: ((.in // 0) + $r.in), out: ((.out // 0) + $r.out),
-    cr: ((.cr // 0) + $r.cr), cw5: ((.cw5 // 0) + $r.cw5), cw1: ((.cw1 // 0) + $r.cw1)});'
+# shellcheck source=SCRIPTDIR/jqdefs.sh
+. "${BASH_SOURCE[0]%/*}/jqdefs.sh"
 
 # Line 1: session id (empty unless valid). Line 2: the event JSON or null.
 # Line 3: the subagent transcript path, SubagentStop only.
@@ -219,6 +200,8 @@ esac
 # SubagentStop: output tokens from the transcript, and the verdict from its
 # last text when last_assistant_message had none. Transcript lines repeat a
 # message's usage once per content block, so each message id counts once.
+# A worker that dash-backfill.sh already recorded (bf.ids: id, bytes read,
+# last message id) counts only what its transcript gained since.
 case $ev in *'"e":"sstop"'*)
   if [ -n "$gu" ]; then
     [[ $ev =~ \"id\":\"([A-Za-z0-9_-]{1,128})\" ]] && usage_later "${BASH_REMATCH[1]}"
@@ -226,15 +209,22 @@ case $ev in *'"e":"sstop"'*)
     size=$(wc -c <"$tp" 2>/dev/null)
     size=${size//[!0-9]/}
     if [ -n "$size" ] && [ "$size" -lt 52428800 ]; then
-      ev2=$(jq -R -n -c --argjson ev "$ev" "$vdef $udef"'
-        reduce (inputs | fromjson? | objects | select(.type == "assistant") | .message | objects) as $m
+      skip=0 skipid=""
+      if [ -f "$dir/bf.ids" ] && [[ $ev =~ \"id\":\"([A-Za-z0-9_-]{1,128})\" ]]; then
+        read -r skip skipid < <(awk -v id="${BASH_REMATCH[1]}" '$1 == id {n = $2; m = $3} END {print n + 0, m}' "$dir/bf.ids" 2>/dev/null)
+        skip=${skip//[!0-9]/}
+        skip=${skip:-0}
+      fi
+      ev2=$(tail -c +"$((skip + 1))" "$tp" 2>/dev/null | jq -R -n -c --argjson ev "$ev" --arg skipid "$skipid" "$vdef $udef"'
+        reduce (inputs | fromjson? | objects | select(.type == "assistant") | .message | objects
+                | select($skipid == "" or .id != $skipid)) as $m
           ({ids: {}, anon: 0, txt: null, msgs: {}};
            (($m.usage | if type == "object" then .output_tokens else null end) | if type == "number" then . else 0 end) as $n
            | (if ($m.id | type) == "string" then .ids[$m.id] = ([.ids[$m.id] // 0, $n] | max) | .msgs[$m.id] = {model: $m.model, usage: $m.usage} else .anon += $n end)
            | ([$m.content[]? | objects | select(.type == "text") | .text | strings] | join("\n")) as $x
            | if $x != "" then .txt = $x else . end)
         | $ev + {v: ($ev.v // (.txt | verdict)), out: (.anon + ([.ids[]] | add // 0)), use: ([.msgs[] | rows] | bucket)}
-      ' "$tp" 2>/dev/null)
+      ' 2>/dev/null)
       case $ev2 in '{'*'}') ev=$ev2 ;; esac
     fi
   fi

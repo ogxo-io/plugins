@@ -370,13 +370,16 @@ pre .ln { display: block; min-height: 1.5em; }
       case 'sstart': {
         let key = S.byId.get(ev.id);
         if (!key) {
-          const i = S.pending.findIndex((pk) => String(S.agents.get(pk).ty).toLowerCase() === String(ev.ty || '').toLowerCase());
+          // bf: added from the worker's transcript when the board was turned on.
+          const i = ev.bf ? -1 : S.pending.findIndex((pk) => String(S.agents.get(pk).ty).toLowerCase() === String(ev.ty || '').toLowerCase());
           if (i >= 0) key = S.pending.splice(i, 1)[0];
-          else { key = 'id:' + ev.id; newAgent(key, { ty: ev.ty || 'general-purpose', t0: t }); }
+          else { key = 'id:' + ev.id; newAgent(key, { ty: ev.ty || 'general-purpose', d: ev.d || '', t0: t }); }
           S.byId.set(ev.id, key);
         }
         const a = S.agents.get(key);
         a.id = ev.id; if (a.state === 'start') a.state = 'run';
+        if (ev.rm && !a.rm) a.rm = ev.rm;
+        if (ev.bf) a.bf = true;
         break;
       }
       case 'launched': {
@@ -413,6 +416,7 @@ pre .ln { display: block; min-height: 1.5em; }
         const key = S.byId.get(ev.id) || callerKey({ a: ev.id, at: ev.ty, t });
         const a = S.agents.get(key);
         a.t1 = t; a.returnAt = t; a.verdict = ev.v || null; a.out = ev.out || a.out; a.wait = null;
+        if (ev.tc) a.tc = Math.max(a.tc, ev.tc);
         addUse(key, ev.use);
         a.state = ev.v === 'FAIL' ? 'fail' : ev.v === 'RISKY' ? 'risky' : ev.v === 'PASS' ? 'pass' : 'ok';
         const pi = S.pending.indexOf(key); if (pi >= 0) S.pending.splice(pi, 1);
@@ -749,7 +753,7 @@ pre .ln { display: block; min-height: 1.5em; }
       g.put(x + 4, yy, pad(r.n, 6), newest && live ? 'hi' : 'dim');
       g.put(x + 11, yy, clip(r.s, iw - 9), newest && live ? 'fg' : 'dim');
     });
-    if (!tools.length) g.put(x + 2, y + 7, live ? 'starting' + '...'.slice(0, (f >> 2) % 4) : 'no tool calls', 'dim');
+    if (!tools.length) g.put(x + 2, y + 7, live ? 'starting' + '...'.slice(0, (f >> 2) % 4) : a.bf ? 'ran before the board was on' : 'no tool calls', 'dim');
 
     const [tag, tagk] = stateTag(a, f);
     g.put(x + 2, y + 9, tag, tagk);

@@ -13,7 +13,8 @@
 # (appended by hooks/dash-event.sh while the `on` flag exists), meta.json and
 # the flag, in ${CLAUDE_PLUGIN_DATA}/dash/<session_id>/. A board whose session
 # ended keeps a `resume` marker until on or off; hooks/dash-resume.sh turns it
-# back on when the session is resumed. The hub is
+# back on when the session is resumed. `on` also adds the workers that ran
+# before it (scripts/dash-backfill.sh). The hub is
 # dash/index.html; it reads dash/boards.js, rewritten here on on/off/status/hub.
 set -uo pipefail
 
@@ -215,6 +216,9 @@ case $action in
     ev=$(jq -nc --arg sid "$sid" --arg repo "$repo" --arg branch "$branch" --arg wt "$wt" --arg host "$host" \
       '{t: (now * 1000 | floor), e: "on", sid: $sid, repo: $repo, branch: $branch, wt: $wt, host: $host}') || exit 1
     append "$ev" || exit 1
+    # Workers that ran before the board was on, read from their transcripts.
+    # Grok Build keeps none per worker, so its board starts with the next one.
+    [ "$host" = grok ] || nohup bash "$root/scripts/dash-backfill.sh" "$dir" "$sid" >/dev/null 2>&1 &
     cwd=${PWD/#"$HOME"/\~}
     jq -nc --arg repo "$repo" --arg branch "$branch" --arg wt "$wt" --arg cwd "$cwd" --arg host "$host" \
       '{repo: $repo, branch: $branch, wt: $wt, cwd: $cwd, host: $host}' >"$dir/meta.json" || exit 1

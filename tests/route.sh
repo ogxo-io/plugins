@@ -660,6 +660,66 @@ hk "$(jq -nc --arg p "$big" '{session_id:"s1", hook_event_name:"SubagentStop", a
 expect "dash-event: transcript over 50 MB is skipped" last_ev s1 '.id == "ag5" and .out == null and .v == null'
 rm -f "$big"
 
+# --- dash-backfill: workers that ran before the board was on ---
+bfill="$plugin/scripts/dash-backfill.sh"
+cc="$tmp/cc"
+sub="$cc/projects/-r/bf1/subagents"
+mkdir -p "$sub"
+# w1: finished, with a verdict. w2: no type (a helper). w3: already on the board.
+cat >"$sub/agent-w1.jsonl" <<'JSONL'
+{"type":"user","timestamp":"2026-09-30T10:00:00.000Z","message":{"content":"SECRET-BRIEF"}}
+{"type":"assistant","timestamp":"2026-09-30T10:00:05.000Z","message":{"id":"m1","model":"claude-sonnet-5-5","content":[{"type":"text","text":"x"}],"usage":{"input_tokens":3,"output_tokens":10,"cache_read_input_tokens":100}}}
+{"type":"assistant","timestamp":"2026-09-30T10:00:06.000Z","message":{"id":"m1","model":"claude-sonnet-5-5","content":[{"type":"tool_use","name":"Read","input":{}}],"usage":{"input_tokens":3,"output_tokens":10,"cache_read_input_tokens":100}}}
+{"type":"assistant","timestamp":"2026-09-30T10:01:00.000Z","message":{"id":"m2","model":"claude-sonnet-5-5","content":[{"type":"text","text":"Done.\nVERDICT: PASS"}],"usage":{"input_tokens":1,"output_tokens":20}}}
+JSONL
+printf '%s\n' '{"agentType":"ogxo-route:verifier","description":"Gate the diff"}' >"$sub/agent-w1.meta.json"
+head -2 "$sub/agent-w1.jsonl" >"$sub/agent-w2.jsonl"
+printf '%s\n' '{"description":"helper"}' >"$sub/agent-w2.meta.json"
+head -2 "$sub/agent-w1.jsonl" >"$sub/agent-w3.jsonl"
+printf '%s\n' '{"agentType":"ogxo-route:scout"}' >"$sub/agent-w3.meta.json"
+board_on bf1
+printf 'E(%s);\n' '{"t":1,"e":"sstop","id":"w3","ty":"ogxo-route:scout"}' >"$data/dash/bf1/events.js"
+CLAUDE_CONFIG_DIR="$cc" bash "$bfill" "$data/dash/bf1" bf1
+bev() { events bf1 | jq -e "$1" >/dev/null; }
+expect "backfill: start at the transcript's first timestamp, with description and model" bev '[.[] | select(.e == "sstart" and .id == "w1")] | length == 1 and .[0].t == 1790762400000 and .[0].d == "Gate the diff" and .[0].rm == "claude-sonnet-5-5" and .[0].bf == true and .[0].ty == "ogxo-route:verifier"'
+expect "backfill: stop at the last timestamp, verdict and output tokens" bev '[.[] | select(.e == "sstop" and .id == "w1")] | length == 1 and .[0].t == 1790762460000 and .[0].v == "PASS" and .[0].out == 30'
+expect "backfill: usage counts each message once" bev '.[] | select(.e == "sstop" and .id == "w1") | .use["claude-sonnet-5-5"] | .in == 4 and .out == 30 and .cr == 100'
+expect "backfill: tool calls counted" bev '.[] | select(.e == "sstop" and .id == "w1") | .tc == 1'
+expect "backfill: events appended in time order" bev '[.[] | select(.bf) | .t] | . == sort'
+expect "backfill: a worker with no type is skipped" bev '[.[] | select(.id == "w2")] | length == 0'
+expect "backfill: a worker already on the board is skipped" bev '[.[] | select(.id == "w3")] | length == 1'
+expect "backfill: no transcript text copied" bash -c '! grep -q SECRET "$1"' _ "$data/dash/bf1/events.js"
+n=$(lines "$data/dash/bf1/events.js")
+CLAUDE_CONFIG_DIR="$cc" bash "$bfill" "$data/dash/bf1" bf1
+expect "backfill: a second run adds nothing" [ "$(lines "$data/dash/bf1/events.js")" = "$n" ]
+expect "backfill: lock released" [ ! -d "$data/dash/bf1/bf.lock" ]
+# w4 is still running: its last line is half written, and message m5 goes on after the backfill.
+{ head -2 "$sub/agent-w1.jsonl" | sed 's/"m1"/"m5"/g'; printf '%s' '{"type":"assistant","timestamp":"2026-09-30T10:00:07.000Z","message":{"id":"m5"'; } >"$sub/agent-w4.jsonl"
+printf '%s\n' '{"agentType":"ogxo-route:implementer","description":"Task 2"}' >"$sub/agent-w4.meta.json"
+CLAUDE_CONFIG_DIR="$cc" bash "$bfill" "$data/dash/bf1" bf1
+expect "backfill: a half-written line is left out" bev '.[] | select(.e == "sstop" and .id == "w4") | .out == 10'
+expect "backfill: bf.ids records bytes read and the last message" grep -q "^w4 $(head -2 "$sub/agent-w4.jsonl" | wc -c | tr -d ' ') m5$" "$data/dash/bf1/bf.ids"
+printf '%s\n' ',"model":"claude-sonnet-5-5","content":[{"type":"text","text":"more"}],"usage":{"output_tokens":10}}}' >>"$sub/agent-w4.jsonl"
+printf '%s\n' '{"type":"assistant","timestamp":"2026-09-30T10:02:00.000Z","message":{"id":"m6","model":"claude-sonnet-5-5","content":[{"type":"text","text":"VERDICT: PASS"}],"usage":{"input_tokens":2,"output_tokens":7}}}' >>"$sub/agent-w4.jsonl"
+hk "$(jq -nc --arg p "$sub/agent-w4.jsonl" '{session_id:"bf1", hook_event_name:"SubagentStop", agent_id:"w4", agent_type:"ogxo-route:implementer", agent_transcript_path:$p}')"
+expect "backfill: the worker's own stop counts only what came after" last_ev bf1 '.e == "sstop" and .id == "w4" and .out == 7 and .v == "PASS" and .use["claude-sonnet-5-5"].in == 2'
+hk "$(jq -nc --arg p "$sub/agent-w1.jsonl" '{session_id:"bf1", hook_event_name:"SubagentStop", agent_id:"w9", agent_type:"x", agent_transcript_path:$p}')"
+expect "backfill: other workers' stops still count their whole transcript" last_ev bf1 '.id == "w9" and .out == 30'
+CLAUDE_CONFIG_DIR="$cc" bash "$bfill" "$data/dash/nope" bf1
+expect "backfill: missing board does nothing" [ ! -e "$data/dash/nope" ]
+CLAUDE_CONFIG_DIR="$cc" bash "$bfill" "$data/dash/bf1" '../x'
+expect "backfill: invalid session id does nothing" [ "$(lines "$data/dash/bf1/events.js")" = "$(events bf1 | jq length)" ]
+# dash.sh on runs it in the background; under Grok it does not.
+for s2 in bf2 bf3; do mkdir -p "$cc/projects/-r/$s2/subagents" && cp "$sub"/agent-w1.* "$cc/projects/-r/$s2/subagents/"; done
+(cd "$tmp" && env CLAUDE_CONFIG_DIR="$cc" CLAUDE_PLUGIN_DATA="$data" CLAUDE_CODE_SESSION_ID=bf2 bash "$dctl" on >/dev/null 2>&1)
+for _ in $(seq 1 40); do events bf2 | jq -e 'any(.[]; .id == "w1")' >/dev/null 2>&1 && break; sleep 0.1; done
+bf2ev() { events bf2 | jq -e "$1" >/dev/null; }
+expect "backfill: dashboard on adds earlier workers" bf2ev 'any(.[]; .e == "sstop" and .id == "w1") and .[0].e == "on"'
+(cd "$tmp" && env CLAUDE_CONFIG_DIR="$cc" CLAUDE_PLUGIN_DATA="$data" GROK_SESSION_ID=g CLAUDE_CODE_SESSION_ID=bf3 bash "$dctl" on >/dev/null 2>&1)
+sleep 1
+expect "backfill: not under Grok Build" bash -c '! grep -q "\"w1\"" "$1"' _ "$data/dash/bf3/events.js"
+for s2 in bf1 bf2 bf3; do (cd "$tmp" && env CLAUDE_PLUGIN_DATA="$data" bash "$dctl" off "$s2" >/dev/null 2>&1); done
+
 mkdir -p "$data/x"
 : >"$data/x/on"
 hk '{"session_id":"../x","hook_event_name":"Stop"}'
