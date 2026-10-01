@@ -96,6 +96,13 @@ for sh_name in "${shells[@]}"; do
     expect_not_in "thryx: connect each ThryX workspace" "$out"
   fi
 
+  case_name="--all also updates every installed ogxo plugin"
+  if run_case "$sh_name" "$case_name" market+git 0 --all; then
+    expect_in "claude plugin install ogxo@ogxo" "$calls"
+    expect_in "claude plugin update ogxo-git@ogxo" "$calls"
+    expect_not_in "x@other" "$calls"
+  fi
+
   case_name="--all --include-format"
   if run_case "$sh_name" "$case_name" market 0 --all --include-format; then
     expect_in "claude plugin marketplace update ogxo" "$calls"

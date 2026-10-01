@@ -9,8 +9,10 @@
 # installs each named plugin, or updates it when it is already installed.
 # --all installs the ogxo bundle plugin, whose dependencies are the whole set
 # minus the opt-in plugins, so a plugin added to the set later arrives with the
-# bundle's next update. The plugin list comes from the marketplace itself. It
-# only runs `claude plugin` commands.
+# bundle's next update. Updating the bundle does not update the plugins it
+# installed (Claude Code updates each plugin on its own), so --all also
+# updates every ogxo plugin already installed. The plugin list comes from the
+# marketplace itself. It only runs `claude plugin` commands.
 # No `set -u`: macOS runs this with /bin/bash 3.2, where an empty array is
 # an unbound variable.
 set -o pipefail
@@ -29,7 +31,8 @@ Usage: install.sh [--list] [--all [--include-thryx] [--include-format]] [PLUGIN.
   PLUGIN...          install these plugins, by name (for example ogxo-git)
   --all              install the ogxo bundle: every plugin except thryx
                      (needs a ThryX account) and ogxo-format (reformats every
-                     file Claude edits). Same as `claude plugin install ogxo@ogxo`.
+                     file Claude edits). Same as `claude plugin install ogxo@ogxo`,
+                     and also updates every ogxo plugin already installed.
   --include-thryx    with --all, also install thryx
   --include-format   with --all, also install ogxo-format
   --list             show the plugins and which are installed, then exit
@@ -120,6 +123,12 @@ if $all; then
   for p in "${include[@]+"${include[@]}"}"; do
     in_list "$p" "$catalog" && targets+=("$p")
   done
+  # Updating the bundle leaves the plugins it installed at their versions, so
+  # update each installed one too.
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    in_list "$p" "$(printf '%s\n' "${targets[@]}")" || targets+=("$p")
+  done <<<"$installed"
 else
   for p in "${names[@]}"; do
     p=${p%@"$MARKETPLACE"}

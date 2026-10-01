@@ -11,7 +11,7 @@ claude plugin marketplace add ogxo-io/plugins
 claude plugin install ogxo@ogxo
 ```
 
-It installs every plugin in the table below except two, which you add by name when you want them: **thryx** needs a ThryX account and one MCP server per workspace, added with `/thryx:connect`, and **ogxo-format** reformats every file Claude edits. When a plugin joins the set, updating the bundle installs it. To remove everything, uninstall `ogxo@ogxo` and then run `claude plugin prune`. **ogxo-statusline** turns on with `/ogxo-statusline:setup`.
+It installs every plugin in the table below except two, which you add by name when you want them: **thryx** needs a ThryX account and one MCP server per workspace, added with `/thryx:connect`, and **ogxo-format** reformats every file Claude edits. When a plugin joins the set, updating the bundle installs it. Updating the bundle does not update the plugins it already installed, because Claude Code updates each plugin on its own; see [Update](#update). To remove everything, uninstall `ogxo@ogxo` and then run `claude plugin prune`. **ogxo-statusline** turns on with `/ogxo-statusline:setup`.
 
 To pick plugins yourself instead, install them by name:
 
@@ -43,7 +43,7 @@ for id in $(claude plugin list --json | jq -r '.[].id | select(endswith("@ogxo")
 done
 ```
 
-To update one plugin, run `claude plugin update <plugin>@ogxo`. Running the install script again with the same plugin names also refreshes the catalog and updates them.
+To update one plugin, run `claude plugin update <plugin>@ogxo`. Running the install script again with the same plugin names also refreshes the catalog and updates them, and `install.sh --all` updates the bundle and every ogxo plugin you have installed.
 
 From inside a Claude Code session:
 
