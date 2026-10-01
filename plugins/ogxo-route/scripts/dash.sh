@@ -37,7 +37,17 @@ if [ "$action" = demo ]; then
 fi
 
 re='^[A-Za-z0-9_-]{1,128}$'
-base="$data/dash"
+# Boards from every host share one folder (hooks/boards.sh). Boards made
+# before 0.6.0 stay in this host's data folder, under dash/, untouched.
+# shellcheck source=SCRIPTDIR/../hooks/boards.sh
+. "$root/hooks/boards.sh"
+[ -n "$boards" ] || { echo "ogxo-route: set OGXO_ROUTE_BOARDS or HOME" >&2; exit 1; }
+case $boards in /*) ;; *) boards="$PWD/$boards" ;; esac
+base=$boards
+# The host this command runs under, recorded on the board.
+host=claude
+case $data in */.grok/*) host=grok ;; esac
+[ -n "${GROK_SESSION_ID:-}" ] && host=grok
 
 # started <pid>: the process's start time on one line, spaces squeezed.
 started() { ps -o lstart= -p "$1" 2>/dev/null | tr -s ' ' | sed 's/^ //; s/ $//'; }
@@ -88,7 +98,7 @@ registry() {
     fi
     if [ -e "$d/on" ]; then on=true; else on=false; fi
     { jq -c --arg sid "$name" --argjson on "$on" \
-        '{sid: $sid, repo: (.repo // ""), branch: (.branch // ""), wt: (.wt // ""), cwd: (.cwd // ""), on: $on}' \
+        '{sid: $sid, repo: (.repo // ""), branch: (.branch // ""), wt: (.wt // ""), cwd: (.cwd // ""), host: (.host // "claude"), on: $on}' \
         "$d/meta.json" 2>/dev/null ||
       jq -nc --arg sid "$name" --argjson on "$on" '{sid: $sid, on: $on}'; } |
       sed 's/^/B(/; s/$/);/' >>"$tmp"
@@ -174,6 +184,9 @@ sid=${2:-${CLAUDE_CODE_SESSION_ID:-}}
 [ -n "$sid" ] || { echo "ogxo-route: no session id (CLAUDE_CODE_SESSION_ID is not set)" >&2; usage; }
 [[ $sid =~ $re ]] || { echo "ogxo-route: invalid session id" >&2; usage; }
 dir="$base/$sid"
+# This session's board from before 0.6.0, if it is still in the data folder.
+ldir=""
+[ -d "$data/dash/$sid" ] && [ ! -L "$data/dash" ] && [ "$data/dash/$sid" != "$dir" ] && ldir="$data/dash/$sid"
 url="file://${dir// /%20}/index.html"
 
 # append <json>: one write per event; events.js is only ever appended to.
@@ -185,6 +198,8 @@ case $action in
     cp "$root/dashboard/index.html" "$dir/index.html" || exit 1
     : >"$dir/on" || exit 1
     rm -f "$dir/owner" "$dir/resume"
+    # Recording moves to the shared folder; the old board stays for replay.
+    [ -z "$ldir" ] || rm -f "$ldir/on" "$ldir/resume"
     if [ "$sid" = "${CLAUDE_CODE_SESSION_ID:-}" ] && own=$(owner); then printf '%s\n' "$own" >"$dir/owner"; fi
     top=$(git rev-parse --show-toplevel 2>/dev/null) || top=""
     repo=$(basename "${top:-$PWD}")
@@ -197,12 +212,12 @@ case $action in
       wt=$repo
       repo=$(basename "$(dirname "$common")")
     fi
-    ev=$(jq -nc --arg sid "$sid" --arg repo "$repo" --arg branch "$branch" --arg wt "$wt" \
-      '{t: (now * 1000 | floor), e: "on", sid: $sid, repo: $repo, branch: $branch, wt: $wt}') || exit 1
+    ev=$(jq -nc --arg sid "$sid" --arg repo "$repo" --arg branch "$branch" --arg wt "$wt" --arg host "$host" \
+      '{t: (now * 1000 | floor), e: "on", sid: $sid, repo: $repo, branch: $branch, wt: $wt, host: $host}') || exit 1
     append "$ev" || exit 1
     cwd=${PWD/#"$HOME"/\~}
-    jq -nc --arg repo "$repo" --arg branch "$branch" --arg wt "$wt" --arg cwd "$cwd" \
-      '{repo: $repo, branch: $branch, wt: $wt, cwd: $cwd}' >"$dir/meta.json" || exit 1
+    jq -nc --arg repo "$repo" --arg branch "$branch" --arg wt "$wt" --arg cwd "$cwd" --arg host "$host" \
+      '{repo: $repo, branch: $branch, wt: $wt, cwd: $cwd, host: $host}' >"$dir/meta.json" || exit 1
     # Prune other sessions' boards that are off and untouched for 7 days.
     for d in "$base"/*; do
       name=${d##*/}
@@ -221,19 +236,22 @@ case $action in
     ;;
   off)
     rm -f "$dir/on" "$dir/resume"
+    [ -z "$ldir" ] || rm -f "$ldir/on" "$ldir/resume"
     [ -d "$base" ] && registry
     echo "Route board off for session ${sid:0:8}; the board files stay at $dir for replay."
     ;;
   status)
     [ -d "$base" ] && registry
     if [ -e "$dir/on" ]; then state=on; else state=off; fi
+    path=$dir
+    if [ ! -e "$dir/on" ] && [ -n "$ldir" ] && [ -e "$ldir/on" ]; then state=on; path=$ldir; fi
     echo "Route board: $state (session ${sid:0:8})"
-    echo "Path: $dir/index.html"
+    echo "Path: $path/index.html"
     if port=$(serving); then echo "Served at: http://127.0.0.1:$port/$sid/index.html"; fi
     # Only the on event, a minute later: this session's hooks aren't writing,
     # usually because they were loaded before the board existed.
-    if [ "$state" = on ] && [ "$(wc -l <"$dir/events.js" 2>/dev/null | tr -d ' ')" = 1 ] &&
-      [ -n "$(find "$dir/on" -mmin +1 2>/dev/null)" ]; then
+    if [ "$state" = on ] && [ "$(wc -l <"$path/events.js" 2>/dev/null | tr -d ' ')" = 1 ] &&
+      [ -n "$(find "$path/on" -mmin +1 2>/dev/null)" ]; then
       echo "No hook events since the board was turned on. If this session has run tools since, its hooks predate the board: run /reload-plugins."
     fi
     ;;

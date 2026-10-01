@@ -6,6 +6,9 @@ set -uo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 script="$root/plugins/ogxo-statusline/scripts/ogxo-statusline.sh"
 tmp=$(mktemp -d)
+# The shared board folder (ogxo-route 0.6.0) stays out of the real home: a
+# folder that does not exist, unless a test names one.
+export OGXO_ROUTE_BOARDS="$tmp/no-boards"
 trap 'rm -rf "$tmp"' EXIT
 # Keep the default ogxo-route log path inside the temp dir, not the real config.
 export CLAUDE_CONFIG_DIR="$tmp/cfg"
@@ -173,6 +176,10 @@ check "limits: non-numbers dropped" limits '(has("h5") | not) and .d7.p == 91.2'
 mkdir -p "$tmp/dash"
 render "$tmp/full.json" --route-log="$tmp/alt.jsonl" >/dev/null
 check "limits: --route-log moves the folder too" [ -s "$tmp/dash/limits.js" ]
+mkdir -p "$tmp/boards"
+OGXO_ROUTE_BOARDS="$tmp/boards" render "$tmp/full.json" >/dev/null
+check "limits: written into the shared board folder" bash -c 'sed -e "s/^L(//" -e "s/);$//" "$1" | jq -e ".d7.p == 91.2" >/dev/null' _ "$tmp/boards/limits.js"
+check "limits: the old board folder still gets its copy" [ -s "$lim" ]
 
 echo "statusline tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

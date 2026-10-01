@@ -298,17 +298,20 @@ window_json() {
 }
 if $show_route && $has_usage; then
     [ -n "$route_log" ] || route_log="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/data/ogxo-route-ogxo/dispatches.jsonl"
-    dash_dir="$(dirname "$route_log")/dash"
-    if [ -d "$dash_dir" ] && [ ! -L "$dash_dir" ]; then
-        limits="{\"t\":$now"
-        for w in "h5 $h5_pct $h5_reset" "d7 $d7_pct $d7_reset" "sp $sp_pct $sp_reset"; do
-            read -r w_key w_pct w_reset <<<"$w"
-            w_json=$(window_json "$w_pct" "$w_reset")
-            [ -n "$w_json" ] && limits+=",\"$w_key\":$w_json"
-        done
-        printf 'L(%s});\n' "$limits" >"$dash_dir/limits.js.tmp.$$" 2>/dev/null &&
-            mv -f "$dash_dir/limits.js.tmp.$$" "$dash_dir/limits.js" 2>/dev/null
-    fi
+    # ogxo-route 0.6.0 keeps every host's boards in one folder; boards made
+    # before it stay in dash/ next to the log, and read their own copy.
+    limits="{\"t\":$now"
+    for w in "h5 $h5_pct $h5_reset" "d7 $d7_pct $d7_reset" "sp $sp_pct $sp_reset"; do
+        read -r w_key w_pct w_reset <<<"$w"
+        w_json=$(window_json "$w_pct" "$w_reset")
+        [ -n "$w_json" ] && limits+=",\"$w_key\":$w_json"
+    done
+    for dash_dir in "${OGXO_ROUTE_BOARDS:-${HOME:+$HOME/.ogxo/route/boards}}" "$(dirname "$route_log")/dash"; do
+        if [ -n "$dash_dir" ] && [ -d "$dash_dir" ] && [ ! -L "$dash_dir" ]; then
+            printf 'L(%s});\n' "$limits" >"$dash_dir/limits.js.tmp.$$" 2>/dev/null &&
+                mv -f "$dash_dir/limits.js.tmp.$$" "$dash_dir/limits.js" 2>/dev/null
+        fi
+    done
 fi
 if [ -n "$cost_usd" ]; then
     if [ "$cost_mode" = always ] || { [ "$cost_mode" = auto ] && ! $has_usage; }; then

@@ -2,7 +2,7 @@
 # All board events (prompt, stop, end, subagent start/stop, tool calls,
 # permission requests and prompt notifications, advisor calls): when
 # /ogxo-route:dashboard has turned the board on for this session, append one
-# `E(<json>);` line to ${CLAUDE_PLUGIN_DATA}/dash/<session_id>/events.js for
+# `E(<json>);` line to <boards>/<session_id>/events.js (hooks/boards.sh) for
 # the page next to it. Records tool names, short summaries (paths, the first
 # words of a command, a pattern or host), agent metadata, and for a failed
 # tool call the last line of its error (140 characters at most); prompt
@@ -12,14 +12,35 @@
 # is missing, so other sessions' boards don't make it start jq. Prints nothing; exits 0.
 # The early exits still drain stdin: exiting with a large payload unread
 # (a Write's content) leaves Claude Code writing into a closed pipe (EPIPE).
-[ -n "${CLAUDE_PLUGIN_DATA:-}" ] || { cat >/dev/null; exit 0; }
-compgen -G "$CLAUDE_PLUGIN_DATA/dash/*/on" >/dev/null 2>&1 || { cat >/dev/null; exit 0; }
-in=$(cat)
+# shellcheck source=SCRIPTDIR/dump.sh
+. "${BASH_SOURCE[0]%/*}/dump.sh"
+# shellcheck source=SCRIPTDIR/boards.sh
+. "${BASH_SOURCE[0]%/*}/boards.sh"
+# A board turned on before 0.6.0 is still in this host's data folder; it
+# keeps recording there until it is turned off.
+legacy=""
+[ -n "${CLAUDE_PLUGIN_DATA:-}" ] && [ -d "$CLAUDE_PLUGIN_DATA/dash" ] && [ ! -L "$CLAUDE_PLUGIN_DATA/dash" ] && legacy="$CLAUDE_PLUGIN_DATA/dash"
+[ -n "$boards" ] || [ -n "$legacy" ] || { [ -n "${dumped:-}" ] || cat >/dev/null; exit 0; }
+{ [ -n "$boards" ] && compgen -G "$boards/*/on" >/dev/null 2>&1; } ||
+  { [ -n "$legacy" ] && compgen -G "$legacy/*/on" >/dev/null 2>&1; } ||
+  { [ -n "${dumped:-}" ] || cat >/dev/null; exit 0; }
+[ -n "${dumped:-}" ] || in=$(cat)
 # Claude Code puts session_id first in the payload, so the first match is it.
 # jq re-reads it below and that value decides where the event is written.
+re='^[A-Za-z0-9_-]{1,128}$'
 sre='"session_id"[[:space:]]*:[[:space:]]*"([A-Za-z0-9_-]{1,128})"'
 [[ $in =~ $sre ]] || exit 0
-[ -f "$CLAUDE_PLUGIN_DATA/dash/${BASH_REMATCH[1]}/on" ] || exit 0
+# A Grok Build worker runs in a session of its own, which SubagentStart
+# recorded under .kids/ with the board it belongs to: its events go there.
+parent=""
+broot=$boards
+if [ -n "$boards" ] && [ -f "$boards/${BASH_REMATCH[1]}/on" ]; then :
+elif [ -n "$legacy" ] && [ -f "$legacy/${BASH_REMATCH[1]}/on" ]; then broot=$legacy
+else
+  [ -n "$boards" ] && [ -f "$boards/.kids/${BASH_REMATCH[1]}" ] || exit 0
+  read -r parent <"$boards/.kids/${BASH_REMATCH[1]}" || [ -n "$parent" ] || exit 0
+  [[ $parent =~ $re ]] && [ -f "$boards/$parent/on" ] || exit 0
+fi
 # dash.sh needs jq to turn a board on, so no jq means nothing to record.
 command -v jq >/dev/null 2>&1 || exit 0
 
@@ -47,11 +68,11 @@ udef='def num: if type == "number" then . else 0 end;
 
 # Line 1: session id (empty unless valid). Line 2: the event JSON or null.
 # Line 3: the subagent transcript path, SubagentStop only.
-out=$(jq -r --arg sq "'" "$vdef"'
+out=$(jq -r --arg sq "'" --arg parent "$parent" "$vdef"'
   def str: if type == "string" then . else "" end;
   def obj: if type == "object" then . else {} end;
   def cap($n): str | if length > $n then .[0:$n] else . end;
-  def rel($cwd): str | if $cwd != "" and startswith($cwd + "/") then .[($cwd | length) + 1:] else . end;
+  def rel($cwd): str | if $cwd != "" and . == $cwd then "." elif $cwd != "" and startswith($cwd + "/") then .[($cwd | length) + 1:] else . end;
   def quoted: "\"[^\"]*\"|" + $sq + "[^" + $sq + "]*" + $sq;
   def word: "[A-Za-z][A-Za-z0-9_-]*";
   def name: str | if startswith("mcp__") then
@@ -63,6 +84,30 @@ out=$(jq -r --arg sq "'" "$vdef"'
       | (($e | capture("^Exit code (?<c>[0-9]+)")) // null) as $x
       | ([$e | split("\n")[] | gsub("^\\s+|\\s+$"; "") | select(. != "" and (test("^Exit code [0-9]+$") | not))] | last // "") as $l
       | (if $x then "exit " + $x.c + (if $l != "" then ": " else "" end) else "" end) + $l | cap(140) end;
+  # Grok Build: tool names and fields as Claude Code names them; events from
+  # a worker session moved to the parent board under the worker id (its own
+  # prompt, stop, and session end are dropped: they are not the parent ones);
+  # a failed command, which arrives as PostToolUse with a non-zero exit_code,
+  # recorded as a failure.
+  def gtools: {"run_terminal_command": "Bash", "read_file": "Read", "search_replace": "Edit", "write": "Write",
+    "list_dir": "Glob", "grep": "Grep", "spawn_subagent": "Agent", "web_fetch": "WebFetch", "web_search": "WebSearch",
+    "get_command_or_subagent_output": "TaskOutput"};
+  def norm: (if (.tool_name | type) == "string" then .tool_name |= (gtools[.] // .) else . end)
+    | (if (.tool_input | type) == "object" then .tool_input |= (
+         (if .file_path == null and (.target_file | type) == "string" then .file_path = .target_file else . end)
+         | (if .path == null and (.target_directory | type) == "string" then .path = .target_directory else . end)
+         | if .run_in_background == null and (.background | type) == "boolean" then .run_in_background = .background else . end)
+       else . end)
+    | (if .last_assistant_message == null and (.lastAssistantMessage | type) == "string" then .last_assistant_message = .lastAssistantMessage else . end)
+    | (if (.subagentId | type) == "string" and .agent_id == null then .agent_id = .subagentId | .agent_type = (.agent_type // .subagentType) else . end)
+    | (if $parent != "" then .agent_id = (.agent_id // .session_id) | .agent_type = (.agent_type // .subagentType) | .session_id = $parent
+         | (if (.hook_event_name | IN("UserPromptSubmit", "Stop", "SessionEnd")) then .hook_event_name = "" else . end)
+       else . end)
+    | (if .hook_event_name == "PostToolUse" and (.tool_response | type) == "object"
+         and (.tool_response.exit_code | type) == "number" and .tool_response.exit_code != 0
+       then .hook_event_name = "PostToolUseFailure"
+         | .error = ("Exit code \(.tool_response.exit_code)\n" + (.tool_response.output_for_prompt | str | sub("^exit: [0-9]+\n"; "")))
+       else . end);
   def host: str | sub("^[A-Za-z][A-Za-z0-9+.-]*://"; "") | sub("[/?#].*$"; "") | sub("^.*@"; "") | sub(":[0-9]*$"; "");
   # Bash: drop leading VAR=value assignments and a leading `cd <dir> &&`.
   def strip: ("^(?:[A-Za-z_][A-Za-z0-9_]*=(?:" + quoted + "|[^\\s\"" + $sq + "]*)\\s+)+") as $env
@@ -86,17 +131,18 @@ out=$(jq -r --arg sq "'" "$vdef"'
       elif $n == "NotebookEdit" then {s: ($i.notebook_path | rel($cwd))}
       elif $n == "Bash" then $i.command | bashinfo
       elif $n == "Grep" then {s: ($i.pattern | cap(40))}
-      elif $n == "Glob" then {s: ($i.pattern | cap(60))}
+      elif $n == "Glob" then {s: (if $i.pattern != null then $i.pattern | cap(60) else $i.path | str | sub("/$"; "") | rel($cwd) end)}
       elif $n == "WebFetch" then {s: ($i.url | host)}
       elif $n == "WebSearch" then {s: ($i.query | cap(50))}
       elif $n == "Skill" then {s: ($i.skill | str)}
       else {s: ""} end
     | .s |= cap(80);
 
-  (now * 1000 | floor) as $t
+  norm
+  | (now * 1000 | floor) as $t
   | (.hook_event_name // "") as $h
   | (.tool_input | obj) as $i
-  | (.cwd | str) as $cwd
+  | (.cwd | str | sub("/$"; "")) as $cwd
   | (.agent_id // null) as $a
   | (.tool_use_id // null) as $u
   | ((.tool_name | str) as $n | ["Agent", "Task"] | any(. == $n)) as $agent
@@ -119,7 +165,8 @@ out=$(jq -r --arg sq "'" "$vdef"'
          + (if $f.x then {x: $f.x} else {} end)
      elif $h == "PostToolUse" and $agent then
        (.tool_response | type == "object") as $o | (.tool_response | obj) as $r
-       | {t: $t, e: "launched", a: $a, u: $u, id: ($r.agentId // null),
+       | {t: $t, e: "launched", a: $a, u: $u,
+          id: ($r.agentId // (($r.text | str | capture("subagent_id: (?<i>[A-Za-z0-9_-]{1,128})")) // {i: null}).i),
           ty: ($r.agentType // $i.subagent_type // "general-purpose"), rm: ($r.resolvedModel // null),
           d: ($r.description // $i.description | cap(120)),
           done: (if $o then $r.status == "completed" else null end),
@@ -131,7 +178,7 @@ out=$(jq -r --arg sq "'" "$vdef"'
      else null end | tojson),
     # SubagentStop: the subagent transcript. Stop and a main-session dispatch:
     # the session transcript, scanned for new advisor calls.
-    (if $h == "SubagentStop" then .agent_transcript_path
+    (if $h == "SubagentStop" then (.agent_transcript_path // (if (.subagentId | type) == "string" then .transcript_path else null end))
      elif $h == "Stop" or ($h == "PreToolUse" and $agent and ($hasid | not)) then .transcript_path
      else "" end | str | select(test("\n") | not) // "")
 ' <<<"$in" 2>/dev/null) || exit 0
@@ -142,17 +189,40 @@ ev=${rest%%$'\n'*}
 tp=""
 case $rest in *$'\n'*) tp=${rest#*$'\n'} ;; esac
 
-re='^[A-Za-z0-9_-]{1,128}$'
 [[ $sid =~ $re ]] || exit 0
-dir="$CLAUDE_PLUGIN_DATA/dash/$sid"
+dir="$broot/$sid"
 [ -f "$dir/on" ] || exit 0
 case $ev in '{'*'}') ;; *) exit 0 ;; esac
+
+# Grok Build keeps a session's token totals and cost, by model, in usage.json
+# next to its transcript (updates.jsonl); Claude Code transcripts carry usage
+# per message instead and are read below.
+gu=""
+# It may not exist yet when the hook runs, so the path alone decides.
+case $tp in */.grok/sessions/*/updates.jsonl) gu="${tp%/*}/usage.json" ;; esac
+# usage_later [worker id]: read usage.json in the background once Grok has
+# written it (hooks/grok-usage.sh).
+usage_later() {
+  local stamp
+  stamp=$(mktemp "$dir/use.stamp.XXXXXX" 2>/dev/null) || return 0
+  nohup bash "${BASH_SOURCE[0]%/*}/grok-usage.sh" "$gu" "$dir" "$stamp" "${1:-}" >/dev/null 2>&1 &
+}
+
+# A Grok worker's own session: remember which board its events belong to.
+case $ev in *'"e":"sstart"'*)
+  if [[ $in == *'"subagentId"'* ]] && [[ $ev =~ \"id\":\"([A-Za-z0-9_-]{1,128})\" ]]; then
+    mkdir -p "$boards/.kids" 2>/dev/null && printf '%s\n' "$sid" >"$boards/.kids/${BASH_REMATCH[1]}" 2>/dev/null
+  fi
+  ;;
+esac
 
 # SubagentStop: output tokens from the transcript, and the verdict from its
 # last text when last_assistant_message had none. Transcript lines repeat a
 # message's usage once per content block, so each message id counts once.
 case $ev in *'"e":"sstop"'*)
-  if [ -n "$tp" ] && [ -f "$tp" ]; then
+  if [ -n "$gu" ]; then
+    [[ $ev =~ \"id\":\"([A-Za-z0-9_-]{1,128})\" ]] && usage_later "${BASH_REMATCH[1]}"
+  elif [ -n "$tp" ] && [ -f "$tp" ]; then
     size=$(wc -c <"$tp" 2>/dev/null)
     size=${size//[!0-9]/}
     if [ -n "$size" ] && [ "$size" -lt 52428800 ]; then
@@ -177,7 +247,10 @@ esac
 # transcript), so no tool hook sees it. Only complete lines past the saved
 # byte offset are read, and each call id is counted once.
 case $ev in *'"e":"stop"'* | *'"e":"dispatch"'*)
-  if [ -n "$tp" ] && [ -f "$tp" ]; then
+  if [ -n "$gu" ]; then
+    # Grok: what the session's totals grew by, once the turn has ended.
+    case $ev in *'"e":"stop"'*) usage_later ;; esac
+  elif [ -n "$tp" ] && [ -f "$tp" ]; then
     off=$(cat "$dir/adv.off" 2>/dev/null)
     off=${off//[!0-9]/}
     off=${off:-0}
@@ -242,5 +315,12 @@ esac
 
 printf 'E(%s);\n' "$ev" >>"$dir/events.js" 2>/dev/null
 # A session that ends can be resumed: dash-resume.sh turns the board back on.
-case $ev in *'"e":"end"'*) rm -f "$dir/on" 2>/dev/null; : >"$dir/resume" 2>/dev/null ;; esac
+case $ev in *'"e":"end"'*)
+  rm -f "$dir/on" 2>/dev/null; : >"$dir/resume" 2>/dev/null
+  # Forget this board's Grok workers.
+  for k in "$boards"/.kids/*; do
+    [ -f "$k" ] && [ "$(cat "$k" 2>/dev/null)" = "$sid" ] && rm -f "$k"
+  done
+  ;;
+esac
 exit 0

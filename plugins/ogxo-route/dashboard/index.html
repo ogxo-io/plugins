@@ -235,7 +235,9 @@ pre .ln { display: block; min-height: 1.5em; }
   ];
   const priceOf = (m) => PRICES.find(([p]) => String(m || '').startsWith(p)) || null;
   // Cost of one usage record {in, out, cr, cw5, cw1} at a model's list price, or null.
+  // A record with c carries the cost its host computed (Grok Build does), used as is.
   const costOf = (u, m) => {
+    if (u && typeof u.c === 'number') return u.c;
     const p = priceOf(m);
     if (!p) return null;
     return ((u.in || 0) * p[1] + (u.out || 0) * p[2] + (u.cw5 || 0) * p[3] + (u.cw1 || 0) * p[4] + (u.cr || 0) * p[5]) / 1e6;
@@ -260,7 +262,7 @@ pre .ln { display: block; min-height: 1.5em; }
   let S;
   function reset() {
     S = {
-      t0: null, tAct: null, last: 0, sid: '', repo: '', branch: '', wt: '',
+      t0: null, tAct: null, last: 0, sid: '', repo: '', branch: '', wt: '', host: '',
       working: false, ended: false, turnAt: null, turns: [],
       main: { key: 'main', ty: 'main', tools: [], tc: 0, marks: [] },
       agents: new Map(), byU: new Map(), byId: new Map(), pending: [],
@@ -278,7 +280,9 @@ pre .ln { display: block; min-height: 1.5em; }
     for (const k of ['fable', 'opus', 'sonnet', 'haiku']) if (s.includes(k)) return k;
     return null;
   };
-  const agentTier = (a) => a.x || tierOf(a.rm) || tierOf(a.m) || tierOf(PINS[a.ty]) || 'main';
+  // The pins are Claude Code's: Grok Build ignores an agent file's model and
+  // runs workers on the session's model unless the dispatch names one.
+  const agentTier = (a) => a.x || tierOf(a.rm) || tierOf(a.m) || (S.host === 'grok' ? null : tierOf(PINS[a.ty])) || 'main';
   const shortType = (ty) => {
     const t = String(ty || 'agent');
     const s = (t.includes(':') ? t.slice(t.indexOf(':') + 1) : t).toLowerCase();
@@ -337,6 +341,7 @@ pre .ln { display: block; min-height: 1.5em; }
     switch (ev.e) {
       case 'on':
         S.sid = ev.sid || S.sid; S.repo = ev.repo || S.repo; S.branch = ev.branch || S.branch; S.wt = ev.wt || '';
+        S.host = ev.host || S.host;
         S.ended = false;
         addLog(t, 'main', 'board', 'dashboard on', 'dim');
         break;
@@ -466,6 +471,8 @@ pre .ln { display: block; min-height: 1.5em; }
       case 'use':
       case 'usenote':
         if (ev.e === 'usenote') { S.usePartial = true; break; }
+        // With an id: a worker's totals, recorded after it returned (Grok Build).
+        if (ev.id) { const k = S.byId.get(ev.id); if (k) addUse(k, ev.use); break; }
         addUse('main', ev.use);
         break;
       case 'advisor':
@@ -647,7 +654,7 @@ pre .ln { display: block; min-height: 1.5em; }
     const title = 'ROUTE BOARD';
     g.put(0, 0, title, 'hi b');
     g.put(title.length + 2, 0, 'ogxo-route live agent map', 'dim');
-    const meta = [S.repo, S.wt ? 'worktree ' + S.wt : '', S.branch, S.sid ? 'session ' + S.sid.slice(0, 8) : ''].filter(Boolean).join('  ');
+    const meta = [S.host && S.host !== 'claude' ? S.host : '', S.repo, S.wt ? 'worktree ' + S.wt : '', S.branch, S.sid ? 'session ' + S.sid.slice(0, 8) : ''].filter(Boolean).join('  ');
     if (meta && W > title.length + 30 + meta.length) g.put(W - meta.length, 0, meta, 'dim');
 
     g.put(0, 1, '='.repeat(W), 'faint');
@@ -1108,6 +1115,7 @@ pre .ln { display: block; min-height: 1.5em; }
     const W = colsOf(el);
     const rowsBy = new Map();
     const mainOut = {};
+    let reported = false;
     for (const r of S.use) {
       let label, tier;
       if (r.who === 'main') { label = 'main'; tier = 'main'; mainOut[r.m] = (mainOut[r.m] || 0) + (r.u.out || 0) + 1; }
@@ -1116,6 +1124,7 @@ pre .ln { display: block; min-height: 1.5em; }
       const key = label + '|' + r.m;
       const row = rowsBy.get(key) || { label, tier, m: r.m, worker: r.who !== 'main' && r.who !== 'advisor', n: new Set(), u: { in: 0, out: 0, cr: 0, cw5: 0, cw1: 0 } };
       for (const f of ['in', 'out', 'cr', 'cw5', 'cw1']) row.u[f] += r.u[f] || 0;
+      if (typeof r.u.c === 'number') { row.u.c = (row.u.c || 0) + r.u.c; reported = true; }
       if (row.worker) row.n.add(r.who);
       rowsBy.set(key, row);
     }
@@ -1125,17 +1134,19 @@ pre .ln { display: block; min-height: 1.5em; }
     const g = new Grid(W, H);
     g.box(0, 0, W, H, 'faint');
     g.put(2, 0, ' tokens and cost ', 'hi b');
-    const note = ' list prices, not your plan\'s billing ';
+    const note = reported ? ' list prices, and grok costs as grok reports them ' : ' list prices, not your plan\'s billing ';
     if (W > 40) g.put(W - note.length - 2, 0, note, 'dim');
     if (!rows.length) {
       g.put(2, 2, 'token use shows up here after the first turn ends or a worker returns', 'dim');
       paint(el, g.html());
       return;
     }
-    const cols = [['who', 14], ['model', 9], ['input', 8], ['cache rd', 9], ['cache wr', 9], ['output', 8], ['cost', 9]];
+    // Claude models show as their tier; other hosts' models by their full id.
+    const mw = Math.max(9, ...rows.map((r) => String(tierOf(r.m) || r.m).length));
+    const cols = [['who', 14], ['model', mw], ['input', 8], ['cache rd', 9], ['cache wr', 9], ['output', 8], ['cost', 9]];
     let x = 2;
     for (const [h, w] of cols) { g.put(x, 1, pad(h, w), 'dim'); x += w + 1; }
-    let total = 0, known = true, workers = 0, asMain = 0;
+    let total = 0, known = true, workers = 0, asMain = 0, floors = false;
     rows.forEach((r, i) => {
       const c = costOf(r.u, r.m);
       if (c == null) known = false; else total += c;
@@ -1148,7 +1159,10 @@ pre .ln { display: block; min-height: 1.5em; }
       const who = r.worker && r.n.size > 1 ? `${r.label} x${r.n.size}` : r.label;
       // Subagent transcripts log each reply's usage before it finishes streaming,
       // so a worker's output count (and its cost) is a floor.
-      const cells = [who, tierOf(r.m) || r.m, kfmt(r.u.in), kfmt(r.u.cr), kfmt(r.u.cw5 + r.u.cw1), kfmt(r.u.out) + (r.worker ? '+' : ''), usd(c) + (r.worker ? '+' : '')];
+      // A worker read from a Claude Code transcript is a floor (+); a host's own totals are not.
+      const floor = r.worker && typeof r.u.c !== 'number';
+      if (floor) floors = true;
+      const cells = [who, tierOf(r.m) || r.m, kfmt(r.u.in), kfmt(r.u.cr), kfmt(r.u.cw5 + r.u.cw1), kfmt(r.u.out) + (floor ? '+' : ''), usd(c) + (floor ? '+' : '')];
       let xx = 2;
       cells.forEach((v, j) => {
         const w = cols[j][1];
@@ -1159,21 +1173,24 @@ pre .ln { display: block; min-height: 1.5em; }
     });
     const ty = 2 + rows.length;
     g.put(2, ty, pad('total', 14), 'hi b');
-    g.put(2 + 14 + 1 + 9 + 1 + (8 + 1) + (9 + 1) * 2 + (8 + 1), ty, usd(total).padStart(9) + (known ? '' : ' +?'), 'hi b');
+    g.put(2 + 14 + 1 + mw + 1 + (8 + 1) + (9 + 1) * 2 + (8 + 1), ty, usd(total).padStart(9) + (known ? '' : ' +?'), 'hi b');
     let line;
     if (workers > 0 && mainModel && asMain > workers + 0.005) {
-      line = `workers ${usd(workers)}+; the same tokens at ${tierOf(mainModel) || mainModel} prices ${usd(asMain)}+, a difference of ${usd(asMain - workers)}+`;
+      const fl = floors ? '+' : '';
+      line = `workers ${usd(workers)}${fl}; the same tokens at ${tierOf(mainModel) || mainModel} prices ${usd(asMain)}${fl}, a difference of ${usd(asMain - workers)}${fl}`;
       g.put(2, ty + 2, clip(line, W - 4), 'fg');
       const at = line.indexOf('a difference of');
       if (at >= 0 && at < W - 4) g.put(2 + at, ty + 2, clip(line.slice(at), W - 4 - at), 'haiku b');
     } else if (workers > 0) {
-      line = `workers ${usd(workers)}+, all on the main session's tier or above`;
+      line = `workers ${usd(workers)}${floors ? '+' : ''}, all on the main session's tier or above`;
       g.put(2, ty + 2, clip(line, W - 4), 'fg');
     }
-    const foot = S.usePartial ? 'main session counted from when the board was turned on; grok and codex runs not counted'
-      : 'grok and codex runs not counted; the brief each worker gets is in the main session\'s tokens';
-    g.put(2, ty + 3, clip('+ a floor: subagent transcripts log a reply\'s output tokens before it finishes, so workers\' output reads low', W - 4), 'dim');
-    g.put(2, ty + 4, clip(foot, W - 4), 'dim');
+    const runs = S.host === 'grok' ? 'grok bridge runs do not apply here; codex runs not counted' : 'grok and codex runs not counted';
+    const foot = S.usePartial ? `main session counted from when the board was turned on; ${runs}`
+      : `${runs}; the brief each worker gets is in the main session's tokens`;
+    let fy = ty + 3;
+    if (floors) g.put(2, fy++, clip('+ a floor: subagent transcripts log a reply\'s output tokens before it finishes, so workers\' output reads low', W - 4), 'dim');
+    g.put(2, fy, clip(foot, W - 4), 'dim');
     paint(el, g.html());
   }
 

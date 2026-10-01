@@ -266,7 +266,9 @@ pre .ln { display: block; min-height: 1.5em; }
   ];
   const priceOf = (m) => PRICES.find(([p]) => String(m || '').startsWith(p)) || null;
   // Cost of one usage record {in, out, cr, cw5, cw1} at a model's list price, or null.
+  // A record with c carries the cost its host computed (Grok Build does), used as is.
   const costOf = (u, m) => {
+    if (u && typeof u.c === 'number') return u.c;
     const p = priceOf(m);
     if (!p) return null;
     return ((u.in || 0) * p[1] + (u.out || 0) * p[2] + (u.cw5 || 0) * p[3] + (u.cw1 || 0) * p[4] + (u.cr || 0) * p[5]) / 1e6;
@@ -392,7 +394,7 @@ pre .ln { display: block; min-height: 1.5em; }
     const off = !b.on || (st && st.ended);
     const g = new Grid(W, 5);
     g.box(0, 0, W, 5, off ? 'faint edge' : lk === 'warn b' ? 'warn edge' : 'dim edge', off);
-    const repo = ` ${clip((b.repo || 'session') + (b.wt ? ` / ${b.wt}` : ''), W - 30)} `;
+    const repo = ` ${clip((b.repo || 'session') + (b.wt ? ` / ${b.wt}` : '') + (b.host && b.host !== 'claude' ? ` (${b.host})` : ''), W - 30)} `;
     g.put(2, 0, repo, off ? 'dim b' : 'hi b');
     if (b.branch) {
       const br = ` ${clip(b.branch, W - repo.length - 8)} `;

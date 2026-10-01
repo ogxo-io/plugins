@@ -41,6 +41,9 @@ for b in bash date cat mkdir printf env awk sed; do
 done
 
 reset_data() { rm -rf "$data"; mkdir -p "$data"; }
+# Boards live in a folder shared by every host (hooks/boards.sh); the tests
+# keep it inside the data folder.
+export OGXO_ROUTE_BOARDS="$data/dash"
 lines() { [ -f "$1" ] && wc -l <"$1" | tr -d ' ' || echo 0; }
 
 # --- dispatch-log ------------------------------------------------------------
@@ -517,6 +520,8 @@ dctl="$plugin/scripts/dash.sh"
 events() { sed -e 's/^E(//' -e 's/);$//' "$data/dash/$1/events.js" 2>/dev/null | jq -s -c .; }
 # last_ev <sid> <jq filter>: pass when the filter holds for the last event.
 last_ev() { events "$1" | jq -e ".[-1] | $2" >/dev/null; }
+# last_ev_in <boards folder> <sid> <jq filter>: the same, for another folder.
+last_ev_in() { sed -e 's/^E(//' -e 's/);$//' "$1/$2/events.js" 2>/dev/null | jq -s -e ".[-1] | $3" >/dev/null; }
 board_on() { mkdir -p "$data/dash/$1"; : >"$data/dash/$1/on"; }
 # hk <payload>: run the hook; count any run that exits non-zero or prints.
 noisy=0
@@ -696,6 +701,136 @@ out=$(printf '{"session_id":"s1"}' | env -u CLAUDE_PLUGIN_DATA CLAUDE_PLUGIN_ROO
 code=$?
 expect "dash-resume: no data dir exits 0 silently" test "$code" -eq 0 -a -z "$out"
 expect "hooks: dash-resume on SessionStart for every source" jq -e '[.hooks.SessionStart[] | select(.matcher | test("resume")) | .hooks[].command | contains("dash-resume.sh")] | any' "$plugin/hooks/hooks.json"
+
+# Grok Build: payloads shaped as Grok 1.0.46 sends them (both naming styles),
+# with a worker that runs in a session of its own.
+reset_data
+export OGXO_ROUTE_USAGE_POLLS=1
+# use_after <sid> <n>: wait up to 5 s for the board to have n use events
+# (hooks/grok-usage.sh appends them in the background).
+use_after() {
+  local i
+  for i in $(seq 1 50); do
+    [ "$(grep -c '"e":"use"' "$data/dash/$1/events.js" 2>/dev/null)" -ge "$2" ] && return 0
+    sleep 0.1
+  done
+  return 1
+}
+board_on gp
+gk="$tmp/.grok/sessions/proj"
+mkdir -p "$gk/main" "$gk/kid1"
+: >"$gk/main/updates.jsonl"
+: >"$gk/kid1/updates.jsonl"
+gp_tool() { # gp_tool <session> <event> <tool> <input json> <use id> [extra json]
+  hk "$(jq -nc --arg s "$1" --arg h "$2" --arg n "$3" --argjson i "$4" --arg u "$5" --argjson x "${6:-{\}}" \
+    '{session_id: $s, sessionId: $s, hook_event_name: $h, hookEventName: $h, cwd: "/w/proj/", tool_name: $n, toolName: $n,
+      tool_input: $i, tool_use_id: $u, transcript_path: "'"$gk"'/main/updates.jsonl"} + $x')"
+}
+gp_tool gp PreToolUse run_terminal_command '{"command":"cd /w/proj && make test"}' g1
+expect "grok: run_terminal_command is Bash with its command" last_ev gp '.e == "tool" and .n == "Bash" and .s == "make test"'
+gp_tool gp PreToolUse read_file '{"target_file":"/w/proj/src/a.ts"}' g2
+expect "grok: read_file is Read with target_file" last_ev gp '.n == "Read" and .s == "src/a.ts"'
+gp_tool gp PreToolUse list_dir '{"target_directory":"/w/proj/"}' g3
+expect "grok: list_dir of the working directory is Glob ." last_ev gp '.n == "Glob" and .s == "."'
+gp_tool gp PostToolUse run_terminal_command '{"command":"ls nope"}' g1 '{"tool_response":{"type":"Bash","exit_code":2,"output_for_prompt":"exit: 2\nls: nope: No such file or directory\n"}}'
+expect "grok: a non-zero exit_code is a failure with its last line" last_ev gp '.e == "tool_err" and .r == "exit 2: ls: nope: No such file or directory"'
+gp_tool gp PostToolUse run_terminal_command '{"command":"ls"}' g4 '{"tool_response":{"type":"Bash","exit_code":0,"output_for_prompt":"exit: 0\n"}}'
+expect "grok: exit_code 0 is a success" last_ev gp '.e == "tool_ok"'
+gp_tool gp PreToolUse spawn_subagent '{"subagent_type":"ogxo-route:scout","description":"map it","prompt":"p","background":true}' g5
+expect "grok: spawn_subagent is a dispatch" last_ev gp '.e == "dispatch" and .ty == "ogxo-route:scout" and .d == "map it" and .bg == true'
+gp_tool gp PostToolUse spawn_subagent '{"subagent_type":"ogxo-route:scout","description":"map it"}' g5 '{"tool_response":{"type":"Text","text":"Subagent started in background.\nsubagent_id: kid1\ndescription: map it\n"}}'
+expect "grok: the spawn result names the worker id" last_ev gp '.e == "launched" and .id == "kid1" and .done == false'
+hk '{"session_id":"gp","hook_event_name":"SubagentStart","subagentId":"kid1","subagentType":"ogxo-route:scout"}'
+expect "grok: SubagentStart uses subagentId" last_ev gp '.e == "sstart" and .id == "kid1" and .ty == "ogxo-route:scout"'
+expect "grok: the worker session is mapped to the board" [ "$(cat "$data/dash/.kids/kid1" 2>/dev/null)" = gp ]
+hk '{"session_id":"kid1","hook_event_name":"UserPromptSubmit","prompt":"p","subagentType":"ogxo-route:scout"}'
+expect "grok: the worker prompt is not a main-session turn" bash -c '! sed -e "s/^E(//" -e "s/);$//" "$1" | jq -e "select(.e == \"prompt\")" >/dev/null' _ "$data/dash/gp/events.js"
+gp_tool kid1 PreToolUse grep '{"pattern":"TODO"}' k1 '{"subagentType":"ogxo-route:scout"}'
+expect "grok: a worker tool call lands on the parent board under the worker id" last_ev gp '.e == "tool" and .a == "kid1" and .at == "ogxo-route:scout" and .n == "Grep"'
+printf '%s\n' '{"session":{"modelUsage":{"grok-4.7-build":{"inputTokens":1000,"outputTokens":50,"cachedReadTokens":600,"cacheCreationTokens":0,"costUsdTicks":20000000}}}}' >"$gk/kid1/usage.json"
+hk "$(jq -nc --arg tp "$gk/kid1/updates.jsonl" '{session_id: "kid1", hook_event_name: "SubagentStop", subagentId: "kid1", subagentType: "ogxo-route:scout", transcript_path: $tp, lastAssistantMessage: "VERDICT: PASS"}')"
+expect "grok: SubagentStop records the verdict" last_ev gp '.e == "sstop" and .id == "kid1" and .v == "PASS"'
+use_after gp 1
+expect "grok: then the worker totals and cost, under its id" last_ev gp '.e == "use" and .id == "kid1" and .use["grok-4.7-build"] == {in: 400, out: 50, cr: 600, cw5: 0, cw1: 0, c: 0.002}'
+hk '{"session_id":"kid1","hook_event_name":"SessionEnd","reason":"other","subagentType":"ogxo-route:scout"}'
+expect "grok: the worker session ending leaves the board on" [ -e "$data/dash/gp/on" ]
+printf '%s\n' '{"session":{"primaryModelId":"grok-4.7-build","modelUsage":{"grok-4.7-build":{"inputTokens":5000,"outputTokens":300,"cachedReadTokens":4000,"cacheCreationTokens":0,"costUsdTicks":100000000}}}}' >"$gk/main/usage.json"
+hk "$(jq -nc --arg tp "$gk/main/updates.jsonl" '{session_id: "gp", hook_event_name: "Stop", transcript_path: $tp}')"
+use_after gp 2
+expect "grok: Stop records the session totals" bash -c 'sed -e "s/^E(//" -e "s/);$//" "$1" | jq -s -e "[.[] | select(.e == \"use\")] | last | .use[\"grok-4.7-build\"] == {in: 1000, out: 300, cr: 4000, cw5: 0, cw1: 0, c: 0.01}" >/dev/null' _ "$data/dash/gp/events.js"
+printf '%s\n' '{"session":{"primaryModelId":"grok-4.7-build","modelUsage":{"grok-4.7-build":{"inputTokens":6000,"outputTokens":400,"cachedReadTokens":4500,"cacheCreationTokens":0,"costUsdTicks":130000000}}}}' >"$gk/main/usage.json"
+hk "$(jq -nc --arg tp "$gk/main/updates.jsonl" '{session_id: "gp", hook_event_name: "Stop", transcript_path: $tp}')"
+use_after gp 3
+expect "grok: the next Stop records only what was added" bash -c 'sed -e "s/^E(//" -e "s/);$//" "$1" | jq -s -e "[.[] | select(.e == \"use\")] | last | .use[\"grok-4.7-build\"] | .in == 500 and .out == 100 and .cr == 500 and (.c * 1000 | round) == 3" >/dev/null' _ "$data/dash/gp/events.js"
+# A worker whose usage.json Grok writes only after its SubagentStop hook ran.
+mkdir -p "$gk/kid2"
+: >"$data/dash/.kids/kid2" && printf 'gp\n' >"$data/dash/.kids/kid2"
+OGXO_ROUTE_USAGE_POLLS=30 hk "$(jq -nc --arg tp "$gk/kid2/updates.jsonl" '{session_id: "kid2", hook_event_name: "SubagentStop", subagentId: "kid2", subagentType: "ogxo-route:scout", transcript_path: $tp}')"
+sleep 0.4
+printf '%s\n' '{"session":{"modelUsage":{"grok-4.7-build":{"inputTokens":10,"outputTokens":5,"cachedReadTokens":0,"cacheCreationTokens":0,"costUsdTicks":10000000}}}}' >"$gk/kid2/usage.json"
+use_after gp 4
+expect "grok: totals written after the hook are still recorded" last_ev gp '.e == "use" and .id == "kid2" and .use["grok-4.7-build"].c == 0.001'
+# A worker pinned to another model: Grok also counts it in the parent's totals.
+mkdir -p "$gk/kid3"
+printf 'gp\n' >"$data/dash/.kids/kid3"
+printf '%s\n' '{"session":{"modelUsage":{"grok-fast":{"inputTokens":100,"outputTokens":10,"cachedReadTokens":0,"cacheCreationTokens":0,"costUsdTicks":50000000}}}}' >"$gk/kid3/usage.json"
+hk "$(jq -nc --arg tp "$gk/kid3/updates.jsonl" '{session_id: "kid3", hook_event_name: "SubagentStop", subagentId: "kid3", subagentType: "ogxo-route:test-runner", transcript_path: $tp}')"
+use_after gp 5
+printf '%s\n' '{"session":{"primaryModelId":"grok-4.7-build","modelUsage":{"grok-4.7-build":{"inputTokens":7000,"outputTokens":500,"cachedReadTokens":5000,"cacheCreationTokens":0,"costUsdTicks":150000000},"grok-fast":{"inputTokens":100,"outputTokens":10,"cachedReadTokens":0,"cacheCreationTokens":0,"costUsdTicks":50000000}}}}' >"$gk/main/usage.json"
+hk "$(jq -nc --arg tp "$gk/main/updates.jsonl" '{session_id: "gp", hook_event_name: "Stop", transcript_path: $tp}')"
+use_after gp 6
+expect "grok: the main session leaves out a model only its workers used" last_ev gp '.e == "use" and (.id | not) and (.use | keys) == ["grok-4.7-build"] and .use["grok-4.7-build"].in == 500'
+hk '{"session_id":"gp","hook_event_name":"SessionEnd","reason":"exit"}'
+expect "grok: the session end forgets its workers" [ ! -e "$data/dash/.kids/kid1" ]
+hk '{"session_id":"kid1","hook_event_name":"PreToolUse","tool_name":"grep","tool_input":{"pattern":"x"},"tool_use_id":"k9"}'
+expect "grok: a forgotten worker records nothing" bash -c '! grep -q "\"k9\"" "$1"' _ "$data/dash/gp/events.js"
+expect "grok: every hook run exits 0 and prints nothing" [ "$noisy" = 0 ]
+expect "grok: no stamp or lock left behind" bash -c '! ls "$1" | grep -qE "use\.stamp|use\.lock"' _ "$data/dash/gp"
+unset OGXO_ROUTE_USAGE_POLLS
+
+# The host and the board folder.
+reset_data
+out=$(cd "$tmp" && env CLAUDE_PLUGIN_DATA="$tmp/home/.grok/plugin-data/user/x/ogxo-route" CLAUDE_CODE_SESSION_ID=gh1 bash "$dctl" on 2>&1)
+expect "host: a Grok data folder records host grok" last_ev gh1 '.e == "on" and .host == "grok"'
+expect "host: meta.json and the hub list carry it" bash -c 'jq -e ".host == \"grok\"" "$1/gh1/meta.json" && grep -qF "\"host\":\"grok\"" "$1/boards.js"' _ "$data/dash"
+out=$(cd "$tmp" && env CLAUDE_PLUGIN_DATA="$data" CLAUDE_CODE_SESSION_ID=gh2 bash "$dctl" on 2>&1)
+expect "host: otherwise claude" last_ev gh2 '.host == "claude"'
+out=$(cd "$tmp" && env -u OGXO_ROUTE_BOARDS HOME="$tmp/home" CLAUDE_PLUGIN_DATA="$data" CLAUDE_CODE_SESSION_ID=gh3 bash "$dctl" on 2>&1)
+expect "boards: the default folder is ~/.ogxo/route/boards" [ -e "$tmp/home/.ogxo/route/boards/gh3/on" ]
+expect "boards: a board made before 0.6.0 is left where it is" [ -d "$data/dash/gh2" ]
+
+# A board turned on before 0.6.0, still in the data folder.
+reset_data
+shared="$tmp/shared"
+rm -rf "$shared"
+mkdir -p "$data/dash/old1"
+: >"$data/dash/old1/on"
+run_hook "$dash" '{"session_id":"old1","hook_event_name":"Stop"}' OGXO_ROUTE_BOARDS="$shared"
+expect "legacy: a board on in the old folder keeps recording there" bash -c 'grep -q "\"e\":\"stop\"" "$1"' _ "$data/dash/old1/events.js"
+expect "legacy: nothing is written to the shared folder for it" [ ! -e "$shared/old1" ]
+out=$(cd "$tmp" && env CLAUDE_PLUGIN_DATA="$data" OGXO_ROUTE_BOARDS="$shared" CLAUDE_CODE_SESSION_ID=old1 bash "$dctl" status 2>&1)
+expect "legacy: status reports it on, at its old path" bash -c 'grep -q "^Route board: on" <<<"$1" && grep -qF "$2/index.html" <<<"$1"' _ "$out" "$data/dash/old1"
+out=$(cd "$tmp" && env CLAUDE_PLUGIN_DATA="$data" OGXO_ROUTE_BOARDS="$shared" CLAUDE_CODE_SESSION_ID=old1 bash "$dctl" on 2>&1)
+expect "legacy: on moves recording to the shared folder" bash -c '[ -e "$1/old1/on" ] && [ ! -e "$2/old1/on" ] && [ -s "$2/old1/events.js" ]' _ "$shared" "$data/dash"
+run_hook "$dash" '{"session_id":"old1","hook_event_name":"Stop"}' OGXO_ROUTE_BOARDS="$shared"
+expect "legacy: then events go to the shared board" last_ev_in "$shared" old1 '.e == "stop"'
+mkdir -p "$data/dash/old2"
+: >"$data/dash/old2/resume"
+run_hook "$dres" '{"session_id":"old2","hook_event_name":"SessionStart","source":"resume"}' OGXO_ROUTE_BOARDS="$shared"
+expect "legacy: resuming a session whose board is in the old folder turns it on in the shared one" bash -c '[ -e "$1/old2/on" ] && [ ! -e "$2/old2/resume" ]' _ "$shared" "$data/dash"
+: >"$data/dash/old1/on"
+out=$(cd "$tmp" && env CLAUDE_PLUGIN_DATA="$data" OGXO_ROUTE_BOARDS="$shared" CLAUDE_CODE_SESSION_ID=old1 bash "$dctl" off 2>&1)
+expect "legacy: off clears both folders" bash -c '[ ! -e "$1/old1/on" ] && [ ! -e "$2/old1/on" ]' _ "$shared" "$data/dash"
+
+# The payload dump.
+reset_data
+board_on gd
+mkdir -p "$data/hookdump"
+hk '{"session_id":"gd","hook_event_name":"UserPromptSubmit","prompt":"hi"}'
+expect "dump: the payload is saved as received" bash -c 'cat "$1"/*.json | jq -e ".prompt == \"hi\"" >/dev/null' _ "$data/hookdump"
+expect "dump: the hook still records the event" last_ev gd '.e == "prompt"'
+expect "dump: only the listed variables have values" bash -c '! grep -qE "^(HOME|PATH)=" "$1"/*.env' _ "$data/hookdump"
+rm -rf "$data/hookdump"
 
 # dash.sh
 sid=sessABCDEFGH123
@@ -1079,9 +1214,9 @@ if command -v python3 >/dev/null 2>&1 && command -v curl >/dev/null 2>&1; then
   expect "serve: on shows the served board URL" grep -qF "http://127.0.0.1:$sport/$sid/index.html" <<<"$out"
   data2="$tmp/data2"
   mkdir -p "$data2"
-  ctl CLAUDE_PLUGIN_DATA="$data2" -- serve "$sport"
+  ctl CLAUDE_PLUGIN_DATA="$data2" OGXO_ROUTE_BOARDS="$data2/dash" -- serve "$sport"
   expect "serve: a taken port moves to the next" grep -qx "Open: http://127.0.0.1:$((sport + 1))/index.html" <<<"$out"
-  ctl CLAUDE_PLUGIN_DATA="$data2" -- serve stop
+  ctl CLAUDE_PLUGIN_DATA="$data2" OGXO_ROUTE_BOARDS="$data2/dash" -- serve stop
   ctl -- serve stop
   expect "serve: stop says so" grep -q "Stopped the board server on port $sport" <<<"$out"
   expect "serve: stop removes the pid file" [ ! -e "$data/dash/serve.pid" ]
