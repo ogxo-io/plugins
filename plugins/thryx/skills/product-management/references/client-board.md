@@ -145,7 +145,12 @@ ever been tracked internally.
 1. Read the work first: `project_structure`, the open epics (see "Settle
    where a new ticket goes" in the thryx skill), `list_milestones`,
    `list_macro_items` so nothing is proposed twice, and the repository
-   sources above. Reading a whole repository takes many calls; when your
+   sources above. Then read the open tickets, because they are what the
+   team already plans to do: `list_issues` for the project's open work
+   (each epic's tickets with `parent_issue_key`, and the tickets under no
+   epic), and `project_brief` for the cycle in progress. A deliverable
+   should be built from these tickets wherever they exist; propose new
+   ones only for what nothing in the backlog covers. Reading a whole repository takes many calls; when your
    host has a cheaper exploring subagent, hand it that reading and work
    from its summary of what shipped, what is in flight, and what is
    planned.
@@ -160,10 +165,22 @@ ever been tracked internally.
    other direction too: a deliverable with no tickets behind it would
    sit at 0%, so propose the epic and tickets to file for it. Mark
    every date and estimate that is a guess.
-3. Once the user agrees, write in order: `create_milestone`, then
-   `create_macro_item` with `milestone_title`, then
-   `link_macro_item_issues` (at most 20 keys per call). Everything is
-   still hidden at this point.
+
+   Lay the proposal out as a tree, milestone → deliverable → epic →
+   tickets, so the epics get confirmed too: they are the grouping the
+   team works from, though the client never sees them. Mark each epic
+   and ticket as existing (with its key) or new (a title and one line on
+   what it covers), and list any existing ticket you would move under a
+   different epic, with its current parent. The user may regroup, rename,
+   or drop epics in their answer; write what they approved, not the first
+   draft.
+3. Once the user agrees, write in order: `create_milestone`; then
+   `create_macro_item` with `milestone_title`; then the new epics and
+   tickets with `create_issues` (epics first, then their tickets with
+   `parent_issue_key`, each written as `references/ticket.md` says);
+   then `set_issue_parent` for the existing tickets the user agreed to
+   move; then `link_macro_item_issues` for the existing and the new tickets
+   (at most 20 keys per call). Everything is still hidden at this point.
 4. Ask separately which milestones and items to show.
 5. Run the health check below on what you wrote, or the server's
    `macro_board` prompt, and report anything it still flags.
