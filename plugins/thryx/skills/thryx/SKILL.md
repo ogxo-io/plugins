@@ -66,6 +66,14 @@ ThryX is the team's tracker, and this server has two kinds of caller: the
 person doing a ticket, and the person running the project. Decide which
 you are before you act. It changes what a good turn looks like.
 
+The request decides the hat; your role in the workspace decides what the
+server lets you do. `whoami` returns that role (owner, for example) along
+with your email, so before project-running work (cycles, milestones,
+projects, team changes) read it once per session. When a write is refused
+for permissions, report the refusal and your role from `whoami`, and
+leave the change to someone whose role allows it; don't retry it another
+way or through another tool.
+
 **Doing the work.** Your tickets are `list_issues` with `assignee_email`
 set to the token owner's address, which `whoami` returns. `get_issue` for
 the whole ticket, including the client deliverables it counts toward
@@ -74,13 +82,19 @@ the whole ticket, including the client deliverables it counts toward
 workflow state names are per project, not a fixed vocabulary, so read
 them rather than assume. `update_issue` refuses fields it does not take
 rather than ignoring them: pass `assignee_email` (not `assignee`),
-`status` by name (not `status_id`), and `estimate` only when the tool
-lists it (otherwise the estimate goes in the description). A status change does not take a ticket out
+`status` by name (not `status_id`), and `estimate` as whole story points
+(`null` clears it). A status change does not take a ticket out
 of its sprint; to stop work on one, `postpone_issue` sends it to Backlog
 and out of any live cycle. A pull request whose branch or title names
 the ticket key links itself; `link_pull_request` is for the one that did
 not, `unlink_pull_request` for a branch that matched work it was never
-about, and linking never changes the ticket's status. "Is this shipped?"
+about, and linking never changes the ticket's status. A GitHub issue
+attaches with `link_github_issue` (a github.com link or
+`owner/name#number`) and comes off with `unlink_github_issue`; a security
+advisory with `link_github_advisory` and `unlink_github_advisory`, which
+only record the link and never create or delete the advisory on GitHub.
+For a new advisory, `draft_github_advisory_command` builds a `gh` command
+the user runs in their own terminal; it files nothing itself. "Is this shipped?"
 is answered by `list_pull_requests`, from the code, not from the status
 field. Put what you found in `add_comment` so the next person does not
 repeat the digging.
@@ -109,14 +123,22 @@ follow-up ticket for each, all in one message. For each follow-up:
 Once they are filed, link each one to the current ticket with
 `link_issues` (`blocked_by` from the current ticket when it can't finish
 without it, `related` otherwise), and name them in a comment on the
-current ticket.
+current ticket. A wrong relation comes off with `unlink_issues`: pass the
+pair and the kind as `list_relations` reports it from this ticket,
+including `blocked_by` and `duplicated_by`.
 
 **Running the project.** Use the server's prompts below by name — they are
 the maintained procedures. For what they do not cover, `project_brief`
 answers what is happening this cycle, `list_activity` what actually moved
 lately (not what was merely updated), `project_structure` what the project
 is missing, `get_workload` who has room, and `list_milestones` with
-`list_macro_items` what the client sees. Propose in your message, wait
+`list_macro_items` what the client sees. `list_members` is everyone who
+can be assigned work and `list_teams` the teams and who is on them:
+assignment is per person, but scope is often per team. `create_project`
+takes goals, scope, and non-goals in its description. Before changing a
+project's owning team, run `preview_project_team_change`, tell the user
+who gains and who loses access, and pass its confirmation token to
+`update_project`. Propose in your message, wait
 for the answer, then write with the batch tools. How to do this part well
 (writing tickets, PRDs, ADRs and the project overview, and running
 standups, reviews, cycles and releases) is in the product-management
@@ -167,9 +189,11 @@ the user has not already said:
 - **Estimate.** Always set it, sized from comparables: `search_issues`
   with `include_done` in the same project for finished tickets like it,
   quoting what they cost. When nothing compares, give your best number
-  and say it is a guess. When `create_issue` lists an `estimate` field,
-  pass it (a whole number of story points); when it doesn't, add an
-  **Estimate** line to the description with the comparables it rests on.
+  and say it is a guess. Pass it as `estimate`, a whole number of story
+  points, and put the comparables it rests on in the description. If the
+  tool you see has no `estimate` field, this session loaded the server's
+  tools before the field existed: say so, suggest reconnecting the server
+  with `/mcp`, and meanwhile add an **Estimate** line to the description.
 - **Assignee.** The user, the person whose recent work is closest to
   this ticket (see "Suggesting an assignee" below), or nobody.
 
@@ -310,7 +334,8 @@ ordinary writes at scale, not from the gated few.
 
 ## Irreversible calls have a contract
 
-`move_issue` and `update_document` **always** require
+`move_issue`, `update_document`, `send_feedback`, and
+`reply_to_my_feedback` **always** require
 `confirm_irreversible: true`. `move_issue` re-keys the ticket and drops
 its parent, children, live cycle membership, and macro-board links, so
 list what it will lose before asking. `update_project`, `update_milestone`,
@@ -334,12 +359,41 @@ will be lost, in the specific, and then pass the flag once they have
 answered. The server sees only the flag, not whether anyone was asked, so
 setting `confirm_irreversible: true` reflexively turns the check off.
 
+## Feedback to the ThryX team
+
+These tools are about ThryX itself, not the workspace's tickets: beta
+feedback the person sends the ThryX team. None of them takes a person:
+the server looks reports up by the caller's own user id, so they reach
+the token owner's reports and no one else's, whatever their role.
+
+- **Look before sending.** `find_my_feedback` finds an earlier report by
+  topic, in any language it was written in; `list_my_feedback` lists them
+  newest first. For "what happened to my report", `get_my_feedback`:
+  answer with the decision and its date, then what the latest team reply
+  says. An `accepted` report shows as Planned on their screen, so say
+  Planned.
+- **Sending.** `send_feedback` takes a one-line title, the body in the
+  person's words, and one category. People outside the company read it,
+  so draft from what they told you and put workspace content (ticket
+  text, names, code) in only when they asked for it. Show the draft and
+  send it once they agree.
+- **Replying.** `reply_to_my_feedback` answers the team on one report,
+  usually the question a `needs_info` report is waiting on.
+
+Both post in the person's name and a sent report or reply can't be
+withdrawn, which is why both always ask for `confirm_irreversible` (the
+contract above).
+
 ## Not available over MCP
 
 **Genuinely unavailable** — do not reconstruct them from other tools:
 `web_search`, `fetch_url`, `list_notes`, `write_note`,
-`look_at_attachment`. `look_at_attachment` reads files already in a
-web-agent conversation, and there is none over MCP.
+`look_at_attachment`, `add_feedback_voice`. `look_at_attachment` reads
+files already in a web-agent conversation, and there is none over MCP.
+`add_feedback_voice` (supporting someone else's report instead of sending
+a new one) is offered only from the web app's feedback flow; when a
+person's report sounds like one already sent, say they can add their
+voice there.
 
 **Files go on tickets inline.** `create_issue`, `create_issues`, and
 `attach_to_issue` take an `attachments` array, where each file is a

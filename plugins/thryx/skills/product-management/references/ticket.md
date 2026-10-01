@@ -55,8 +55,8 @@ should still understand the ticket from Title through Not in scope.
   picked unconfirmed looks exactly like one they chose (the thryx
   skill's "Settle where a new ticket goes" has the question).
 - Estimate from finished comparables in the same project, and name
-  them. Pass `estimate` (story points) when the create tool lists it;
-  otherwise put an **Estimate** line in the description. With no
+  them. Pass `estimate` (story points); if the create tool
+  you see has no such field, follow the thryx skill's "Estimate" bullet. With no
   comparable, give your best number and say it is a guess.
 - Use labels only when the project already uses them for this kind of
   work.
