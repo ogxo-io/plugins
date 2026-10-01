@@ -11,7 +11,9 @@
 #   dash.sh serve stop          stop that server
 # session_id defaults to $CLAUDE_CODE_SESSION_ID. Board: the page, events.js
 # (appended by hooks/dash-event.sh while the `on` flag exists), meta.json and
-# the flag, in ${CLAUDE_PLUGIN_DATA}/dash/<session_id>/. The hub is
+# the flag, in ${CLAUDE_PLUGIN_DATA}/dash/<session_id>/. A board whose session
+# ended keeps a `resume` marker until on or off; hooks/dash-resume.sh turns it
+# back on when the session is resumed. The hub is
 # dash/index.html; it reads dash/boards.js, rewritten here on on/off/status/hub.
 set -uo pipefail
 
@@ -24,6 +26,8 @@ case $data in /*) ;; *) data="$PWD/$data" ;; esac
 
 [ $# -le 2 ] || usage
 action=${1:-on}
+# "server" is a common slip for serve.
+[ "$action" = server ] && action=serve
 case $action in on | off | status | batch | hub | demo | serve) ;; *) usage ;; esac
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd) || exit 1
@@ -79,6 +83,7 @@ registry() {
     if [ ! -d "$d" ] || [ -L "$d" ]; then continue; fi
     if [ -e "$d/on" ] && gone "$d"; then
       rm -f "$d/on"
+      : >"$d/resume"
       printf 'E({"t":%s,"e":"end"});\n' "$(($(date +%s) * 1000))" >>"$d/events.js"
     fi
     if [ -e "$d/on" ]; then on=true; else on=false; fi
@@ -179,7 +184,7 @@ case $action in
     mkdir -p "$dir" || exit 1
     cp "$root/dashboard/index.html" "$dir/index.html" || exit 1
     : >"$dir/on" || exit 1
-    rm -f "$dir/owner"
+    rm -f "$dir/owner" "$dir/resume"
     if [ "$sid" = "${CLAUDE_CODE_SESSION_ID:-}" ] && own=$(owner); then printf '%s\n' "$own" >"$dir/owner"; fi
     top=$(git rev-parse --show-toplevel 2>/dev/null) || top=""
     repo=$(basename "${top:-$PWD}")
@@ -215,7 +220,7 @@ case $action in
     if port=$(serving); then echo "Also served at http://127.0.0.1:$port/$sid/index.html"; fi
     ;;
   off)
-    rm -f "$dir/on"
+    rm -f "$dir/on" "$dir/resume"
     [ -d "$base" ] && registry
     echo "Route board off for session ${sid:0:8}; the board files stay at $dir for replay."
     ;;

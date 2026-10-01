@@ -112,6 +112,10 @@ For logging best practices (essential fields, log levels, structured-logging cod
 2. **500s, unknown failing service** — find 500s in the gateway, extract request IDs, trace each across service logs to the origin. Result: auth-service timing out on the database (missing index on `users.last_login`) cascading to 503s.
 3. **"Our logs are hard to search"** — assess format, find missing fields and absent correlation IDs, review level usage. Result: structured-logging migration plan with before/after examples and correlation-ID middleware.
 
+## Shell
+
+Bash runs the user's shell, which is often zsh. Quote separators (`echo '===='`: an unquoted word starting with `=` is an error in zsh) and globs that may match nothing (`--include='*.css'`; for files by name use `find dir -name 'mcp*'`): zsh fails the whole command when an unquoted glob matches nothing. A call's exit status is its last command's, so don't end a chain with a probe that may find nothing (`ls` of a maybe-missing file, a `grep` with no match); test with `[ -e path ]` or put the probe earlier. Such exits read as tool errors.
+
 ---
 
 **Note**: Analyzes logs and reports findings. For code debugging beyond logs, use the superpowers `systematic-debugging` skill (if installed); for profiler-based work, `ogxo-specialists:performance-optimizer`.

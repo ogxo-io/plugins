@@ -673,6 +673,29 @@ expect "dash-event: SessionEnd removes the flag" [ ! -e "$data/dash/s1/on" ]
 n_before=$(lines "$data/dash/s1/events.js")
 hk '{"session_id":"s1","hook_event_name":"Stop"}'
 expect "dash-event: nothing recorded after SessionEnd" [ "$(lines "$data/dash/s1/events.js")" = "$n_before" ]
+expect "dash-event: SessionEnd leaves a resume marker" [ -e "$data/dash/s1/resume" ]
+
+# dash-resume.sh
+dres="$plugin/hooks/dash-resume.sh"
+run_hook "$dres" '{"session_id":"s2","hook_event_name":"SessionStart","source":"startup"}'
+expect "dash-resume: another session is left alone" [ ! -e "$data/dash/s2" ]
+expect "dash-resume: exits 0 silently" test "$code" -eq 0 -a -z "$out"
+run_hook "$dres" '{"session_id":"s1","hook_event_name":"SessionStart","source":"resume"}'
+expect "dash-resume: exits 0 silently on resume" test "$code" -eq 0 -a -z "$out"
+expect "dash-resume: the board is on again" [ -e "$data/dash/s1/on" ]
+expect "dash-resume: an on event is appended" last_ev s1 '.e == "on" and .sid == "s1"'
+expect "dash-resume: the marker is cleared" [ ! -e "$data/dash/s1/resume" ]
+hk '{"session_id":"s1","hook_event_name":"Stop"}'
+expect "dash-event: records again after resume" last_ev s1 '.e == "stop"'
+hk '{"session_id":"s1","hook_event_name":"SessionEnd","reason":"exit"}'
+(cd "$tmp" && env CLAUDE_PLUGIN_DATA="$data" bash "$plugin/scripts/dash.sh" off s1 >/dev/null 2>&1)
+expect "dash.sh: off clears the resume marker" [ ! -e "$data/dash/s1/resume" ]
+run_hook "$dres" '{"session_id":"s1","hook_event_name":"SessionStart","source":"resume"}'
+expect "dash-resume: a board turned off stays off" [ ! -e "$data/dash/s1/on" ]
+out=$(printf '{"session_id":"s1"}' | env -u CLAUDE_PLUGIN_DATA CLAUDE_PLUGIN_ROOT="$plugin" bash "$dres" 2>/dev/null)
+code=$?
+expect "dash-resume: no data dir exits 0 silently" test "$code" -eq 0 -a -z "$out"
+expect "hooks: dash-resume on SessionStart for every source" jq -e '[.hooks.SessionStart[] | select(.matcher | test("resume")) | .hooks[].command | contains("dash-resume.sh")] | any' "$plugin/hooks/hooks.json"
 
 # dash.sh
 sid=sessABCDEFGH123
@@ -804,6 +827,7 @@ ctl PATH="$psbin:$PATH" -- status
 expect "owner: same pid, other start time counts as exited" [ ! -e "$bdir/on" ]
 expect "owner: status then reports off" grep -q '^Route board: off' <<<"$out"
 expect "owner: an end event is appended" last_ev "$sid" '.e == "end" and (.t | type == "number")'
+expect "owner: the sweep leaves a resume marker" [ -e "$bdir/resume" ]
 expect "owner: the registry lists it off" grep -qF '"on":false' "$data/dash/boards.js"
 : >"$PS_TABLE"
 ctl PATH="$psbin:$PATH" PS_ROOT=901 -- on
@@ -1065,6 +1089,8 @@ if command -v python3 >/dev/null 2>&1 && command -v curl >/dev/null 2>&1; then
   expect "serve: stopped server no longer answers" bash -c '! curl -fsS -m 2 -o /dev/null "http://127.0.0.1:$1/" 2>/dev/null' _ "$sport"
   ctl -- serve stop
   expect "serve: stop with nothing running" grep -q 'No board server is running' <<<"$out"
+  ctl -- server stop
+  expect "serve: server is accepted for serve" grep -q 'No board server is running' <<<"$out"
   kill "$spid" 2>/dev/null
 else
   echo "SKIP: dash.sh serve (python3 or curl not installed)"

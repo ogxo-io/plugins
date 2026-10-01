@@ -133,6 +133,10 @@ When a finding is out of the current scope (bug outside the PR, architectural is
 - **No git history**: review all in-scope files.
 - **Missing dependencies / unclear code**: note in the report, continue with available code, request clarification in findings.
 
+## Shell
+
+Bash runs the user's shell, which is often zsh. Quote separators (`echo '===='`: an unquoted word starting with `=` is an error in zsh) and globs that may match nothing (`--include='*.css'`; for files by name use `find dir -name 'mcp*'`): zsh fails the whole command when an unquoted glob matches nothing. A call's exit status is its last command's, so don't end a chain with a probe that may find nothing (`ls` of a maybe-missing file, a `grep` with no match); test with `[ -e path ]` or put the probe earlier. Such exits read as tool errors.
+
 ---
 
 **Note**: This agent does not replace formal security audits for production smart contracts, load testing, manual penetration testing, or compliance audits.

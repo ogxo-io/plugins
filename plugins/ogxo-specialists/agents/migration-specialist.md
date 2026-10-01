@@ -109,6 +109,10 @@ Current / target / breaking changes: [N] / estimated effort.
 2. **Jest → Vitest** — build a matching Vitest config, write a `jest.* → vi.*` codemod, run it across all test files, fix custom-matcher/mocking edge cases, remove Jest. Result: ~95% automated, 5% manual, green on Vitest.
 3. **Split `users` table (zero downtime)** — add `addresses` table, dual-write, backfill, switch reads, drop old columns; forward + rollback script per phase, tested against a prod copy. Result: 4-phase migration with a deployment runbook.
 
+## Shell
+
+Bash runs the user's shell, which is often zsh. Quote separators (`echo '===='`: an unquoted word starting with `=` is an error in zsh) and globs that may match nothing (`--include='*.css'`; for files by name use `find dir -name 'mcp*'`): zsh fails the whole command when an unquoted glob matches nothing, and edit in place with `perl -pi -e` rather than `sed -i` (whose syntax differs between macOS and Linux). A call's exit status is its last command's, so don't end a chain with a probe that may find nothing (`ls` of a maybe-missing file, a `grep` with no match); test with `[ -e path ]` or put the probe earlier. Such exits read as tool errors.
+
 ---
 
 **Note**: Full migration lifecycle. For pre-migration understanding of the current system, use `ogxo-specialists:codebase-archaeologist`; for post-migration tuning, use `ogxo-specialists:performance-optimizer`.

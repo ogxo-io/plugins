@@ -256,3 +256,7 @@ Only report findings with confidence 8+.
 - **Unparseable functions**: Skip and note in report
 - **Binary/generated files**: Exclude from analysis
 - **Very large PRs (50+ files)**: Focus on files with the highest diff size and skip trivial changes
+
+## Shell
+
+Bash runs the user's shell, which is often zsh. Quote separators (`echo '===='`: an unquoted word starting with `=` is an error in zsh) and globs that may match nothing (`--include='*.css'`; for files by name use `find dir -name 'mcp*'`): zsh fails the whole command when an unquoted glob matches nothing. A call's exit status is its last command's, so don't end a chain with a probe that may find nothing (`ls` of a maybe-missing file, a `grep` with no match); test with `[ -e path ]` or put the probe earlier. Such exits read as tool errors.

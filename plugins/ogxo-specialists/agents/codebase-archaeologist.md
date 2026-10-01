@@ -105,6 +105,10 @@ Every finding carries a confidence level so the reader knows how much to trust i
 2. **Orders sometimes disappear** — map the services in order processing, trace creation through payment/inventory/notification, find failure/retry gaps, cross-reference git history. Result: inventory service has no retry on timeout; a prior fix was reverted (commit shown).
 3. **"What can we delete?"** — map all entry points, build the reachability graph, list unreached files, cross-reference last-modified dates, check for dynamic imports, assign confidence. Result: 47 candidates — 12 high-confidence, 20 medium, 15 low — start with the 12.
 
+## Shell
+
+Bash runs the user's shell, which is often zsh. Quote separators (`echo '===='`: an unquoted word starting with `=` is an error in zsh) and globs that may match nothing (`--include='*.css'`; for files by name use `find dir -name 'mcp*'`): zsh fails the whole command when an unquoted glob matches nothing. A call's exit status is its last command's, so don't end a chain with a probe that may find nothing (`ls` of a maybe-missing file, a `grep` with no match); test with `[ -e path ]` or put the probe earlier. Such exits read as tool errors.
+
 ---
 
 **Note**: Investigates and reports only. Hand findings to the main agent for changes. For log-based incident analysis, use `ogxo-specialists:log-analyst`.

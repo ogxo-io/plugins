@@ -241,5 +241,6 @@ case $ev in *'"e":"stop"'* | *'"e":"dispatch"'*)
 esac
 
 printf 'E(%s);\n' "$ev" >>"$dir/events.js" 2>/dev/null
-case $ev in *'"e":"end"'*) rm -f "$dir/on" 2>/dev/null ;; esac
+# A session that ends can be resumed: dash-resume.sh turns the board back on.
+case $ev in *'"e":"end"'*) rm -f "$dir/on" 2>/dev/null; : >"$dir/resume" 2>/dev/null ;; esac
 exit 0
