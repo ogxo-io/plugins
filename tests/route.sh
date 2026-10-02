@@ -851,12 +851,19 @@ printf '%s\n' '{"ts":"x","type":"turn_started"}' '{"ts":"x","type":"tool_started
 touch -t 202601010000 "$gs/sess-stall-1/events.jsonl" "$gs/sess-cmd-1/events.jsonl"
 : >"$gs/sess-cmd-1/terminal/call-1.log"
 touch -t 202601010000 "$gs/sess-cmd-1/terminal/call-1.log"
-# A stand-in grok process for each session that is still running.
-printf '#!/bin/bash\nsleep 60 & c=$!\ntrap "kill $c; exit 0" TERM\nwait $c\n' >"$gh/bin/grok"
-chmod +x "$gh/bin/grok"
+# A stand-in grok process for each session that is still running: perl sets
+# its command line to what the bridge runs (grok --session-id <id> -p <brief>).
 gpids=""
-for s in sess-work-1 sess-stall-1 sess-cmd-1; do "$gh/bin/grok" -p brief --session-id "$s" >/dev/null 2>&1 </dev/null & gpids="$gpids $!"; done
-sleep 0.3
+for s in sess-work-1 sess-stall-1 sess-cmd-1; do
+  perl -e '$0 = "grok --session-id $ARGV[0] -p fix the $ARGV[0] thing"; sleep 60' "$s" >/dev/null 2>&1 </dev/null &
+  gpids="$gpids $!"
+done
+perl -e '$0 = "grok -r sess-idle-1"; sleep 60' >/dev/null 2>&1 </dev/null &
+gpids="$gpids $!"
+# Something that only mentions a session id is not a grok session.
+perl -e '$0 = "vim notes about grok --session-id sess-fake-1"; sleep 60' >/dev/null 2>&1 </dev/null &
+gpids="$gpids $!"
+sleep 0.5
 gp() { GROK_HOME="$gh" bash "$gpp" "$@" 2>&1; }
 expect "grok-progress: an ended turn is idle" has "$(gp sess-idle-1)" "idle, its turn ended"
 expect "grok-progress: an open turn with recent events is working" has "$(gp sess-work-1)" "working"
@@ -870,8 +877,19 @@ expect "grok-progress: a raised threshold keeps a recent run working" has "$(gp 
 expect "grok-progress: an unknown session says so" has "$(gp sess-none-1)" "no session log"
 GROK_HOME="$gh" bash "$gpp" '../x' >/dev/null 2>&1
 expect "grok-progress: an invalid session id is refused" [ $? -eq 2 ]
+all=$(GROK_HOME="$gh" bash "$gpp")
+expect "grok-progress list: names every running bridge session" bash -c 'for s in sess-work-1 sess-stall-1 sess-cmd-1; do grep -q "grok $s: " <<<"$1" || exit 1; done' _ "$all"
+expect "grok-progress list: a bridge session shows its brief" has "$all" "brief: fix the sess-work-1 thing"
+expect "grok-progress list: a joined session is listed as joined" has "$all" "(joined)"
+expect "grok-progress list: the folder comes from the session path" has "$all" "in /r"
+expect "grok-progress list: a process that only mentions grok is not listed" bash -c '! grep -q sess-fake-1 <<<"$1"' _ "$all"
+expect "grok-progress list: --all is the same list" [ "$(GROK_HOME="$gh" bash "$gpp" --all | grep -c '^grok ')" = "$(grep -c '^grok ' <<<"$all")" ]
 for p in $gpids; do kill "$p" 2>/dev/null; done
+sleep 0.3
+expect "grok-progress list: nothing running says so" has "$(GROK_HOME="$gh" bash "$gpp")" "no grok session is running"
 expect "skill: never type into a running bridge session" grep -q 'Never type into a running bridge session' "$plugin/skills/routing/SKILL.md"
+sk="$plugin/skills/routing/SKILL.md"
+expect "skill: every bridge call names grok-build's data folder" [ "$(grep -oF 'node <path>/grok-bridge.mjs' "$sk" | wc -l)" = "$(grep -oF 'CLAUDE_PLUGIN_DATA=<data> node <path>/grok-bridge.mjs' "$sk" | wc -l)" ]
 
 # dash.sh on runs it in the background; under Grok it does not.
 for s2 in bf2 bf3; do mkdir -p "$cc/projects/-r/$s2/subagents" && cp "$sub"/agent-w1.* "$cc/projects/-r/$s2/subagents/"; done
