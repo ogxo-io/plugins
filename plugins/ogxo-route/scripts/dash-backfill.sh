@@ -54,14 +54,14 @@ for f in "$projects"/*/"$sid"/subagents/agent-*.jsonl; do
   evs=$(head -c "$used" "$f" | jq -R -n -c --arg id "$id" --arg ty "$ty" --arg d "${d:0:120}" "$vdef $udef"'
     def ms: if type == "string" then (sub("\\.[0-9]+"; "") | fromdateiso8601? // null | if . then . * 1000 else null end) else null end;
     reduce (inputs | fromjson? | objects) as $l
-      ({t0: null, t1: null, ids: {}, anon: 0, txt: null, msgs: {}, last: null, model: null, tc: 0};
+      ({t0: null, t1: null, ids: {}, anon: 0, txt: null, msgs: {}, last: null, model: null, tc: 0, seq: []};
        ($l.timestamp | ms) as $t
        | (if $t then .t0 = (.t0 // $t) | .t1 = $t else . end)
        | if $l.type == "assistant" and ($l.message | type) == "object" then
            $l.message as $m
            | (($m.usage | if type == "object" then .output_tokens else null end) | if type == "number" then . else 0 end) as $n
            | (if ($m.model | type) == "string" and ($m.model | startswith("<") | not) then .model = $m.model else . end)
-           | (if ($m.id | type) == "string" then .ids[$m.id] = ([.ids[$m.id] // 0, $n] | max) | .msgs[$m.id] = {model: $m.model, usage: $m.usage} | .last = $m.id else .anon += $n end)
+           | (if ($m.id | type) == "string" then (if .ids | has($m.id) then . else .seq += [$m.id] end) | .ids[$m.id] = ([.ids[$m.id] // 0, $n] | max) | .msgs[$m.id] = {model: $m.model, usage: $m.usage} | .last = $m.id else .anon += $n end)
            | .tc += ([$m.content[]? | objects | select(.type == "tool_use")] | length)
            | ([$m.content[]? | objects | select(.type == "text") | .text | strings] | join("\n")) as $x
            | if $x != "" then .txt = $x else . end
@@ -69,7 +69,7 @@ for f in "$projects"/*/"$sid"/subagents/agent-*.jsonl; do
     | select(.t0 != null)
     | {t: .t0, e: "sstart", id: $id, ty: $ty, d: $d, rm: .model, bf: true},
       {t: .t1, e: "sstop", id: $id, ty: $ty, v: (.txt | verdict), out: (.anon + ([.ids[]] | add // 0)), tc: .tc,
-       use: ([.msgs[] | rows] | bucket), bf: true},
+       use: ([.msgs[] | rows] | bucket), bf: true} + (. as $s | [$s.seq[] | $s.msgs[.]] | ctxinfo(true)),
       {last: (.last // "")}' 2>/dev/null)
   [ -n "$evs" ] || continue
   last=$(tail -n 1 <<<"$evs" | jq -r '.last // empty' 2>/dev/null)

@@ -177,7 +177,7 @@ expect "skill: exists" [ -f "$skill" ]
 for f in "$skill" "$plugin/hooks/anchor.md"; do
   for a in $(grep -oE 'ogxo-route:[a-z0-9-]+' "$f" 2>/dev/null | sort -u); do
     n=${a#ogxo-route:}
-    [ "$n" = routing ] || [ "$n" = external ] || [ "$n" = stats ] || [ "$n" = dashboard ] && continue
+    [ "$n" = routing ] || [ "$n" = external ] || [ "$n" = stats ] || [ "$n" = dashboard ] || [ "$n" = handoff ] && continue
     expect "$(basename "$f") names existing agent $a" [ -f "$plugin/agents/$n.md" ]
   done
 done
@@ -709,6 +709,135 @@ CLAUDE_CONFIG_DIR="$cc" bash "$bfill" "$data/dash/nope" bf1
 expect "backfill: missing board does nothing" [ ! -e "$data/dash/nope" ]
 CLAUDE_CONFIG_DIR="$cc" bash "$bfill" "$data/dash/bf1" '../x'
 expect "backfill: invalid session id does nothing" [ "$(lines "$data/dash/bf1/events.js")" = "$(events bf1 | jq length)" ]
+# Context size and cache rewrites: w5 has a cold start, a cache hit, then a call that rewrote the context.
+mk() { printf '{"type":"assistant","timestamp":"2026-09-30T10:0%s:00.000Z","message":{"id":"%s","model":"claude-opus-5-5","content":[{"type":"text","text":"x"}],"usage":{"input_tokens":1,"output_tokens":5,"cache_read_input_tokens":%s,"cache_creation_input_tokens":%s}}}\n' "$1" "$2" "$3" "$4"; }
+{ mk 0 c1 0 150000; mk 1 c2 150000 500; mk 2 c3 0 160000; } >"$sub/agent-w5.jsonl"
+printf '%s\n' '{"agentType":"ogxo-route:implementer","description":"Long one"}' >"$sub/agent-w5.meta.json"
+CLAUDE_CONFIG_DIR="$cc" bash "$bfill" "$data/dash/bf1" bf1
+expect "backfill: calls, peak context and cache rewrites" bev '.[] | select(.e == "sstop" and .id == "w5") | .calls == 3 and .ctx == 160001 and .rw == 1'
+expect "backfill: a small worker has no rewrites" bev '.[] | select(.e == "sstop" and .id == "w1") | .calls == 2 and .ctx == 103 and .rw == 0'
+mk 3 c4 160000 400 >>"$sub/agent-w5.jsonl"
+mk 4 c5 0 170000 >>"$sub/agent-w5.jsonl"
+hk "$(jq -nc --arg p "$sub/agent-w5.jsonl" '{session_id:"bf1", hook_event_name:"SubagentStop", agent_id:"w5", agent_type:"ogxo-route:implementer", agent_transcript_path:$p}')"
+expect "dash-event: a topped-up worker's stop reports only the new calls" last_ev bf1 '.id == "w5" and .calls == 2 and .rw == 1 and .ctx == 170001'
+hk "$(jq -nc --arg p "$sub/agent-w5.jsonl" '{session_id:"bf1", hook_event_name:"SubagentStop", agent_id:"w8", agent_type:"ogxo-route:implementer", agent_transcript_path:$p}')"
+expect "dash-event: a worker's stop reports calls, context and rewrites" last_ev bf1 '.id == "w8" and .calls == 5 and .ctx == 170001 and .rw == 2'
+# --- longrun: a long command in the background, waited on in short calls ---
+lr="$plugin/scripts/longrun.sh"
+export OGXO_LONGRUN_DIR="$tmp/lr"
+lrun() { out=$(cd "$tmp" && bash "$lr" "$@" 2>"$tmp/err"); code=$?; }
+# has <text> <needle>: pass when the text contains the needle.
+has() { [[ $1 == *"$2"* ]]; }
+lrun start t1 'echo begin; sleep 2; echo "FAIL a"; exit 3'
+expect "longrun: start exits 0" [ "$code" -eq 0 ]
+expect "longrun: start prints the log path" has "$out" "$tmp/lr/t1/log"
+lrun start t1 'echo again'
+expect "longrun: a running name is not started twice" has "$out" "already running"
+lrun wait t1 1
+expect "longrun: a short wait reports still running, with the log's end" has "$out" "still running"
+expect "longrun: a short wait shows the log's end" has "$out" "begin"
+lrun wait t1 30
+expect "longrun: a wait ends with the command, exit 0 for the caller" [ "$code" -eq 0 ]
+expect "longrun: wait reports the command's exit code" has "$out" "finished, exit 3"
+expect "longrun: wait shows the log's end" has "$out" "FAIL a"
+lrun status t1
+expect "longrun: status of a finished run" has "$out" "finished, exit 3"
+lrun tail t1 1
+expect "longrun: tail returns the last lines" [ "$out" = "FAIL a" ]
+lrun start t3 'pwd'
+lrun wait t3 20
+expect "longrun: runs from the calling directory" has "$out" "$tmp"
+lrun start t4 'sleep 30'
+t0=$SECONDS
+out=$(cd "$tmp" && OGXO_LONGRUN_MAX_WAIT=2 bash "$lr" wait t4 100 2>&1)
+expect "longrun: a wait never goes past the cap" [ $((SECONDS - t0)) -le 6 ]
+expect "longrun: a capped wait reports still running" has "$out" "still running"
+lrun stop t4
+expect "longrun: stop ends the run" has "$out" "stopped"
+# A real suite is a tree (pnpm, then sh, then node workers): stop ends all of it.
+lrun start t6 "sh -c 'sh -c \"sleep 417\"; true'; true"
+sleep 1
+lrun stop t6
+sleep 0.5
+expect "longrun: stop ends a nested command at every depth" bash -c '! pgrep -f "sleep 417" >/dev/null'
+lrun start t7 "(sleep 418 &); echo left a server"
+lrun wait t7 10
+lrun stop t7
+sleep 0.5
+expect "longrun: stop ends what the command left in the background" bash -c '! pgrep -f "sleep 418" >/dev/null'
+expect "longrun: the default wait ends inside the Bash tool's 2-minute timeout" grep -q 'secs=${3:-100}' "$lr"
+expect "longrun: the wait cap is under 2 minutes" grep -q 'OGXO_LONGRUN_MAX_WAIT:-110' "$lr"
+lrun status t4
+expect "longrun: a stopped run has no exit code" has "$out" "without an exit code"
+lrun status nope
+expect "longrun: an unknown name is not started" has "$out" "not started"
+lrun start 'bad name' 'true'
+expect "longrun: an invalid name is refused" [ "$code" -eq 2 ]
+lrun start t5 'echo $((6*7))'
+lrun wait t5 20
+expect "longrun: the command goes through a shell" has "$out" "42"
+unset OGXO_LONGRUN_DIR
+
+# --- handoff: a session note stored outside the repository ---
+hs="$plugin/scripts/handoff.sh"
+ho="$tmp/ho"
+hrepo="$tmp/hrepo"
+mkdir -p "$hrepo" && git -C "$hrepo" init -q -b feat/x.y && git -C "$hrepo" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
+hrun() { out=$(cd "$hrepo" && OGXO_ROUTE_HANDOFF="$ho" bash "$hs" "$@" 2>"$tmp/err"); code=$?; }
+hrun path
+expect "handoff: path is <folder>/<repository>/<branch>.md with a safe branch name" [ "$out" = "$ho/hrepo/feat-x.y.md" ]
+out=$(cd "$hrepo" && OGXO_ROUTE_HANDOFF="$ho" bash "$hs" write </dev/null 2>&1)
+expect "handoff: an empty note is not written" has "$out" "nothing to write"
+printf 'first note\n' | (cd "$hrepo" && OGXO_ROUTE_HANDOFF="$ho" bash "$hs" write >"$tmp/o" 2>&1)
+expect "handoff: write stores stdin at the path" [ "$(cat "$ho/hrepo/feat-x.y.md")" = "first note" ]
+expect "handoff: the note is readable by the owner only" [ "$(stat -f %Lp "$ho/hrepo/feat-x.y.md" 2>/dev/null || stat -c %a "$ho/hrepo/feat-x.y.md")" = 600 ]
+printf 'second note\n' | (cd "$hrepo" && OGXO_ROUTE_HANDOFF="$ho" bash "$hs" write >"$tmp/o" 2>&1)
+expect "handoff: a second write keeps the old note as .prev" [ "$(cat "$ho/hrepo/feat-x.y.md.prev")" = "first note" ]
+hrun show
+expect "handoff: show prints the note" has "$out" "second note"
+git -C "$hrepo" checkout -q -b other
+hrun show
+expect "handoff: show on a branch with no note says so and lists the others" has "$out" "no note for hrepo on other"
+expect "handoff: the listing names the other note" has "$out" "feat-x.y.md"
+hrun latest
+expect "handoff: latest is the newest note for the repository" [ "$out" = "$ho/hrepo/feat-x.y.md" ]
+hrun facts
+expect "handoff: facts names the branch, commits and the note path" has "$out" "branch: other"
+expect "handoff: facts lists recent commits" has "$out" "init"
+wt="$tmp/hwt"
+git -C "$hrepo" worktree add -q "$wt" -b wtbranch
+out=$(cd "$wt" && OGXO_ROUTE_HANDOFF="$ho" bash "$hs" path)
+expect "handoff: a linked worktree files under the main repository" [ "$out" = "$ho/hrepo/wtbranch.md" ]
+mkdir -p "$tmp/plain"
+out=$(cd "$tmp/plain" && OGXO_ROUTE_HANDOFF="$ho" bash "$hs" path)
+expect "handoff: outside git it uses the folder name and detached" [ "$out" = "$ho/plain/detached.md" ]
+big=$(head -c 9000 /dev/zero | tr '\0' x)
+out=$(cd "$hrepo" && printf '%s\n' "$big" | OGXO_ROUTE_HANDOFF="$ho" bash "$hs" write 2>&1)
+expect "handoff: a long note gets a warning" has "$out" "long for a handoff"
+hrun bogus
+expect "handoff: an unknown action is a usage error" [ "$code" -eq 2 ]
+cmd="$plugin/commands/handoff.md"
+expect "command: handoff allowed-tools" grep -qF 'allowed-tools: Bash(CLAUDE_PLUGIN_DATA=*)' "$cmd"
+expect "command: handoff runs handoff.sh" grep -qF 'bash "${CLAUDE_PLUGIN_ROOT}/scripts/handoff.sh" write' "$cmd"
+
+# ctxinfo: a large tool result is not a rewrite; a cold start is not one.
+ci() { (. "$plugin/hooks/jqdefs.sh"; jq -nc --argjson first "$2" "$udef"'$x | ctxinfo($first)' --argjson x "$1"); }
+u() { printf '{"usage":{"input_tokens":0,"cache_read_input_tokens":%s,"cache_creation_input_tokens":%s}}' "$1" "$2"; }
+expect "ctxinfo: a large tool result that reads the whole context is not a rewrite" [ "$(ci "[$(u 0 20000),$(u 20000 90000)]" true | jq .rw)" = 0 ]
+expect "ctxinfo: a cold start is not a rewrite" [ "$(ci "[$(u 0 150000)]" true | jq .rw)" = 0 ]
+expect "ctxinfo: the first call of a later chunk can be a rewrite" [ "$(ci "[$(u 0 170000)]" false | jq .rw)" = 1 ]
+expect "ctxinfo: an expired cache is a rewrite" [ "$(ci "[$(u 0 150000),$(u 150000 500),$(u 5000 160000)]" true | jq .rw)" = 1 ]
+# A worker continued with a follow-up stops twice: the second stop counts only the new calls.
+twice="$tmp/twice.jsonl"
+mk 0 d1 0 150000 >"$twice"
+mk 1 d2 150000 500 >>"$twice"
+hk "$(jq -nc --arg p "$twice" '{session_id:"bf1", hook_event_name:"SubagentStop", agent_id:"w10", agent_type:"ogxo-route:implementer", agent_transcript_path:$p}')"
+expect "dash-event: a first stop counts the whole transcript" last_ev bf1 '.id == "w10" and .calls == 2 and .rw == 0 and .out == 10'
+mk 2 d3 0 160000 >>"$twice"
+hk "$(jq -nc --arg p "$twice" '{session_id:"bf1", hook_event_name:"SubagentStop", agent_id:"w10", agent_type:"ogxo-route:implementer", agent_transcript_path:$p}')"
+expect "dash-event: a second stop counts only what came after, including a rewrite on its first call" last_ev bf1 '.id == "w10" and .calls == 1 and .rw == 1 and .out == 5'
+hk "$(jq -nc --arg p "$twice" '{session_id:"bf1", hook_event_name:"SubagentStop", agent_id:"w10", agent_type:"ogxo-route:implementer", agent_transcript_path:$p}')"
+expect "dash-event: a stop with nothing new counts nothing" last_ev bf1 '.id == "w10" and .calls == 0 and .out == 0'
 # dash.sh on runs it in the background; under Grok it does not.
 for s2 in bf2 bf3; do mkdir -p "$cc/projects/-r/$s2/subagents" && cp "$sub"/agent-w1.* "$cc/projects/-r/$s2/subagents/"; done
 (cd "$tmp" && env CLAUDE_CONFIG_DIR="$cc" CLAUDE_PLUGIN_DATA="$data" CLAUDE_CODE_SESSION_ID=bf2 bash "$dctl" on >/dev/null 2>&1)

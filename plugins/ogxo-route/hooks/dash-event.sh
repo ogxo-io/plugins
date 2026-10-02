@@ -200,8 +200,12 @@ esac
 # SubagentStop: output tokens from the transcript, and the verdict from its
 # last text when last_assistant_message had none. Transcript lines repeat a
 # message's usage once per content block, so each message id counts once.
-# A worker that dash-backfill.sh already recorded (bf.ids: id, bytes read,
-# last message id) counts only what its transcript gained since.
+# Each stop counts only what the transcript gained since the last read of
+# it: bf.ids holds "<id> <bytes read> <last message id>" per worker, written
+# here after each stop and by dash-backfill.sh, last line wins. So a worker
+# continued with a follow-up message, or added by the backfill and then
+# finished, adds only its new calls. A line still being written is left to
+# the next read.
 case $ev in *'"e":"sstop"'*)
   if [ -n "$gu" ]; then
     [[ $ev =~ \"id\":\"([A-Za-z0-9_-]{1,128})\" ]] && usage_later "${BASH_REMATCH[1]}"
@@ -215,17 +219,38 @@ case $ev in *'"e":"sstop"'*)
         skip=${skip//[!0-9]/}
         skip=${skip:-0}
       fi
-      ev2=$(tail -c +"$((skip + 1))" "$tp" 2>/dev/null | jq -R -n -c --argjson ev "$ev" --arg skipid "$skipid" "$vdef $udef"'
+      [ "$skip" -le "$size" ] || skip=0
+      chunk="$dir/sstop.chunk.$$"
+      tail -c +"$((skip + 1))" "$tp" >"$chunk" 2>/dev/null
+      used=$(wc -c <"$chunk")
+      used=${used//[!0-9]/}
+      if [ -n "$used" ] && [ "$used" -gt 0 ] && [ -n "$(tail -c 1 "$chunk")" ]; then
+        part=$(tail -n 1 "$chunk" | wc -c)
+        used=$((used - ${part//[!0-9]/}))
+      fi
+      out2=$(head -c "${used:-0}" "$chunk" | jq -R -n -c --argjson ev "$ev" --arg skipid "$skipid" --argjson first "$([ "$skip" -eq 0 ] && echo true || echo false)" "$vdef $udef"'
         reduce (inputs | fromjson? | objects | select(.type == "assistant") | .message | objects
                 | select($skipid == "" or .id != $skipid)) as $m
-          ({ids: {}, anon: 0, txt: null, msgs: {}};
+          ({ids: {}, anon: 0, txt: null, msgs: {}, seq: []};
            (($m.usage | if type == "object" then .output_tokens else null end) | if type == "number" then . else 0 end) as $n
-           | (if ($m.id | type) == "string" then .ids[$m.id] = ([.ids[$m.id] // 0, $n] | max) | .msgs[$m.id] = {model: $m.model, usage: $m.usage} else .anon += $n end)
+           | (if ($m.id | type) == "string" then (if .ids | has($m.id) then . else .seq += [$m.id] end) | .ids[$m.id] = ([.ids[$m.id] // 0, $n] | max) | .msgs[$m.id] = {model: $m.model, usage: $m.usage} else .anon += $n end)
            | ([$m.content[]? | objects | select(.type == "text") | .text | strings] | join("\n")) as $x
            | if $x != "" then .txt = $x else . end)
-        | $ev + {v: ($ev.v // (.txt | verdict)), out: (.anon + ([.ids[]] | add // 0)), use: ([.msgs[] | rows] | bucket)}
+        | ($ev + {v: ($ev.v // (.txt | verdict)), out: (.anon + ([.ids[]] | add // 0)), use: ([.msgs[] | rows] | bucket)} + (. as $s | [$s.seq[] | $s.msgs[.]] | ctxinfo($first))),
+          (.seq | last // $skipid)
       ' 2>/dev/null)
-      case $ev2 in '{'*'}') ev=$ev2 ;; esac
+      rm -f "$chunk"
+      ev2=${out2%%$'\n'*}
+      case $ev2 in '{'*'}')
+        ev=$ev2
+        lid=${out2#*$'\n'}
+        lid=${lid//\"/}
+        [[ $lid =~ ^[A-Za-z0-9_-]{1,128}$ ]] || lid=""
+        if [[ $ev =~ \"id\":\"([A-Za-z0-9_-]{1,128})\" ]]; then
+          printf '%s %s %s\n' "${BASH_REMATCH[1]}" "$((skip + ${used:-0}))" "$lid" >>"$dir/bf.ids" 2>/dev/null
+        fi
+        ;;
+      esac
     fi
   fi
   ;;

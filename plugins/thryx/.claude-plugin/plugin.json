@@ -1,6 +1,6 @@
 {
   "name": "thryx",
-  "version": "0.3.3",
+  "version": "0.4.0",
   "description": "Skills for ThryX project management over MCP: issues, projects, cycles, milestones, the client-facing macro board, and documents in the ThryX workspaces you connect, plus a product-management skill for writing tickets, PRDs, ADRs, and project docs and running follow-ups.",
   "author": { "name": "ogxo", "url": "https://github.com/ogxo-io" },
   "homepage": "https://app.thryx.io",

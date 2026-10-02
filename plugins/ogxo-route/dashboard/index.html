@@ -415,7 +415,19 @@ pre .ln { display: block; min-height: 1.5em; }
         if (!S.byId.has(ev.id) && !ev.ty) break;
         const key = S.byId.get(ev.id) || callerKey({ a: ev.id, at: ev.ty, t });
         const a = S.agents.get(key);
-        a.t1 = t; a.returnAt = t; a.verdict = ev.v || null; a.out = ev.out || a.out; a.wait = null;
+        a.t1 = t; a.returnAt = t; a.verdict = ev.v || null; a.wait = null;
+        if (typeof ev.calls === 'number') {
+          // Since 0.6.2 each stop counts only what the transcript gained since
+          // the last read (a backfill, or an earlier stop of a continued
+          // worker), so the stops add up; a sync launch's total can be larger.
+          a.sout = (a.sout || 0) + (ev.out || 0);
+          a.out = Math.max(a.out || 0, a.sout);
+          a.calls = (a.calls || 0) + ev.calls;
+          a.rw = (a.rw || 0) + (ev.rw || 0);
+          if (typeof ev.ctx === 'number') a.ctx = Math.max(a.ctx || 0, ev.ctx);
+        } else {
+          a.out = ev.out || a.out;
+        }
         if (ev.tc) a.tc = Math.max(a.tc, ev.tc);
         addUse(key, ev.use);
         a.state = ev.v === 'FAIL' ? 'fail' : ev.v === 'RISKY' ? 'risky' : ev.v === 'PASS' ? 'pass' : 'ok';
@@ -759,6 +771,11 @@ pre .ln { display: block; min-height: 1.5em; }
     g.put(x + 2, y + 9, tag, tagk);
     const stat = [a.tc ? `${a.tc} tools` : '', a.out ? `${kfmt(a.out)} out` : ''].filter(Boolean).join(' ');
     g.put(x + w - 2 - stat.length, y + 9, stat, 'dim');
+    // Context size, and the calls that rewrote an expired cache (a long wait).
+    if (a.ctx) {
+      const cs = clip([a.calls ? `${a.calls} calls` : '', `${kfmt(a.ctx)} ctx`, a.rw ? `${a.rw} cache rewrite${a.rw > 1 ? 's' : ''}` : ''].filter(Boolean).join('  '), iw);
+      g.put(x + w - 2 - cs.length, y + 8, cs, a.rw ? 'warn' : 'faint');
+    }
   }
 
   function drawPath(g, path, a, f) {

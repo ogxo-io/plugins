@@ -22,6 +22,10 @@
 #   --cost=MODE       session cost: auto (only without plan usage, the default),
 #                     always, or never
 #   --basic-colors    16-color ANSI instead of 24-bit color
+#   --context-warn=K  color the context use yellow from K thousand tokens and
+#                     red from 2K (default 300; 0 turns it off): every call
+#                     re-reads the whole context, so a long session costs more
+#                     per message whatever share of the window it fills
 #   --no-color        plain text (also when NO_COLOR is set)
 
 set -f
@@ -34,6 +38,7 @@ route_log=""
 cost_mode=auto
 palette=truecolor
 [ -n "${NO_COLOR:-}" ] && palette=none
+ctx_warn=300
 
 for arg in "$@"; do
     case "$arg" in
@@ -44,6 +49,7 @@ for arg in "$@"; do
         --route-log=*) route_log=${arg#--route-log=} ;;
         --cost=auto|--cost=always|--cost=never) cost_mode=${arg#--cost=} ;;
         --basic-colors) [ "$palette" = none ] || palette=basic ;;
+        --context-warn=*) v=${arg#--context-warn=}; [[ $v =~ ^[0-9]{1,5}$ ]] && ctx_warn=$v ;;
         --no-color) palette=none ;;
     esac
 done
@@ -188,7 +194,14 @@ line1="${blue}${model}${reset}"
 
 if [ -n "$used_pct" ]; then
     pct=$(to_int "$used_pct")
-    line1+="${sep}◔ $(color_for_pct "$pct")${pct}%${reset}"
+    ctx_color=$(color_for_pct "$pct")
+    # Long contexts cost more per message at any share of the window.
+    if [ "$ctx_warn" -gt 0 ]; then
+        if [ "$current" -ge $(( ctx_warn * 2000 )) ]; then ctx_color=$red
+        elif [ "$current" -ge $(( ctx_warn * 1000 )) ] && [ "$pct" -lt 70 ]; then ctx_color=$yellow
+        fi
+    fi
+    line1+="${sep}◔ ${ctx_color}${pct}%${reset}"
     if [ -n "$size" ] && [ "$size" -gt 0 ]; then
         line1+=" ${dim}($(format_tokens "$current")/$(format_tokens "$size"))${reset}"
     fi

@@ -6,7 +6,8 @@ description: Decide which agent, model, and effort handles each task so Claude u
 # Routing
 
 The main session plans, classifies, and routes. Workers do scoped work.
-Risky work and every mandatory review stay at Opus or above. This is an
+Core-risk work and every mandatory review stay at Opus or above; contained
+risk may run on Sonnet or grok and then gets the Opus review. This is an
 instruction set; the hooks only warn and log.
 
 ## Step 0: repository overrides
@@ -39,6 +40,18 @@ Risk triggers, any one is enough:
 7. The touched code has no test coverage.
 8. Unsure: classify up, never down.
 
+Risk tiers. **Core risk** is trigger 1 (authentication or authorization
+logic, crypto, secrets, trust-boundary validation), 2 (destructive or
+rewriting migrations, deletes, changes to existing data), 3 (money), 4
+(concurrency), 6 (infrastructure, irreversible operations), and 8 (unsure): a
+mistake there is costly and tests may not show it, so the task runs on the
+session model. **Contained risk** is trigger 5 (a public contract that stays
+compatible: a new field, endpoint, or flag) and 7 (untested code): tests and
+the risky-task review on Opus catch a mistake, so the task can run on a
+cheaper model. Both tiers get that review. Sonnet costs about half of Opus per
+token for writes and output, and the same for cache reads, so the saving is
+largest on short tasks.
+
 Breadth threshold: more than 5 files, or more than one top-level package
 (unless `.claude/ogxo-route.md` sets another value). Breadth is not a risk
 trigger: it decides reviews (Step 4), never the implementer's tier.
@@ -49,7 +62,24 @@ split it out as a small risky task for `ogxo-route:implementer-risky` that
 runs first, and give the rest (services, routes, UI, tests around it) to
 the standard implementer as its own task. A long risky task is the most
 expensive thing to route: every tool call re-reads the agent's whole
-context at Opus prices. The parts moved down still pass the verifier, which marks a diff RISKY when
+context at Opus prices.
+
+Worked example: a ticket adds a field to a public user payload, a migration
+for it, and a language picker in the UI. The new field is a compatible
+change to a public contract (trigger 5), so it is the risky part, in the
+contained tier: one small task for grok or `implementer-risky` with
+`model: "sonnet"`, with the call cap from Step 7, and then the risky-task
+review. Had it renamed or removed a field clients read, or changed who may
+read it, it would be core risk on the session model. An additive migration
+for it is not a trigger by itself. The picker, the translations, and the tests
+around them are standard work for `ogxo-route:implementer`, dispatched after
+the risky part returns, with its RESULT in the brief. A new dependency, UI work,
+translations, and the number of files touched are not triggers. A risky brief
+names one trigger and one deliverable; one that lists several triggers, or an
+API and its UI together, is two or more tasks. In a real session, whole
+tickets briefed as "risky (migration, authorization, wide UI breadth, new
+dependency)" ran 2 to 3 hours on one Opus worker and cost the most of any
+dispatch. The parts moved down still pass the verifier, which marks a diff RISKY when
 a path matches `scripts/risky-paths.sh` (migration, auth, and similar path
 segments), and a RISKY path gets the risky-task review.
 
@@ -67,7 +97,8 @@ agent inherits the session model.
 | Small logs, interpretation | — | `ogxo-specialists:log-analyst` |
 | E2E run and failure interpretation | — | `ogxo-route:e2e-runner` |
 | Implement, standard | grok through its bridge (see below) or `codex:codex-rescue` | `ogxo-route:implementer` |
-| Implement, risky | — (native only) | `ogxo-route:implementer-risky` (Opus rule) |
+| Implement, contained risk | grok through its bridge (see below) or `codex:codex-rescue` | `ogxo-route:implementer-risky` with `model: "sonnet"` |
+| Implement, core risk | — (native only) | `ogxo-route:implementer-risky` (Opus rule) |
 | Per-task check | — | tests (`ogxo-route:test-runner`) and `ogxo-route:verifier` |
 | Risky-task review | — | `ogxo-review:code-review-agent` (Opus rule) |
 | Pre-PR review of the branch | — | `ogxo-review:code-review-agent` (Opus rule) |
@@ -84,9 +115,9 @@ native review above is still required.
 1. Run the check: tests, then `ogxo-route:verifier` with the task text and the diff range.
 2. `VERDICT: RISKY` on a path rule: the task becomes risky and gets the risky-task review.
 3. `VERDICT: RISKY` on breadth only: no per-task review; the pre-PR review covers it.
-4. `VERDICT: FAIL` or failing tests on a native worker: retry once one tier up (`implementer` → `implementer-risky`) with the failed attempt's RESULT and UNCERTAINTIES attached. A second failure comes back to the main session.
-5. Failure on a routing-chosen external run: show the diff it left, restore the files it touched (`git restore <files>`), and re-dispatch to `ogxo-route:implementer` at the same class with the failure attached.
-6. A return that is unfinished with no blocker named is a continuation: resume at the same tier.
+4. `VERDICT: FAIL` or failing tests on a native worker: retry once one tier up (`implementer` → `implementer-risky`; a contained-risk task that ran on `implementer-risky` with sonnet → `implementer-risky` on the session model) with the failed attempt's RESULT and UNCERTAINTIES attached. A second failure comes back to the main session.
+5. Failure on a routing-chosen external run: show the diff it left, restore the files it touched (`git restore <files>`), and re-dispatch natively with the failure attached: a standard task to `ogxo-route:implementer`, a contained-risk task to `ogxo-route:implementer-risky` on the session model.
+6. A return that is unfinished with no blocker named is a continuation: dispatch a fresh worker at the same tier with the first one's RESULT in the brief. A `RESULT: PARTIAL` return names a handoff file: dispatch a fresh worker with the original brief and that path, not a follow-up message to the first worker.
 7. The pre-PR review is the backstop for any per-task misclassification.
 8. Review fix rounds: re-review a fix with the reviewer's re-review mode (the prior findings plus the range since the last review), not a fresh full review. After two fix rounds whose re-reviews report nothing above WARNING, stop looping: list the remaining items as follow-ups (the reviewer's Deferred section drafts them) and move on.
 
@@ -135,17 +166,25 @@ effort, because the advisor is consulted less often at low effort.
 - Pass paths, `file:line` ranges, and commit SHAs, not pasted file content.
 - Map before dispatching an implementer into code this session has not read, and always before `ogxo-route:implementer-risky`: have `ogxo-route:scout` list the files, functions, and existing patterns the task touches (where the guard helpers, the closest similar endpoint, the test fixtures live), and put that map in the brief as `file:line` references. The worker starts from the map instead of searching, and exploration runs on the cheaper model.
 - Give each worker a self-contained task: goal, files, acceptance checks.
+- Size each implementation task to about 60 tool calls: one coherent change in one area. A larger ticket is several tasks, run one after another, each brief carrying the previous task's RESULT and handoff path. Every call re-reads the worker's whole context, so cost grows faster than the number of calls, and a worker that explores for hours pays for that context on every call.
+- Give each implementer a handoff path outside the repository (the session scratchpad directory when you have one, else `${TMPDIR:-/tmp}/ogxo-handoff/<task>.md`). It writes progress there when it stops at its call cap, and the next worker starts from that file and the map, with a small context of its own.
+- Share context through the brief and the handoff file, not by forking or by continuing a worker with a follow-up message. A fork inherits the main context and re-reads it on every call, so use one only for a short task that needs the whole conversation. A worker's cache expires after 5 minutes idle, so a follow-up to a worker that has finished rewrites its whole context.
 - Dispatch independent read-only work (scout, test-runner, log-extractor) in parallel, in one message. Parallel implementation follows Step 8.
+- Full suites, e2e runs, and builds that take more than a few minutes go to `ogxo-route:test-runner` or `ogxo-route:e2e-runner`, with `run_in_background: true` when other work can go on meanwhile. They start the command with `${CLAUDE_PLUGIN_ROOT}/scripts/longrun.sh` and wait in calls of under 2 minutes, so the wait costs a small context kept warm, not a worker's large one rewritten. An implementer never waits on one: it runs the tests it touched and names the full run for you to dispatch. Run e2e suites one at a time unless they use separate databases and ports.
 - Writes to external or production systems (MCP servers, issue trackers, APIs) go one call per message, never in a parallel batch. On a rate-limit error (HTTP 429 or the service's equivalent), wait the `retry_after` it gives, or back off, before resending.
 - Every ogxo-route worker ends with `RESULT`, `CHECKS-RUN`, `UNCERTAINTIES`; read them before accepting the work.
 
 Every implementation brief also says:
 - If an action is denied, skip it, record it under UNCERTAINTIES, and continue with the rest of the task.
 - Start from the map in this brief; search only for what it does not cover.
+- Stop at about 60 tool calls with the task unfinished and write progress to the handoff file at <path>; end with `RESULT: PARTIAL <path>: <what remains>`.
+- Keep any single wait (a long command, `sleep`, an `until` loop) under 4 minutes and check again in a new call; run the tests your change touches, and name the full-suite run under UNCERTAINTIES.
 - Do not delete or clean up files you did not create; report them instead.
 - Run commands from the target directory with the tool's own directory flag where it has one (for example `git -C`, `pnpm --dir`, `uv --directory`, `go -C`, `cargo --manifest-path`) or with absolute paths, not `cd <dir> && ...`: a `cd` in a compound command can trigger a permission prompt.
 - Do not launch browsers or run E2E suites; write or update the specs and say which to run. The main session runs them, or dispatches `ogxo-route:e2e-runner`.
 - The project's own `CLAUDE.md` or build and test docs take precedence over this brief on how to build, test, and migrate.
+
+A long main session costs more with every message, because each one re-reads all of it. At a boundary (a ticket merged, a batch landed, before the user steps away) with a long context, suggest `/ogxo-route:handoff` and then `/compact` or a fresh session, instead of carrying on; `/ogxo-route:handoff resume` picks it up.
 
 A background worker's permission prompt waits in the main session until someone answers it, and the worker makes no progress meanwhile. Claude Code has no documented stalled-subagent signal, so when a background worker has been quiet for much longer than its task should take, check the session for a pending prompt.
 

@@ -18,6 +18,14 @@ connects.
   where a new ticket goes, batching, which writes need an explicit
   confirmation, and what isn't available over MCP.
 - **`/thryx:connect [workspace]`**: connects a workspace; see below.
+- **`run-board`**: works a project's open Todo tickets (yours, someone's, or all) in
+  waves: it reads the board, plans once and asks once, claims each wave's
+  tickets, works them in parallel with subagents (through ogxo-route's routing
+  when that is installed), and records each result on the ticket. It stops at
+  a checkpoint after a set number of tickets so a long run doesn't pile up in
+  one session, and "continue the board" picks the board up again from ticket
+  statuses and local branches. Ask for it with "run the board", "work my Todo
+  tickets in KEY", or `/thryx:run-board`.
 - **`product-management`**: how to do the PM work well once the tools
   are in hand. It covers writing tickets, PRDs, ADRs, and the project
   overview; running standups, weekly reviews, cycle planning and close,

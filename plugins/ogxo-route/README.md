@@ -1,6 +1,6 @@
 # ogxo-route
 
-Cost-aware routing for Claude Code. The main session plans and routes; worker subagents pinned to Sonnet or Haiku do scoped work; risky work and reviews stay at Opus or above. The goal is to make Claude Pro and Max usage windows last longer without lowering the bar for risky code. Claude Code only. Requires `jq`.
+Cost-aware routing for Claude Code. The main session plans and routes; worker subagents pinned to Sonnet or Haiku do scoped work; core-risk work and reviews stay at Opus or above, and contained risk may run on Sonnet or grok before the Opus review. The goal is to make Claude Pro and Max usage windows last longer without lowering the bar for risky code. Claude Code only. Requires `jq`.
 
 ## Install
 
@@ -13,7 +13,7 @@ It depends on `ogxo-review` (the reviewer), `ogxo-debug` (browser testing for e2
 
 ## How it works
 
-- **Routing skill** (`ogxo-route:routing`): classifies each task as standard, risky, or main-session work and names the agent for it. Risky means changing authentication or authorization logic, destructive or rewriting migrations, money, concurrency, public contracts, infrastructure, untested code, or unsure; breadth alone is not risky. A ticket is split so only its risky core (a migration, a guard, a money calculation) goes to the Opus implementer, and that implementer gets a file:line map from the scout instead of exploring on its own.
+- **Routing skill** (`ogxo-route:routing`): classifies each task as standard, risky, or main-session work and names the agent for it. Risky means changing authentication or authorization logic, destructive or rewriting migrations, money, concurrency, public contracts, infrastructure, untested code, or unsure; breadth alone is not risky. A ticket is split so only its risky part goes to `implementer-risky`: a destructive migration, a guard, or a money calculation (core risk) on Opus, a compatible contract addition or untested code (contained risk) on Sonnet or grok. That implementer gets a file:line map from the scout instead of exploring on its own.
 - **Session-start summary**: a short version of the policy added to context at startup, resume, clear, and compaction, plus any external agent marked off.
 - **Workers:**
 
@@ -23,13 +23,14 @@ It depends on `ogxo-review` (the reviewer), `ogxo-debug` (browser testing for e2
 | `test-runner` | Haiku | Run tests, builds, linters; report compactly | No Write/Edit tools; Bash is unrestricted |
 | `verifier` | Haiku | Check a diff is the task; flag risky paths and breadth | No Write/Edit tools; Bash is unrestricted |
 | `implementer` | Sonnet / medium | Implement a standard task from a plan | Read, Edit, Write, Grep, Glob, Bash |
-| `implementer-risky` | session model / high | Implement a risky task | Read, Edit, Write, Grep, Glob, Bash |
+| `implementer-risky` | session model, or Sonnet for contained risk / high | Implement a risky task | Read, Edit, Write, Grep, Glob, Bash |
 | `log-extractor` | Haiku | Pull and filter bulk logs from any shell-reachable source | No MCP tools; no Write/Edit tools; Bash is unrestricted |
 | `e2e-runner` | Sonnet / medium | Drive e2e scenarios, classify failures | Read, Grep, Glob, Bash, Skill, and browser MCP servers only |
 
 Haiku has no effort setting, so Haiku workers have none. The Agent tool has no effort parameter, so each worker's effort comes from its own file.
 
-- **External agents:** when `grok-build` or `codex` is installed, the routing sends standard implementation to grok (its bridge script, run from Bash) or `codex:codex-rescue` first, and risky implementation to native workers only. `/codex:review` and `/grok-build:review` set `disable-model-invocation: true`, so only you can run them; the routing suggests them before a PR as an extra pass.
+- **External agents:** when `grok-build` or `codex` is installed, the routing sends standard implementation to grok (its bridge script, run from Bash) or `codex:codex-rescue` first, and contained-risk implementation (a compatible public-contract addition, untested code) to grok or to `implementer-risky` on Sonnet; core risk (auth logic, destructive migrations, money, concurrency, infrastructure, unsure) stays on `implementer-risky` at the session model, never an external agent. Both get the Opus risky-task review. `/codex:review` and `/grok-build:review` set `disable-model-invocation: true`, so only you can run them; the routing suggests them before a PR as an extra pass.
+- **Worker length and the cache:** every tool call re-reads the worker's whole context, and that context is cached for 5 minutes after each call; a call after a longer wait pays to rewrite all of it. So the implementers stop at about 60 tool calls and write a handoff file (a path outside the repository, from the brief), and the routing starts a fresh worker from that file and the scout's map, instead of letting one worker run for hours; they keep any single wait under 4 minutes and run only the tests their change touches. Full suites and e2e runs go to `test-runner` or `e2e-runner`, which start them with `scripts/longrun.sh` (a background run with a log, waited on in calls of at most 110 seconds, inside the Bash tool's default 2-minute timeout, state in `${TMPDIR:-/tmp}/ogxo-longrun/<name>/`; it has no time limit, so `stop` ends one, signalling the run's whole process group) and read only the end of the log. The board shows each returned worker's peak context and its cache rewrites (calls after the first that wrote 100K tokens or more and read less than they wrote).
 - **Reviews:** risky tasks and every branch before a PR get `ogxo-review:code-review-agent`, on Opus when your session model is below Opus.
 
 ## Hooks
@@ -49,6 +50,7 @@ All eight warn, log, alert, record, or set the routing marker; none rejects a to
 
 - `/ogxo-route:external [on|off grok|codex [hours]]`: mark an external agent off for routing when its quota or login runs out (default 24 hours), back on, or show status (with the path of the state file it uses). A grok or codex run you ask for by name is not affected.
 - `/ogxo-route:dashboard [on|off|status|hub|demo]`: open the live board for this session (default `on`), stop recording, show where it is, list every session's board, or open a replay of a made-up session to see what it looks like.
+- `/ogxo-route:handoff [resume | latest]`: save a short note for this session (goal, decisions, state, open questions, the exact next step) to `~/.ogxo/route/handoff/<repository>/<branch>.md` (set `OGXO_ROUTE_HANDOFF` for another folder; one note per repository and branch, the previous one kept as `.prev`, readable by you only: `scripts/handoff.sh` sets `umask 077`, so the folders are mode 700 and the notes 600), so you can run `/compact` or start a fresh session; `resume` reads it back in the new session and continues. Every message re-reads the whole conversation, so a note plus a fresh session costs much less than carrying a long one.
 - `/ogxo-route:stats [days]`: dispatches per agent and requested model, and how many generic dispatches ran with no model, then the log's path; then permission requests and prompt notifications by mode and by main session or subagent; then advisor calls across ended sessions, and how many sessions that dispatched `implementer-risky` have no recorded advisor call (which can also mean the advisor tool was not enabled). Keeps 30 days.
 - `/ogxo-route:alerts [on [https-push-url] | off | test]`: turn prompt alerts on or off, send a test alert, or show status.
 

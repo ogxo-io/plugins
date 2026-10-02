@@ -29,7 +29,7 @@
     {
       "name": "thryx",
       "description": "Skills for ThryX project management over MCP: issues, projects, cycles, milestones, the client-facing macro board, and documents in the ThryX workspaces you connect, plus a product-management skill for writing tickets, PRDs, ADRs, and project docs and running follow-ups.",
-      "version": "0.3.3",
+      "version": "0.4.0",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -200,7 +200,7 @@
     {
       "name": "ogxo-statusline",
       "description": "Status line for Claude Code and Grok Build: model, context use, git branch and changes, session time, effort, output tokens, and session cost. Claude Code also shows thinking, prompt-cache state, and 5-hour, 7-day, and spend-limit bars. Grok Build uses the live context window, session output and cache-read share, and the active turn. /ogxo-statusline:setup writes Claude settings; /ogxo-statusline:setup-grok writes [ui.status_line] in the Grok user config. Requires jq.",
-      "version": "0.2.5",
+      "version": "0.2.6",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -219,8 +219,8 @@
     },
     {
       "name": "ogxo-route",
-      "description": "Cost-aware routing for Claude Code: a routing skill and session-start summary that tell the main session which tier handles which task, worker subagents pinned to Sonnet or Haiku with explicit tool lists, hooks that warn when a generic subagent is dispatched without a model, log each dispatch and permission request, and count advisor calls, plus opt-in alerts when Claude Code waits on a permission prompt and an opt-in live HTML board of a session's agents and tool calls. Risky work and reviews stay at Opus or above. Warns, never blocks. Claude Code only. Requires jq.",
-      "version": "0.6.1",
+      "description": "Cost-aware routing for Claude Code: a routing skill and session-start summary that tell the main session which tier handles which task, worker subagents pinned to Sonnet or Haiku with explicit tool lists, hooks that warn when a generic subagent is dispatched without a model, log each dispatch and permission request, and count advisor calls, plus opt-in alerts when Claude Code waits on a permission prompt and an opt-in live HTML board of a session's agents and tool calls. Core-risk work and reviews stay at Opus or above; contained risk may run on Sonnet or grok and then gets the Opus review. Warns, never blocks. Claude Code only. Requires jq.",
+      "version": "0.6.2",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"

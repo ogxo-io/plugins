@@ -75,6 +75,17 @@ expect "empty object" "$tmp/empty-object.json" "Claude"
 : >"$tmp/empty.txt"
 expect "empty stdin" "$tmp/empty.txt" "ogxo"
 
+ctxjson() { jq --argjson t "$1" --argjson p "$2" '.context_window.current_usage = {input_tokens: 1, cache_creation_input_tokens: 0, cache_read_input_tokens: $t} | .context_window.used_percentage = $p' "$tmp/full.json" >"$tmp/ctx-$1.json"; }
+ctxjson 100000 10; ctxjson 350000 35; ctxjson 650000 65; ctxjson 900000 95
+# hue <file> [options]: the colour code in front of the context percentage.
+hue() { bash "$script" "${@:2}" <"$1" 2>&1 | head -1 | perl -ne 'print "$1\n" if /◔ (\e\[[0-9;]*m)/' | head -1; }
+low=$(hue "$tmp/ctx-100000.json"); mid=$(hue "$tmp/ctx-350000.json"); hi=$(hue "$tmp/ctx-650000.json"); pcthi=$(hue "$tmp/ctx-900000.json")
+if [ -n "$low" ] && [ "$low" != "$mid" ] && [ "$mid" != "$hi" ] && [ "$low" != "$hi" ]; then pass=$((pass + 1)); else fail=$((fail + 1)); printf 'FAIL: context colour by tokens: low=%s mid=%s hi=%s\n' "$low" "$mid" "$hi"; fi
+expect_eq() { if [ "$2" = "$3" ]; then pass=$((pass + 1)); else fail=$((fail + 1)); printf 'FAIL: %s: %s != %s\n' "$1" "$2" "$3"; fi; }
+expect_eq "context: --context-warn=0 keeps the percentage colour" "$(hue "$tmp/ctx-350000.json" --context-warn=0)" "$low"
+expect_eq "context: 350k at 35% is not red" "$([ "$mid" != "$hi" ] && echo ok)" "ok"
+expect_eq "context: 650k at 65% with the threshold at 400k is token yellow, not red" "$(hue "$tmp/ctx-650000.json" --context-warn=400)" "$mid"
+expect_eq "context: 95% stays red" "$pcthi" "$hi"
 expect "context glyph is not an emoji" "$tmp/full.json" "◔ 43%" "✍"
 
 # Prompt cache: warm with >10m left says nothing extra, <=10m counts down, cold says cold.
