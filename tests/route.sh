@@ -838,6 +838,41 @@ hk "$(jq -nc --arg p "$twice" '{session_id:"bf1", hook_event_name:"SubagentStop"
 expect "dash-event: a second stop counts only what came after, including a rewrite on its first call" last_ev bf1 '.id == "w10" and .calls == 1 and .rw == 1 and .out == 5'
 hk "$(jq -nc --arg p "$twice" '{session_id:"bf1", hook_event_name:"SubagentStop", agent_id:"w10", agent_type:"ogxo-route:implementer", agent_transcript_path:$p}')"
 expect "dash-event: a stop with nothing new counts nothing" last_ev bf1 '.id == "w10" and .calls == 0 and .out == 0'
+# --- grok-progress: is a grok run moving? ---
+gpp="$plugin/scripts/grok-progress.sh"
+gh="$tmp/gh"
+gs="$gh/sessions/%2Fr"
+mkdir -p "$gs/sess-idle-1" "$gs/sess-work-1" "$gs/sess-stall-1" "$gs/sess-cmd-1/terminal" "$gs/sess-gone-1" "$gh/bin"
+printf '%s\n' '{"ts":"x","type":"turn_started"}' '{"ts":"x","type":"tool_started","tool_name":"grep"}' '{"ts":"x","type":"tool_completed","tool_name":"grep"}' '{"ts":"x","type":"phase_changed","phase":"streaming_text"}' '{"ts":"x","type":"turn_ended","outcome":"completed"}' >"$gs/sess-idle-1/events.jsonl"
+printf '%s\n' '{"ts":"x","type":"turn_started"}' '{"ts":"x","type":"tool_started","tool_name":"read_file"}' '{"ts":"x","type":"tool_completed","tool_name":"read_file"}' '{"ts":"x","type":"phase_changed","phase":"streaming_reasoning"}' >"$gs/sess-work-1/events.jsonl"
+cp "$gs/sess-work-1/events.jsonl" "$gs/sess-stall-1/events.jsonl"
+cp "$gs/sess-work-1/events.jsonl" "$gs/sess-gone-1/events.jsonl"
+printf '%s\n' '{"ts":"x","type":"turn_started"}' '{"ts":"x","type":"tool_started","tool_name":"run_terminal_command"}' >"$gs/sess-cmd-1/events.jsonl"
+touch -t 202601010000 "$gs/sess-stall-1/events.jsonl" "$gs/sess-cmd-1/events.jsonl"
+: >"$gs/sess-cmd-1/terminal/call-1.log"
+touch -t 202601010000 "$gs/sess-cmd-1/terminal/call-1.log"
+# A stand-in grok process for each session that is still running.
+printf '#!/bin/bash\nsleep 60 & c=$!\ntrap "kill $c; exit 0" TERM\nwait $c\n' >"$gh/bin/grok"
+chmod +x "$gh/bin/grok"
+gpids=""
+for s in sess-work-1 sess-stall-1 sess-cmd-1; do "$gh/bin/grok" -p brief --session-id "$s" >/dev/null 2>&1 </dev/null & gpids="$gpids $!"; done
+sleep 0.3
+gp() { GROK_HOME="$gh" bash "$gpp" "$@" 2>&1; }
+expect "grok-progress: an ended turn is idle" has "$(gp sess-idle-1)" "idle, its turn ended"
+expect "grok-progress: an open turn with recent events is working" has "$(gp sess-work-1)" "working"
+expect "grok-progress: names the last event, skipping phase changes" has "$(gp sess-work-1)" "tool_completed:read_file"
+expect "grok-progress: an open turn with nothing written for 10 minutes is stalled" has "$(gp sess-stall-1)" "stalled"
+expect "grok-progress: a quiet open command is quiet, not stalled" has "$(gp sess-cmd-1)" "quiet, a tool call"
+touch "$gs/sess-cmd-1/terminal/call-1.log"
+expect "grok-progress: a command still writing output is working" has "$(gp sess-cmd-1)" "working"
+expect "grok-progress: an open turn with no grok process ended without finishing" has "$(gp sess-gone-1)" "ended without finishing"
+expect "grok-progress: a raised threshold keeps a recent run working" has "$(gp sess-work-1 999)" "working"
+expect "grok-progress: an unknown session says so" has "$(gp sess-none-1)" "no session log"
+GROK_HOME="$gh" bash "$gpp" '../x' >/dev/null 2>&1
+expect "grok-progress: an invalid session id is refused" [ $? -eq 2 ]
+for p in $gpids; do kill "$p" 2>/dev/null; done
+expect "skill: never type into a running bridge session" grep -q 'Never type into a running bridge session' "$plugin/skills/routing/SKILL.md"
+
 # dash.sh on runs it in the background; under Grok it does not.
 for s2 in bf2 bf3; do mkdir -p "$cc/projects/-r/$s2/subagents" && cp "$sub"/agent-w1.* "$cc/projects/-r/$s2/subagents/"; done
 (cd "$tmp" && env CLAUDE_CONFIG_DIR="$cc" CLAUDE_PLUGIN_DATA="$data" CLAUDE_CODE_SESSION_ID=bf2 bash "$dctl" on >/dev/null 2>&1)
