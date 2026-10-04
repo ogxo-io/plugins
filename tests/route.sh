@@ -759,12 +759,14 @@ lrun start t6 "sh -c 'sh -c \"sleep 417\"; true'; true"
 sleep 1
 lrun stop t6
 sleep 0.5
-expect "longrun: stop ends a nested command at every depth" bash -c '! pgrep -f "sleep 417" >/dev/null'
+# "41[7]" matches the sleep but not this bash -c, whose command line holds the
+# pattern: procps pgrep (Linux) excludes only itself, not its parent.
+expect "longrun: stop ends a nested command at every depth" bash -c '! pgrep -f "sleep 41[7]" >/dev/null'
 lrun start t7 "(sleep 418 &); echo left a server"
 lrun wait t7 10
 lrun stop t7
 sleep 0.5
-expect "longrun: stop ends what the command left in the background" bash -c '! pgrep -f "sleep 418" >/dev/null'
+expect "longrun: stop ends what the command left in the background" bash -c '! pgrep -f "sleep 41[8]" >/dev/null'
 expect "longrun: the default wait ends inside the Bash tool's 2-minute timeout" grep -q 'secs=${3:-100}' "$lr"
 expect "longrun: the wait cap is under 2 minutes" grep -q 'OGXO_LONGRUN_MAX_WAIT:-110' "$lr"
 lrun status t4
@@ -790,7 +792,7 @@ out=$(cd "$hrepo" && OGXO_ROUTE_HANDOFF="$ho" bash "$hs" write </dev/null 2>&1)
 expect "handoff: an empty note is not written" has "$out" "nothing to write"
 printf 'first note\n' | (cd "$hrepo" && OGXO_ROUTE_HANDOFF="$ho" bash "$hs" write >"$tmp/o" 2>&1)
 expect "handoff: write stores stdin at the path" [ "$(cat "$ho/hrepo/feat-x.y.md")" = "first note" ]
-expect "handoff: the note is readable by the owner only" [ "$(stat -f %Lp "$ho/hrepo/feat-x.y.md" 2>/dev/null || stat -c %a "$ho/hrepo/feat-x.y.md")" = 600 ]
+expect "handoff: the note is readable by the owner only" [ "$(stat -c %a "$ho/hrepo/feat-x.y.md" 2>/dev/null || stat -f %Lp "$ho/hrepo/feat-x.y.md")" = 600 ]
 printf 'second note\n' | (cd "$hrepo" && OGXO_ROUTE_HANDOFF="$ho" bash "$hs" write >"$tmp/o" 2>&1)
 expect "handoff: a second write keeps the old note as .prev" [ "$(cat "$ho/hrepo/feat-x.y.md.prev")" = "first note" ]
 hrun show

@@ -17,8 +17,10 @@ set -uo pipefail
 root=${GROK_HOME:-${HOME:-}/.grok}/sessions
 re='^[A-Za-z0-9_-]{8,128}$'
 
-# mtime <file>: modification time in seconds (macOS, then GNU stat).
-mtime() { local m; m=$(stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null); printf '%s' "${m//[!0-9]/}"; }
+# mtime <file>: modification time in seconds (GNU stat, then macOS). GNU goes
+# first: its `stat -f` means --file-system, prints file system details, then
+# fails, and those digits would join the real time.
+mtime() { local m; m=$(stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null); printf '%s' "${m//[!0-9]/}"; }
 
 # report <session id> <stall minutes>: the one-line state.
 report() {

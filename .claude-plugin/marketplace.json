@@ -47,8 +47,8 @@
     },
     {
       "name": "ogxo-review",
-      "description": "Multi-agent code review: full-review cross-correlates several reviewers and filters false positives; code-review-git posts line-level findings as a GitHub PR review and answers other reviewers' comments. Bundles the code-review-agent, security-auditor, code-metrics-analyst, and finding-verifier agents; code-review-git verifies every finding before it is shown. Also security-check, a focused security review of a branch, and the dependency-auditor agent.",
-      "version": "0.3.2",
+      "description": "Multi-agent code review: full-review cross-correlates several reviewers and has the finding-verifier agent check every finding; code-review-git posts line-level findings as a GitHub PR review and answers other reviewers' comments. Bundles the code-review-agent, security-auditor, code-metrics-analyst, and finding-verifier agents; code-review-git verifies every finding before it is shown. Also security-check, a focused security review of a branch, and the dependency-auditor agent.",
+      "version": "0.4.0",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -220,7 +220,7 @@
     {
       "name": "ogxo-route",
       "description": "Cost-aware routing for Claude Code: a routing skill and session-start summary that tell the main session which tier handles which task, worker subagents pinned to Sonnet or Haiku with explicit tool lists, hooks that warn when a generic subagent is dispatched without a model, log each dispatch and permission request, and count advisor calls, plus opt-in alerts when Claude Code waits on a permission prompt and an opt-in live HTML board of a session's agents and tool calls. Core-risk work and reviews stay at Opus or above; contained risk may run on Sonnet or grok and then gets the Opus review. Warns, never blocks. Claude Code only. Requires jq.",
-      "version": "0.6.5",
+      "version": "0.6.6",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
