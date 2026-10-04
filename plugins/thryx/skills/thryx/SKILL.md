@@ -1,6 +1,6 @@
 ---
 name: thryx
-description: Use when calling ThryX MCP tools - starting, picking up, implementing, or continuing work on a ticket (including one named only in the branch), finding or updating your own tickets, moving a ticket's status, filing a ticket or follow-up tickets for work found mid-task, linking a pull request, searching issues, reading or editing a project document, or any other ThryX workspace call. Also use when the user says thryx, or names a ticket key from their ThryX workspace. Covers how the tools behave; the product-management skill covers PM work such as cycles, status reviews, PRDs, ADRs, and the macro board.
+description: Use when calling ThryX MCP tools - starting, picking up, implementing, or continuing work on a ticket (including one named only in the branch), finding or updating your own tickets, moving a ticket's status, filing a ticket or follow-up tickets for work found mid-task, linking a pull request, searching issues, reading or editing a project document, or any other ThryX workspace call. Also use when the user says thryx, or names a ticket key from their ThryX workspace. Covers how the tools behave; the product-management skill covers PM work such as cycles, status reviews, PRDs, ADRs, and the Roadmap (releases, promises, and outcomes).
 ---
 
 # ThryX — driving the workspace without flailing
@@ -68,7 +68,7 @@ you are before you act. It changes what a good turn looks like.
 
 The request decides the hat; your role in the workspace decides what the
 server lets you do. `whoami` returns that role (owner, for example) along
-with your email, so before project-running work (cycles, milestones,
+with your email, so before project-running work (cycles, the Roadmap,
 projects, team changes) read it once per session. When a write is refused
 for permissions, report the refusal and your role from `whoami`, and
 leave the change to someone whose role allows it; don't retry it another
@@ -76,7 +76,7 @@ way or through another tool.
 
 **Doing the work.** Your tickets are `list_issues` with `assignee_email`
 set to the token owner's address, which `whoami` returns. `get_issue` for
-the whole ticket, including the client deliverables it counts toward
+the whole ticket, including the Roadmap outcomes it counts toward
 (`macro_items`); `list_relations` for what blocks it. Call
 `list_statuses` for the project before `update_issue` changes a status:
 workflow state names are per project, not a fixed vocabulary, so read
@@ -131,8 +131,9 @@ including `blocked_by` and `duplicated_by`.
 the maintained procedures. For what they do not cover, `project_brief`
 answers what is happening this cycle, `list_activity` what actually moved
 lately (not what was merely updated), `project_structure` what the project
-is missing, `get_workload` who has room, and `list_milestones` with
-`list_macro_items` what the client sees. `list_members` is everyone who
+is missing, `get_workload` who has room, and `get_timeline` the Roadmap
+(with `audience: partners` or `public`, what the client reads).
+`list_members` is everyone who
 can be assigned work and `list_teams` the teams and who is on them:
 assignment is per person, but scope is often per team. `create_project`
 takes goals, scope, and non-goals in its description. Before changing a
@@ -278,29 +279,49 @@ after the user agrees (see the contract below).
 How to write a good PRD, ADR, or project overview is in the
 product-management skill.
 
-## Milestones and the macro board are what the client reads
+## The Roadmap is what the client reads
 
-Milestones are dated checkpoints on the project's timeline. The macro
-board is the list of deliverables a client reads in the partner portal,
-and tickets are linked to them to measure progress. One fact matters
-even when you are only working a ticket: a deliverable counts only the
-tickets linked to it. When a follow-up lands under an epic that backs a
-deliverable, check `list_macro_items` and offer to link it with
-`link_macro_item_issues`. Until then, the deliverable looks further
-along than it is. `get_issue` shows which deliverables a ticket already
+The Roadmap is one timeline of releases (versions you ship), promises
+(dates you commit to, each with criteria: "what has to be true"), and
+outcomes (results the client watches move, counted from the tickets
+linked to them). The app speaks those words; the tools kept their old
+names:
+
+| The person says | The tools say | Visibility field and values |
+| --- | --- | --- |
+| Promise | milestone (`*_milestone`, param `milestone`: title or id) | `audience`: `internal`, `partners`, `public` |
+| Criteria, "what has to be true" | done-when row (`*_done_when`, param `row`: text or id) | follows its promise |
+| Outcome | macro item (`*_macro_item*`, param `macro_item` on update and delete, `title` on the others) | `publication`: `draft`, `partners`, `public` |
+| Release | release (`*_release*`, param `release`: version or id) | `audience`: `internal`, `partners`, `public` |
+| The whole Roadmap | `get_timeline` | `audience`: `workspace`, `partners`, `public` (whose reading to return) |
+
+"Workspace only" is `internal` on a promise or release and `draft` on an
+outcome. `partner_visible` is the older flag: create no longer takes it,
+and update takes it but `audience` or `publication` wins, so pass those
+instead. It still appears in `list_*` results and behind
+`project_structure`'s `no_partner_milestones`.
+
+One fact matters even when you are only working a ticket: an outcome
+counts only the tickets linked to it. When a follow-up lands under an
+epic that backs an outcome, check `list_macro_items` and offer to link
+it with `link_macro_item_issues`. Until then, the outcome looks further
+along than it is. `get_issue` shows which outcomes a ticket already
 counts toward.
 
-Everything else about the board (what the client sees, how progress is
-computed, what the server screens, and how to write the copy) is in the
-product-management skill's client-board reference. Read it before
-creating, showing, or editing a milestone or macro item.
+Everything else about the Roadmap (who sees what, the two progress
+readings, releases and gates, the public link, what the server screens,
+and how to write the copy) is in the product-management skill's roadmap
+reference. Read it before creating, showing, editing, or deleting a
+promise, criterion, outcome, or release.
 
 ## Batch, do not loop
 
 Prefer `create_issues` and `update_issues` over calling the singular tool
 in a loop. The ceilings differ: `create_issues` takes at most 12 per call,
 while `update_issues`, `set_issue_parent`, `remove_issue_parent`, and
-`link_macro_item_issues` take 20. Plan a large write to the limit rather
+`link_macro_item_issues` take 20, and `set_release_promises` takes 100
+(it replaces the release's whole list, so pass every promise it should
+carry). Plan a large write to the limit rather
 than discovering it by rejection — over the ceiling is a schema error, not
 a short write.
 
@@ -334,17 +355,29 @@ ordinary writes at scale, not from the gated few.
 
 ## Irreversible calls have a contract
 
-`move_issue`, `update_document`, `send_feedback`, and
-`reply_to_my_feedback` **always** require
-`confirm_irreversible: true`. `move_issue` re-keys the ticket and drops
-its parent, children, live cycle membership, and macro-board links, so
-list what it will lose before asking. `update_project`, `update_milestone`,
-`update_macro_item`, `update_macro_item_summary`, and `tag_document`
-require it only when the specific call would actually destroy something —
-the server checks the current state before deciding.
+`move_issue`, `update_document`, `send_feedback`,
+`reply_to_my_feedback`, the three deletes (`delete_milestone`,
+`delete_macro_item`, `delete_done_when`), every release write
+(`create_release`, `update_release`, `delete_release`,
+`set_release_promises`, `set_release_gate`), and the public link
+(`set_timeline_share`, `rotate_timeline_share`, `revoke_timeline_share`)
+**always** require `confirm_irreversible: true`. `move_issue` re-keys the
+ticket and drops its parent, children, live cycle membership, and
+outcome links, and the deletes take more than their row (the roadmap
+reference lists what), so list what will be lost before asking.
+`update_project`, `create_milestone`, `update_milestone`,
+`add_done_when`, `update_done_when`, `create_macro_item`,
+`update_macro_item`, `update_macro_item_summary`, `set_release_state`,
+and `tag_document` require it only when the specific call would actually
+destroy something or show something — the server checks the current
+state before deciding.
 
-What counts as destroying something is replacing text someone wrote, or
-putting a hidden milestone or macro item in front of the client.
+What counts is replacing text someone wrote, or putting something in
+front of a client: creating a promise or outcome with a Partners or
+Public audience, widening one, adding or editing criteria text on a
+shown promise, replacing or clearing the owner name on a shown
+outcome, or moving a release to `shipped`. Marking a criterion
+true or false, and changing status, health, or dates, ask nothing.
 `update_project` asks when `description` would replace a written
 description (even one you only added to), when `public_description`
 would replace the client's copy, or when the owning team or team grants
@@ -438,7 +471,7 @@ with one `set_issue_parent` call per sub-epic — each call takes a single
 
 ## Use the server's own prompts
 
-The server ships eight prompts and exposes a `Ticket` resource. Invoke
+The server ships nine prompts and exposes a `Ticket` resource. Invoke
 the prompts rather than reinventing the same workflow in your own words;
 they are maintained alongside the tools.
 
@@ -451,7 +484,8 @@ they are maintained alongside the tools.
 | `project_status` | `project_key` | What moved, what is at risk, and which `project_report` signals need action |
 | `plan_cycle` | `project_key`, `cycle` | Plans a cycle from the backlog and current workload |
 | `organize_project` | `project_key` | Finds and fixes gaps in a project's structure |
-| `macro_board` | `project_key` | Maintains the client-facing macro board |
+| `macro_board` | `project_key` | Maintains the outcomes clients read (the old macro board) |
+| `roadmap` | `project_key` | Runs the Roadmap: promises, criteria, releases, and the public link |
 
 They are the web agent's guides, already adapted for MCP: where the web
 agent would stage a card, they say to show the change and wait for an

@@ -1,8 +1,8 @@
 # thryx
 
 Connects your agent to your [ThryX](https://app.thryx.io) workspaces over MCP —
-searching, creating, and updating issues, planning cycles, tracking
-milestones, and reading or writing project documents, all against your
+searching, creating, and updating issues, planning cycles, keeping the client-facing Roadmap
+current, and reading or writing project documents, all against your
 live workspace data.
 
 The plugin ships the skills and `/thryx:connect`, which connects each ThryX
@@ -29,8 +29,8 @@ connects.
 - **`product-management`**: how to do the PM work well once the tools
   are in hand. It covers writing tickets, PRDs, ADRs, and the project
   overview; running standups, weekly reviews, cycle planning and close,
-  and post-release follow-ups; and keeping milestones and the
-  client-facing macro board true. It reads the repository alongside the
+  and post-release follow-ups; and keeping the client-facing
+  Roadmap (releases, promises with their criteria, and outcomes) true. It reads the repository alongside the
   tracker, and it loads only when you ask for that kind of work.
 
 ## Install

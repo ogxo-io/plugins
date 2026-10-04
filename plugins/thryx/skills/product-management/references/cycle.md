@@ -13,7 +13,7 @@ end whether it happened.
   should be able to tell from the name alone what this cycle is for.
 - **Goal**: one or two outcomes that can be checked, such as "a project
   with 5,000 issues opens its list and board" rather than "performance
-  work". Tie the goal to the milestone it moves. If you can't say the
+  work". Tie the goal to the promise it moves. If you can't say the
   goal in a sentence, you have either two cycles or a bucket, so say
   which.
 - **Length**: follow the rhythm the project already has (`list_cycles`
@@ -28,7 +28,7 @@ end whether it happened.
 
 Read these first:
 
-- the goal and the milestone dates (`list_milestones`);
+- the goal and the promise dates (`get_timeline`);
 - throughput: the `velocity` rows in `project_report` show scope and
   completed per past cycle. Plan to what recent cycles typically
   finished, not the best one. `completed_before_start` means work that
@@ -44,7 +44,7 @@ Then choose:
 1. **Goal first, tickets second.** Every ticket serves the goal, or is
    named as riding along (a bug, an ops fix, a small request). Keep the
    riders to a small share, so the goal stays the cycle's point.
-2. **Check milestone dates.** If a milestone is due before the next
+2. **Check promise dates.** If a promise is due before the next
    cycle ends, its remaining work belongs in this cycle, or its date has
    to move. Say which.
 3. **Take tickets from Ready.** A ticket still in Triage gets triaged
@@ -66,7 +66,7 @@ Then choose:
 The description is how the cycle explains itself to anyone who opens it
 mid-way. Write it with these parts:
 
-- **Goal**: the outcome in one or two sentences, and the milestone it
+- **Goal**: the outcome in one or two sentences, and the promise it
   carries.
 - **Why now**: what makes this the next thing to do.
 - **Scope**: grouped by outcome, each ticket key with a one-line
@@ -129,7 +129,7 @@ Each of these is a proposal first (see "Routines propose" in SKILL.md).
 4. **Write the retrospective** into the cycle with `description_append`:
    goal met or not, what shipped, what slipped and why, the scope and
    completed numbers, and one thing to change next time.
-5. **Propose the updates downstream:** the milestone and the macro board
-   (`references/client-board.md`), the "where it stands" part of the
+5. **Propose the updates downstream:** the Roadmap's promises,
+   criteria, and outcomes (`references/roadmap.md`), the "where it stands" part of the
    project description (`references/project-doc.md`), and then the next
    cycle's plan.

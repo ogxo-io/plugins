@@ -44,7 +44,7 @@ review, Approved, and Superseded by (another PRD).
 9. **Open questions**: each one with an owner.
 10. **Rollout**: flags, migration, communication, and what the client
     is told.
-11. **Links**: the epic, milestone, related ADRs, and designs.
+11. **Links**: the epic, promise, related ADRs, and designs.
 
 ## From draft to tracker
 
@@ -54,8 +54,8 @@ review, Approved, and Superseded by (another PRD).
 3. Once it's approved, break it into tickets (`references/ticket.md`)
    under one epic. Name the PRD in the epic, and list the epic in
    Links.
-4. If it's client-facing, propose the deliverable and milestone
-   (`references/client-board.md`).
+4. If it's client-facing, propose the outcome and promise
+   (`references/roadmap.md`).
 
 ## Keep it alive
 

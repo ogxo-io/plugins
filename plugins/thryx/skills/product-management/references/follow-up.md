@@ -19,8 +19,8 @@ full count when a signal needs action.
 | A ticket in progress or in review with no one assigned | `unassigned_started` |
 | A ticket inside the live cycle still in Backlog or Triage | `backlog_in_active_cycle` |
 | A gap between one scheduled cycle's end and the next one's start | `cycle_gap` |
-| A milestone whose open tickets sit in no cycle ending by its date | `milestone_work_outside_target_cycle` |
-| A deliverable or milestone at 100% whose status is still open | `completed_progress_open_status` |
+| A promise whose open tickets sit in no cycle ending by its date | `milestone_work_outside_target_cycle` |
+| An outcome or promise at 100% whose status is still open | `completed_progress_open_status` |
 
 The report doesn't find these, so check them yourself:
 
@@ -30,7 +30,8 @@ The report doesn't find these, so check them yourself:
   isn't moving;
 - an urgent or high-priority ticket with no one assigned;
 - a cycle whose remaining work is more than its remaining time can hold;
-- a milestone that will miss its date at the current pace;
+- a promise that will miss its date at the current pace, or a release
+  whose gate is late;
 - work in the code with no ticket, or a ticket marked done with no merged
   pull request;
 - a decision everyone is waiting on, with no `decision` ticket and no
@@ -58,7 +59,7 @@ The report doesn't find these, so check them yourself:
    ticket, because it is the most expensive read here.
 2. Go through the triage queue with the server's `triage_ticket`
    prompt, and propose a decision for each ticket.
-3. Check the board (`references/client-board.md`) and the documents: is
+3. Check the Roadmap (`references/roadmap.md`) and the documents: is
    the project description still true, and is there a PRD whose scope
    has drifted from its tickets?
 4. Propose any changes to priority or assignee, with what slips as a
@@ -71,13 +72,18 @@ The report doesn't find these, so check them yourself:
 
 1. Compare the release tag or CHANGELOG with the tracker. Look for
    tickets marked done that aren't in the release, and changes in the
-   release that no ticket covers.
-2. Propose the updates for the macro items that shipped: status and
-   the client's copy (`references/client-board.md`, including holding
-   back security fixes). Propose marking a milestone completed when its
-   outcome shipped.
-3. Propose a refreshed "where it stands" in the project description,
+   release that no ticket covers. Check the tag has a release in ThryX
+   (`list_releases`), and propose creating it if not.
+2. Propose the updates for what shipped (`references/roadmap.md`,
+   including holding back security fixes): the criteria the release
+   made true, the outcomes' status and client copy, and keeping a
+   promise (status `completed`, which sets its health to `shipped`) when
+   all of it shipped.
+3. Propose `set_release_state` `shipped`. It is refused while the
+   release's gate is open; the fix is to keep the promise or mark the
+   criterion that holds it, never to clear the gate.
+4. Propose a refreshed "where it stands" in the project description,
    and the release entry in the overview if the project keeps a history
    there.
-4. Where the project keeps a runbook for releases, follow it and say
+5. Where the project keeps a runbook for releases, follow it and say
    which one you followed.

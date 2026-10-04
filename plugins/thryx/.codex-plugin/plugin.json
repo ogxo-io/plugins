@@ -1,7 +1,7 @@
 {
   "name": "thryx",
-  "version": "0.4.0",
-  "description": "Skills for ThryX project management over MCP: issues, projects, cycles, milestones, the client-facing macro board, and documents in the ThryX workspaces you connect, plus a product-management skill for writing tickets, PRDs, ADRs, and project docs and running follow-ups.",
+  "version": "0.5.0",
+  "description": "Skills for ThryX project management over MCP: issues, projects, cycles, the client-facing Roadmap (releases, promises, outcomes, and its public link), and documents in the ThryX workspaces you connect, plus a product-management skill for writing tickets, PRDs, ADRs, and project docs and running follow-ups.",
   "author": { "name": "ogxo", "url": "https://github.com/ogxo-io" },
   "homepage": "https://app.thryx.io",
   "license": "MIT",
@@ -11,7 +11,7 @@
   "interface": {
     "displayName": "ThryX",
     "shortDescription": "Read and update issues, projects, cycles, and documents in ThryX",
-    "longDescription": "Skills for the ThryX workspaces you connect over MCP (one server per workspace) so an agent can search and triage issues, plan cycles, track milestones, and read or write project documents. Calls that are hard to undo are refused until the caller passes an explicit confirmation flag on that same request — a deliberate speed bump against careless automation, not a permission boundary.",
+    "longDescription": "Skills for the ThryX workspaces you connect over MCP (one server per workspace) so an agent can search and triage issues, plan cycles, keep the client-facing Roadmap current, and read or write project documents. Calls that are hard to undo are refused until the caller passes an explicit confirmation flag on that same request — a deliberate speed bump against careless automation, not a permission boundary.",
     "developerName": "ogxo",
     "category": "Productivity",
     "capabilities": ["Interactive", "Read", "Write"],
@@ -19,7 +19,7 @@
     "defaultPrompt": [
       "What is the status of my current cycle?",
       "Triage the untriaged issues in this project",
-      "Draft a milestone plan from these tickets"
+      "Draft a Roadmap of promises and outcomes from these tickets"
     ],
     "brandColor": "#5B4DF5",
     "screenshots": []

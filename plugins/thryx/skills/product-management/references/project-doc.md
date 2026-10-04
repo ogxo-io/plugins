@@ -13,7 +13,7 @@ Keep it to about a screen:
 
 - what the product is and who it is for;
 - what exists today, as the main capabilities;
-- where the work stands: the current milestone, the current cycle's
+- where the work stands: the current promise, the current cycle's
   goal, and the biggest risk;
 - what comes next;
 - links to the overview document, the active PRDs, and the key ADRs.
@@ -26,7 +26,7 @@ with `get_project`, show the change, and write it only once the person
 agrees. `description` replaces the whole text and asks for
 `confirm_irreversible` when there is text to replace (see the thryx
 skill's contract). The client reads `public_description`, a separate
-field covered in `references/client-board.md`.
+field covered in `references/roadmap.md`.
 
 ## The overview document, the long layer
 
@@ -51,7 +51,7 @@ Acme Billing is and how it is built", tagged `architecture`. Cover:
 
 - **From the repo**: the README, manifests and dependencies, the
   directory layout, CI and deploy configuration, and `docs/`.
-- **From ThryX**: `project_structure`, `list_milestones`, the open
+- **From ThryX**: `project_structure`, `get_timeline`, the open
   epics, `list_documents`, and `list_statuses`.
 - Say which source each part came from. Where you can't tell, write
   "unknown" and ask, rather than smoothing it over. Where the two

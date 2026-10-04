@@ -1,6 +1,6 @@
 ---
 name: product-management
-description: Use when the user asks for product or project management work in ThryX - define, plan, review, or close a cycle or sprint; what's the status, a standup, weekly review, or post-release check; write a spec or PRD, record a decision (ADR), or write or refresh the project overview; break down an epic or rewrite a vague ticket; build or audit milestones and the client-facing macro board, including building a project's roadmap (milestones and client deliverables) from what its repository has shipped and plans.
+description: Use when the user asks for product or project management work in ThryX - define, plan, review, or close a cycle or sprint; what's the status, a standup, weekly review, or post-release check; write a spec or PRD, record a decision (ADR), or write or refresh the project overview; break down an epic or rewrite a vague ticket; build or audit the Roadmap a client reads (releases, promises and their criteria, outcomes, the public timeline link), including building a project's Roadmap from what its repository has shipped and plans.
 ---
 
 # Managing a product with ThryX
@@ -8,8 +8,8 @@ description: Use when the user asks for product or project management work in Th
 This skill is about doing the PM part of the work well: writing it down,
 keeping it current, following it up, and telling people the truth about
 where things stand. The thryx skill covers how the tools behave, and
-this skill leaves the mechanics to it, apart from the board's own
-mechanics in `references/client-board.md`. Read both.
+this skill leaves the mechanics to it, apart from the Roadmap's own
+mechanics in `references/roadmap.md`. Read both.
 
 ## You are not a persona
 
@@ -45,10 +45,11 @@ guess about the code as something you read.
 | The page that says what the project is | `references/project-doc.md` |
 | Defining a cycle: its goal, its tickets, its description, closing it | `references/cycle.md` |
 | Standup, weekly review, after a release | `references/follow-up.md` |
-| Milestones, the macro board, anything a client reads, or a roadmap built from the repository | `references/client-board.md` |
+| The Roadmap (releases, promises, criteria, outcomes, the public link), anything a client reads, or a Roadmap built from the repository | `references/roadmap.md` |
 
 The server also ships prompts for some of this work (`write_ticket`,
-`plan_cycle`, `organize_project`, `macro_board`, `project_status`; the
+`plan_cycle`, `organize_project`, `roadmap`, `macro_board`,
+`project_status`; the
 thryx skill lists them). They are the procedures ThryX's own assistant
 follows, written from the tracker alone. Use a prompt when it fits and
 add what the references here cover and it doesn't: the repository, and
@@ -74,8 +75,8 @@ document.
   person doesn't have to dig for it again.
 - **Cycles**: what the team committed to for a stretch of time. The
   cycle description holds the goal and, at the end, what happened.
-- **Milestones and the macro board**: the timeline and what the client
-  sees.
+- **The Roadmap**: releases, promises with their criteria, and
+  outcomes; the timeline the client reads.
 - **Project health** (`update_project` `health`): how the project is
   going (`on_track`, `at_risk`, or `off_track`), always with a reason.
   You propose it and the person sets it.
@@ -89,8 +90,8 @@ document.
   work is done. A status report says what changed for users, not how
   busy the team was.
 - **Planned work traces up.** When planning or reviewing, check that
-  each piece of the plan belongs to an epic, the epic backs a
-  deliverable, and the deliverable belongs to a milestone. A planned
+  each piece of the plan belongs to an epic, the epic backs an
+  outcome, and the outcome belongs to a promise. A planned
   item that traces to nothing is either not worth doing or a gap in the
   plan, so say which. Not all work traces up: bug fixes, operations, and
   internal debt often don't, and that's fine. Don't raise this on
