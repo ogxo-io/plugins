@@ -194,6 +194,12 @@ A background worker's permission prompt waits in the main session until someone 
 
 ## Step 8: parallel batches
 
+**Project policy first.** Before choosing a mode, read the project's
+`CLAUDE.md`, `AGENTS.md` and `.claude/ogxo-route.md` for a parallel-work or
+worktree rule (for example "one worktree per ticket"). A rule there wins
+over the defaults below and needs no extra confirmation; name it in the
+Batch table's mode column.
+
 Before dispatching more than one implementation task at a time, write a
 **Batch table** in the conversation, one row per task: task, writer (grok,
 codex, implementer), files it may edit, files that are off-limits because
@@ -238,7 +244,7 @@ When the board is off, the script prints a note and writes nothing.
 All writers edit the user's checkout. This is cheap and needs no setup.
 
 - Run tasks in parallel only when their file sets do not overlap. A task that shares a file with a running task waits for it.
-- At most two concurrent writers. grok's run state also contends beyond two runs.
+- At most two concurrent writers, and this cap is hard. When the user asks for more speed or more workers, the answer is an isolated batch, not a third writer in the shared tree. grok's run state also contends beyond two runs.
 - Watchers, hot reloaders, and dev servers that compile, apply, or generate from the working tree act on half-finished work: they can apply a draft migration (sqlx, Django, Prisma, goose, Alembic), run codegen or seeds, sync a schema, or rebuild bundles. On a shared database the damage outlives the task. Run tasks that touch migrations, schema, or generated artefacts in an isolated batch. Otherwise, before trusting E2E or integration results, check what was actually applied (the migration version table or checksums, with the project's own command).
 - Every worker brief lists the files it may edit and the off-limits files, says not to run git add, commit, stash, checkout, reset, or restore, and says to leave changes it did not make alone and report them.
 - A worker's own tests see the other runs' unfinished edits. Before committing a task, re-run typecheck, unit tests, and the relevant e2e specs on the combined tree.
@@ -251,7 +257,9 @@ user is editing the main checkout while the batch runs, when more than two
 writers should run at once, when tasks that overlap in files must still run
 in parallel, when a task touches migrations, schema, or generated artefacts
 while a watcher runs on the main checkout, or when the user wants the main
-tree untouched until a task is done. Ask before using it.
+tree untouched until a task is done. Ask before using it, unless the
+project's policy (above) already requires it or the user asked for more
+than two writers.
 
 1. Check free disk first: `df -Pk .`. Below 20 GiB free (20971520 in its Available column), stop and tell the user instead of creating the worktree (`.claude/ogxo-route.md` can set another threshold). One cold dependency build of a large project can take about 10 GiB; 20 GiB leaves room for one more build and test artefacts.
 2. Create the worktree from the current commit, so unpushed commits are included:

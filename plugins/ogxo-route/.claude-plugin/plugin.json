@@ -1,6 +1,6 @@
 {
   "name": "ogxo-route",
-  "version": "0.6.6",
+  "version": "0.6.7",
   "description": "Cost-aware routing for Claude Code: a routing skill and session-start summary that tell the main session which tier handles which task, worker subagents pinned to Sonnet or Haiku with explicit tool lists, hooks that warn when a generic subagent is dispatched without a model, log each dispatch and permission request, and count advisor calls, plus opt-in alerts when Claude Code waits on a permission prompt and an opt-in live HTML board of a session's agents and tool calls. Core-risk work and reviews stay at Opus or above; contained risk may run on Sonnet or grok and then gets the Opus review. Warns, never blocks. Claude Code only. Requires jq.",
   "author": {
     "name": "ogxo",
