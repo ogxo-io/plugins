@@ -29,7 +29,7 @@
     {
       "name": "thryx",
       "description": "Skills for ThryX project management over MCP: issues, projects, cycles, the client-facing Roadmap (releases, promises, outcomes, and its public link), and documents in the ThryX workspaces you connect, plus a product-management skill for writing tickets, PRDs, ADRs, and project docs and running follow-ups.",
-      "version": "0.5.0",
+      "version": "0.6.0",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"

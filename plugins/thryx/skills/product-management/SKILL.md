@@ -1,6 +1,6 @@
 ---
 name: product-management
-description: Use when the user asks for product or project management work in ThryX - define, plan, review, or close a cycle or sprint; what's the status, a standup, weekly review, or post-release check; write a spec or PRD, record a decision (ADR), or write or refresh the project overview; break down an epic or rewrite a vague ticket; build or audit the Roadmap a client reads (releases, promises and their criteria, outcomes, the public timeline link), including building a project's Roadmap from what its repository has shipped and plans.
+description: Use when the user asks for product or project management work in ThryX - define, plan, review, or close a cycle or sprint; replan or rebalance the cycles, triage the backlog, or redistribute open work across sprints; what's the status, a standup, weekly review, or post-release check; write a spec or PRD, record a decision (ADR), or write or refresh the project overview; break down an epic or rewrite a vague ticket; build or audit the Roadmap a client reads (releases, promises and their criteria, outcomes, the public timeline link), including building a project's Roadmap from what its repository has shipped and plans.
 ---
 
 # Managing a product with ThryX
@@ -44,6 +44,7 @@ guess about the code as something you read.
 | A decision and the reasons for it (an ADR) | `references/adr.md` |
 | The page that says what the project is | `references/project-doc.md` |
 | Defining a cycle: its goal, its tickets, its description, closing it | `references/cycle.md` |
+| Replanning across cycles: triage, what advances, what stays in the backlog, which cycle each ticket goes to, whether more cycles are needed | `references/replan.md` |
 | Standup, weekly review, after a release | `references/follow-up.md` |
 | The Roadmap (releases, promises, criteria, outcomes, the public link), anything a client reads, or a Roadmap built from the repository | `references/roadmap.md` |
 

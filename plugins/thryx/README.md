@@ -28,7 +28,8 @@ connects.
   tickets in KEY", or `/thryx:run-board`.
 - **`product-management`**: how to do the PM work well once the tools
   are in hand. It covers writing tickets, PRDs, ADRs, and the project
-  overview; running standups, weekly reviews, cycle planning and close,
+  overview; running standups, weekly reviews, cycle planning and close, a replan
+  of every open ticket across the cycles (`/thryx:replan [KEY]`),
   and post-release follow-ups; and keeping the client-facing
   Roadmap (releases, promises with their criteria, and outcomes) true. It reads the repository alongside the
   tracker, and it loads only when you ask for that kind of work.
