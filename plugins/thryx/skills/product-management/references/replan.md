@@ -50,15 +50,26 @@ Each ticket carries `blocked.by` with a `settled` flag per blocker and a
 
 ## 2. Audit the calendar
 
-Sort the cycles by `start_date`, not by number, and report:
+Sort the cycles by `start_date`, not by number, and look for:
 
-- cycles whose dates overlap;
-- a cycle marked completed whose end date hasn't arrived yet;
-- gaps: a planned cycle that doesn't start the day after the previous
-  one ends (`project_report` also flags these as `cycle_gap`);
-- no running cycle when the calendar says one should be running.
+- **Idle days ahead**: days before the next planned cycle starts that no
+  running cycle covers. Propose pulling the next cycle forward to start
+  the day after the last one finished, and the later cycles with it
+  (cycle.md, "Pull forward when it finishes early").
+- **A cycle that finished early**: it is marked completed while its end
+  date is still ahead. That is the team going faster than planned, not
+  a problem. It matters only because its dates still cover days nobody
+  is working in. Propose setting its end date to the day it closed,
+  together with the pull-forward above.
+- **Overlapping cycles**: they make the per-cycle rates in step 3
+  unreliable, so note them there. Past overlaps need no fix.
+- **Gaps between planned cycles**: a planned cycle that doesn't start
+  the day after the previous one ends (`project_report` also flags
+  these as `cycle_gap`).
 
-Report these; don't fix them in passing. A date change is part of the
+Idle days and gaps are planning debt, so they lead the proposal, each
+with its date change. A cycle that finished early is reported as good
+news. Don't change dates in passing: each date change is part of the
 proposal like any other write.
 
 ## 3. Work out the capacity
@@ -97,7 +108,11 @@ most recently:
   cycles you measured overlapped. Then each cycle's rate covers only
   part of what was done on those days, so use the project-wide rate.
 - **Who**: when `get_workload` shows one person holding most of the open
-  work, the capacity is that person's, and so is the risk. Say so.
+  work, the capacity is that person's. State it here, in one line. On a
+  project one person runs, that is how the project works, not news.
+  It is bad news only when the work could be spread and isn't: someone
+  over their share while another person has room, or planned tickets
+  with no owner.
 - **Intake**: put `created_by_day_14d` next to completions. Where
   tickets arrive about as fast as they close, part of every cycle is
   taken by work that doesn't exist yet. Propose a share to leave
@@ -200,8 +215,10 @@ plan. Where you have a recommendation the person can simply accept
 default and say it can be overridden. Keep the questions to the few
 that change the plan.
 
-1. **Bad news first**: calendar problems, promises at risk, high-priority
-   work left out, and one person carrying the plan.
+1. **Bad news first**: idle days and gaps in the calendar, promises at
+   risk, high-priority work left out, and load that could be spread
+   but isn't. Each item comes with its proposed fix. Good news, such as
+   cycles finishing early, gets one line after the bad news.
 2. **Capacity**: the table, the rate you used and its source, intake
    compared with completions, and the reserve.
 3. **Cycles**: one row per cycle (existing and new) giving its dates,
