@@ -282,7 +282,10 @@ expect "quota-watch: unrelated Bash does not mark" bash -c '! [ -e "$1" ]' _ "$d
 run_hook "$qw" 'not json'
 expect "quota-watch: garbage exits 0" [ "$code" -eq 0 ]
 
-out=$(cd "$tmp" && jq -nc --arg r "$grok402" '{tool_input:{subagent_type:"grok-build:grok-delegate"}, tool_response:$r}' | env -u CLAUDE_PLUGIN_DATA CLAUDE_PLUGIN_ROOT="$plugin" bash "$qw" 2>/dev/null)
+# A here-string, not a pipe: the hook exits without reading stdin, and a jq
+# still writing would hit a broken pipe that pipefail turns into a failure.
+payload=$(jq -nc --arg r "$grok402" '{tool_input:{subagent_type:"grok-build:grok-delegate"}, tool_response:$r}')
+out=$(cd "$tmp" && env -u CLAUDE_PLUGIN_DATA CLAUDE_PLUGIN_ROOT="$plugin" bash "$qw" <<<"$payload" 2>/dev/null)
 code=$?
 expect "quota-watch: no data dir exits 0" [ "$code" -eq 0 ]
 expect "quota-watch: no data dir writes nothing in cwd" [ ! -e "$tmp/external.json" ]
