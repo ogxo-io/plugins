@@ -292,8 +292,8 @@ Assistant: *Looks at git log directly, guesses at changes, generates PR based on
 
 **Correct:**
 ```
-Assistant: *Runs `python3 ${CLAUDE_PLUGIN_ROOT}/skills/pr-generator/scripts/analyze_pr_changes.py --pretty`*
-         *Runs `python3 ${CLAUDE_PLUGIN_ROOT}/skills/pr-generator/scripts/detect_pr_template.py --pretty`*
+Assistant: *Runs `python3 "<plugin-root>/skills/pr-generator/scripts/analyze_pr_changes.py" --pretty`*
+         *Runs `python3 "<plugin-root>/skills/pr-generator/scripts/detect_pr_template.py" --pretty`*
          *Generates PR based on comprehensive analysis*
 ```
 

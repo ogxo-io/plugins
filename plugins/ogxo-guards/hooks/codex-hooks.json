@@ -1,0 +1,52 @@
+{
+  "description": "Pattern-based hooks for sensitive git staging, generated file paths, and large Write content or added patch text. Supports Claude Code, Grok Build, and native Codex tool payloads. Requires jq; see README for limits.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v jq >/dev/null 2>&1 || { echo \"ogxo-guards/env-file-guard: jq not found; this hook is inactive. Install jq to enable it.\" >&2; exit 1; }; bash \"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/hooks/env-file-guard.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v jq >/dev/null 2>&1 || { echo \"ogxo-guards/file-protection: jq not found; this hook is inactive. Install jq to enable it.\" >&2; exit 1; }; bash \"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/hooks/file-guard.sh\" paths"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v jq >/dev/null 2>&1 || { echo \"ogxo-guards/large-file-guard: jq not found; this hook is inactive. Install jq to enable it.\" >&2; exit 1; }; bash \"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/hooks/file-guard.sh\" size"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v jq >/dev/null 2>&1 || { echo \"ogxo-guards/file-protection: jq not found; this hook is inactive. Install jq to enable it.\" >&2; exit 1; }; bash \"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/hooks/file-guard.sh\" paths"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v jq >/dev/null 2>&1 || { echo \"ogxo-guards/large-file-guard: jq not found; this hook is inactive. Install jq to enable it.\" >&2; exit 1; }; bash \"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/hooks/file-guard.sh\" size"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "ogxo-guards",
+  "version": "0.3.0",
+  "description": "Pattern-based hooks for sensitive git staging, generated file paths, and large Write content or added patch text. Supports Claude Code, Grok Build, and native Codex tool payloads. Requires jq; see README for limits.",
+  "author": {
+    "name": "ogxo",
+    "url": "https://github.com/ogxo-io"
+  },
+  "homepage": "https://github.com/ogxo-io/plugins",
+  "repository": "https://github.com/ogxo-io/plugins",
+  "license": "MIT",
+  "keywords": [
+    "hooks",
+    "safety",
+    "secrets",
+    "guardrails"
+  ],
+  "hooks": "./hooks/codex-hooks.json"
+}

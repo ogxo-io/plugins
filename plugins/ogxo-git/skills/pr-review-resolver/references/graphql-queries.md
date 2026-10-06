@@ -23,7 +23,7 @@ REPO="${REPO_FULL##*/}"
 
 ```bash
 # Option A: PR number provided as argument
-PR_NUMBER="$ARGUMENTS"
+PR_NUMBER="<resolved PR number>"  # Set from the user request or gh pr view output
 
 # Option B: Detect from current branch
 gh pr view --json number,title,url,state --jq '.number'

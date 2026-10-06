@@ -28,7 +28,7 @@ What is the user asking to do?
 
 ## Arguments
 
-- `$ARGUMENTS` — Optional PR number or URL. If omitted, detects from the current branch.
+- the user-provided PR number or URL — Optional PR number or URL. If omitted, detects from the current branch.
 
 ## Prerequisites
 
@@ -42,7 +42,7 @@ Resolve `$REPO_FULL` (format: `owner/repo`) using `gh repo view --json nameWithO
 
 ### Step 1: Identify the Pull Request
 
-Determine the PR from the argument (`$ARGUMENTS`), current branch (`gh pr view`), or ask the user. Verify the PR is open and the current branch matches. If not, warn the user.
+Determine the PR from the argument (the user-provided PR number or URL), current branch (`gh pr view`), or ask the user. Verify the PR is open and the current branch matches. If not, warn the user.
 
 ### Step 2: Fetch Unresolved Review Comments
 

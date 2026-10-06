@@ -1,0 +1,20 @@
+{
+  "name": "ogxo-format",
+  "version": "0.2.0",
+  "description": "Format edited files or native Codex patch destinations with available prettier, gofmt, rustfmt, or black, then report trailing whitespace and YAML syntax errors. Requires jq.",
+  "author": {
+    "name": "ogxo",
+    "url": "https://github.com/ogxo-io"
+  },
+  "homepage": "https://github.com/ogxo-io/plugins",
+  "repository": "https://github.com/ogxo-io/plugins",
+  "license": "MIT",
+  "keywords": [
+    "hooks",
+    "formatting",
+    "prettier",
+    "yaml",
+    "code-quality"
+  ],
+  "hooks": "./hooks/codex-hooks.json"
+}

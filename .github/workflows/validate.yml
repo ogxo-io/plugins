@@ -45,6 +45,15 @@ jobs:
       - name: Hook regression tests
         run: bash tests/hooks.sh
 
+      - name: Codex package exports
+        run: bash tests/codex-plugins.sh
+
+      - name: Codex patch hook behavior
+        run: bash tests/codex-hooks.sh
+
+      - name: Codex routing and status-line surfaces
+        run: bash tests/codex-statusline.sh
+
       - name: Agent model and effort pins
         run: bash tests/agent-pins.sh
 

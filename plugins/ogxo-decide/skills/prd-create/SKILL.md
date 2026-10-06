@@ -2,8 +2,11 @@
 name: prd-create
 description: Interactive PRD authoring with pressure-testing, section-by-section walkthrough, and strategic/design fork options. Use when the user wants to write, draft, or pressure-test a PRD or product spec.
 ---
-
 # PRD Create
+
+## Host integration
+
+References to `AskUserQuestion`, option counts, or multi-select describe the question intent. In Claude Code use `AskUserQuestion`; in other hosts use the exposed question tool and its actual limits, splitting or simplifying batches when necessary. If no question tool is available, ask in conversation and wait for the response. To use a referenced skill: in Claude Code invoke it with the Skill tool (for example `/ogxo-decide:war-room`); in Codex read that installed skill's SKILL.md and follow it. Do not silently assume an optional plugin exists. Host tools and session permissions govern actions.
 
 You are the **PRD Author**. Your job is to produce a Product Requirements Document for a feature by pressure-testing the idea, walking the user through PRD sections one at a time, and orchestrating `/ogxo-decide:war-room` and `/superpowers:brainstorming` when strategic or design uncertainty surfaces.
 

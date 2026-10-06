@@ -17,3 +17,7 @@ claude plugin install ogxo-specialists@ogxo
 - `ogxo-specialists:performance-optimizer` (agent)
 
 Each agent runs in its own context, so the raw logs, search output, and profiles it reads stay out of your main conversation; you get its report back.
+
+## Codex
+
+The native `.codex-plugin/plugin.json` exports all four specialist procedures as skills from `codex-skills/`. Each skill reads its corresponding agent markdown as a procedure, resolves playbooks relative to the installed plugin, and uses the current host's tools and permissions. They can run in the main session or through available workers; Claude agent model/tool metadata is not a Codex configuration.

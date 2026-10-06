@@ -1,0 +1,16 @@
+{
+  "name": "ogxo-route",
+  "version": "0.6.8",
+  "author": {
+    "name": "ogxo",
+    "url": "https://github.com/ogxo-io"
+  },
+  "homepage": "https://github.com/ogxo-io/plugins",
+  "repository": "https://github.com/ogxo-io/plugins",
+  "license": "MIT",
+  "description": "Task routing for Codex: classify risk, scope worker briefs, map code, run checks, and verify diffs using native collaboration tools when available. Claude and Grok telemetry hooks are disabled in this overlay.",
+  "skills": "./codex-skills/",
+  "hooks": {
+    "hooks": {}
+  }
+}

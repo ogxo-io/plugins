@@ -1,0 +1,22 @@
+{
+  "name": "ogxo-review",
+  "version": "0.4.1",
+  "description": "Code, security, dependency, and metrics review skills, with finding verification and local or GitHub PR review workflows.",
+  "author": {
+    "name": "ogxo",
+    "url": "https://github.com/ogxo-io"
+  },
+  "homepage": "https://github.com/ogxo-io/plugins",
+  "repository": "https://github.com/ogxo-io/plugins",
+  "license": "MIT",
+  "keywords": [
+    "code-review",
+    "security",
+    "github",
+    "pull-request",
+    "agents"
+  ],
+  "skills": [
+    "./codex-skills/"
+  ]
+}

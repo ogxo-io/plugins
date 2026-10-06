@@ -5,6 +5,10 @@ description: Browser and web app testing with Playwright. Auto-detects dev serve
 
 # Browser Testing Skill
 
+In Claude Code, `${CLAUDE_PLUGIN_ROOT}` and `${CLAUDE_PLUGIN_DATA}` in the commands below are already absolute paths, so they run as written. Elsewhere (Codex) they are not filled in: replace `${CLAUDE_PLUGIN_ROOT}` with the plugin root (two directories above this SKILL.md, the directory that contains `skills/browser-testing/scripts/run-playwright.js`), and omit `BROWSER_TESTING_HOME=...` so the runner uses its default data directory (in the manual install snippet, set `BT` to that default directory instead of `${CLAUDE_PLUGIN_DATA}/browser-testing`). Check a replaced root with `test -f "<plugin-root>/skills/browser-testing/scripts/run-playwright.js" || echo "wrong plugin root" >&2`. In `references/*.md`, `<plugin-root>` means the same root.
+
+Data directory: the runner uses `BROWSER_TESTING_HOME` when set, else `PLUGIN_DATA/browser-testing` when `PLUGIN_DATA` is set, else `${XDG_CACHE_HOME:-~/.cache}/ogxo-debug/browser-testing`. Host permissions govern package and browser downloads.
+
 ## Read This First
 
 **Before starting browser testing:**
@@ -22,7 +26,7 @@ Comprehensive browser testing using Playwright. Auto-detects running dev servers
 
 None needed. Run the runner from the project's directory; it takes Playwright from, in order:
 
-1. the plugin's data directory (`${CLAUDE_PLUGIN_DATA}/browser-testing`), once installed there;
+1. the data directory (`${CLAUDE_PLUGIN_DATA}/browser-testing` in Claude Code, the default above elsewhere), once installed there;
 2. the project it was started in: its `playwright` or `@playwright/test` package, when that version's Chromium is already downloaded (it prints "Using the project's Playwright");
 3. otherwise a one-time install into the data directory: `npm ci` of the pinned package files, then `npx playwright install chromium`. This downloads packages and a browser build; the runner says so on stderr. Parallel runs wait for one install instead of repeating it.
 
@@ -261,7 +265,7 @@ await browser.close();
 The runner prints why: `BROWSER_TESTING_NO_INSTALL=1` is set, or the one-time install failed (the npm or playwright output is above the message; often no network). Report that output instead of working around it with hand-written scripts.
 
 **Module not found:**
-Run scripts through run-playwright.js with `BROWSER_TESTING_HOME` set (as in the commands above), from the project's directory
+Run scripts through run-playwright.js with `BROWSER_TESTING_HOME` set as in the commands above (Claude Code), from the project's directory
 
 **Browser doesn't open:**
 Check `headless: false` and display available

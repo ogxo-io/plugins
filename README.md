@@ -53,17 +53,36 @@ codex plugin add ogxo-git@ogxo
 codex plugin add thryx@ogxo
 ```
 
-Start a new Codex session after installation. Installing a plugin does not
-establish that all of its Claude workflows work in Codex. Current support:
+To install the collection directly:
+
+```bash
+for plugin in ogxo-git ogxo-review ogxo-debug ogxo-decide ogxo-design ogxo-guards ogxo-specialists ogxo-statusline ogxo-route; do
+  codex plugin add "$plugin@ogxo"
+done
+```
+
+Start a new Codex session after installation. Each plugin now has an explicit
+Codex manifest. Claude commands and agent procedures are exposed as Codex
+skills with native tool instructions; they do not register Claude agent types.
+Current support:
 
 | Plugins | Codex support |
 |---|---|
 | `thryx` | Explicit Codex manifest and shared skills for both clients. |
-| `ogxo-git`, `ogxo-debug`, `ogxo-design`, `ogxo-decide` | Contain reusable skills; complete workflows, helper paths, and agent integrations still need Codex runtime verification. |
-| `ogxo-review`, `ogxo-specialists` | Claude agent definitions and dispatch instructions need Codex adaptation. |
-| `ogxo-guards`, `ogxo-format` | File hooks expect Claude's `file_path` or `content` fields; Codex patch inputs need adaptation. |
-| `ogxo-route`, `ogxo-statusline` | Claude-focused routing and Claude/Grok status line setup; no complete Codex implementation. |
-| `ogxo` | Bundle dependency installation has not been verified in Codex. Install the individual plugins you need. |
+| `ogxo-git`, `ogxo-debug`, `ogxo-design`, `ogxo-decide` | Shared skills with installed-path resolution; git commands and architecture advice also have Codex skills. Browser checks require an available browser tool or Playwright. |
+| `ogxo-review`, `ogxo-specialists` | Review workflows and specialist procedures exported as skills. Use native workers when available; disclose sequential fallback otherwise. GitHub workflows require `gh` authentication. |
+| `ogxo-guards`, `ogxo-format` | Hooks parse native shell and multi-file patch inputs, including moves and deletes. Review and trust the hook definitions in Codex before use. Patch size checks count added text, not final file size; shell edits bypass file hooks. Formatting is optional and rewrites files. |
+| `ogxo-route` | Native worker routing and seven worker procedures. Claude/Grok cost telemetry, alerts, and the live dashboard are not exported to Codex. |
+| `ogxo-statusline` | `setup-codex` uses the native `/statusline` picker. Claude/Grok custom shell renderers and cost bars are not available through Codex's footer. |
+| `ogxo` | Exports a `setup` skill that installs the collection through individual Codex CLI commands. Installing this package alone does not install the collection. |
+
+CI checks every package's Codex manifest, versions, and skill paths
+(`tests/codex-plugins.sh`). Loading through Codex's own plugin reader, including
+skill and hook discovery, is a manual check against an installed Codex CLI:
+`bash tests/codex-plugins.sh --runtime`. Either check verifies package loading; individual browser,
+GitHub, and worker workflows still depend on the tools and permissions of the
+session. The layouts and hook interfaces follow the
+[OpenAI plugin packaging documentation](https://developers.openai.com/plugins/build/plugins).
 
 ThryX ships Codex skills for connection, replanning, product management,
 working tickets, and running a board. Ask "connect ThryX workspace ogxo"
@@ -104,18 +123,18 @@ An open session keeps the versions it loaded: run `/reload-plugins` in it to app
 
 | Plugin | What it is | Status |
 |---|---|---|
-| `ogxo` | The bundle: installs every plugin below except `thryx` and `ogxo-format`. No skills or hooks of its own. | 0.1.3 |
+| `ogxo` | The collection: Claude dependency bundle; Codex setup skill installs members individually. Excludes `thryx` and `ogxo-format` by default. | 0.1.4 |
 | `thryx` | Skills for the hosted ThryX MCP server, vendored in this repo (`plugins/thryx`): issues, projects, cycles, the client-facing Roadmap, and documents. `/thryx:connect <workspace>` connects each ThryX workspace as its own MCP server (on macOS the token goes into your Keychain through a dialog), so one install covers several companies. | 0.6.2 |
-| `ogxo-review` | Multi-agent code review: `/ogxo-review:full-review` cross-correlates reviewers and has finding-verifier check every finding; `/ogxo-review:code-review-git` posts line-level findings as a GitHub PR review and answers other reviewers' comments. Bundles the code-review-agent, security-auditor, code-metrics-analyst, dependency-auditor, and finding-verifier agents (code-review-git verifies every finding before it is shown); `/ogxo-review:security-check` for a focused security pass. | 0.4.0 |
-| `ogxo-git` | Conventional Commit messages, PR titles/descriptions with template detection, resolving PR review threads (its workflow instructs it to present its analysis and wait for approval before replying or resolving), `/ogxo-git:catchup` to restore branch context, plus release, quick-fix, and ship-feature workflows and changelog/release-notes skills. | 0.2.5 |
-| `ogxo-debug` | `live-debug`: reproduce a web-app bug in the browser, read console and network errors, fix, and verify in the page; `css-alignment-debug` injects temporary outline overlays and reads a screenshot to find stubborn layout bugs. Also `browser-testing` for Playwright test scripts. | 0.3.4 |
-| `ogxo-decide` | `war-room`: multi-persona deliberation for hard-to-reverse decisions — game-theory lenses, red-team pass, a portfolio of options rather than a single winner; `prd-create` (PRDs, optionally saved to ThryX), `task-architect`, and the architecture-advisor agent. Also `diagram-generator` for Mermaid diagrams. | 0.3.4 |
-| `ogxo-design` | `recolor`: audit an app's colors and implement an accessible, token-based color system, with contrast ratios computed by a bundled script. | 0.1.1 |
-| `ogxo-guards` | Hooks that reject a `git add` whose pathspecs, or for broad adds the files git status lists, include .env, key, certificate, or credentials files, Edit/Write calls on lock files and node_modules/vendor/.git paths, and single writes over 1,048,576 characters. Pattern-based; see its README for what each does not catch. Requires `jq`. | 0.2.0 |
-| `ogxo-format` | Hooks that format each edited file with prettier, gofmt, rustfmt, or black when found, report trailing whitespace back to Claude, and check YAML syntax. Opt-in: auto-format rewrites whole files. Requires `jq`. | 0.1.1 |
-| `ogxo-specialists` | Subagents that take a noisy job and return one structured report: `log-analyst` (logs → root cause), `codebase-archaeologist` (map a legacy system), `performance-optimizer` (measure, fix by impact, re-measure), `migration-specialist` (breaking changes, phased plan with rollback points). | 0.1.5 |
-| `ogxo-statusline` | Status line for Claude Code and Grok Build: model, context use, git branch and changes, session time, effort, output tokens, and session cost. Claude Code also shows thinking, prompt-cache state, and 5-hour / 7-day usage bars. Grok Build uses the live context window, session output and cache-read share, and the active turn. `/ogxo-statusline:setup` installs the Claude line; `/ogxo-statusline:setup-grok` installs the Grok line. Requires `jq`. | 0.2.6 |
-| `ogxo-route` | Cost-aware routing for Claude Code: a routing skill and session-start summary, Sonnet/Haiku worker subagents (scout, test-runner, verifier, implementer, implementer-risky, log-extractor, e2e-runner), and hooks that warn on generic subagents dispatched without a model, log each dispatch and permission request, and count advisor calls (`/ogxo-route:stats`). Opt-in: desktop or push alerts when Claude Code waits on a permission prompt (`/ogxo-route:alerts`), and a live HTML board of a session's agents and tool calls (`/ogxo-route:dashboard`). Core-risk work and reviews stay at Opus or above; contained risk may run on Sonnet or grok and then gets the Opus review. Warns, never blocks. Requires `jq`. | 0.6.6 |
+| `ogxo-review` | Multi-agent code review: `/ogxo-review:full-review` cross-correlates reviewers and has finding-verifier check every finding; `/ogxo-review:code-review-git` posts line-level findings as a GitHub PR review and answers other reviewers' comments. Bundles the code-review-agent, security-auditor, code-metrics-analyst, dependency-auditor, and finding-verifier agents (code-review-git verifies every finding before it is shown); `/ogxo-review:security-check` for a focused security pass. | 0.4.1 |
+| `ogxo-git` | Conventional Commit messages, PR titles/descriptions with template detection, resolving PR review threads (its workflow instructs it to present its analysis and wait for approval before replying or resolving), `/ogxo-git:catchup` to restore branch context, plus release, quick-fix, and ship-feature workflows and changelog/release-notes skills. | 0.2.6 |
+| `ogxo-debug` | `live-debug`: reproduce a web-app bug in the browser, read console and network errors, fix, and verify in the page; `css-alignment-debug` injects temporary outline overlays and reads a screenshot to find stubborn layout bugs. Also `browser-testing` for Playwright test scripts. | 0.3.5 |
+| `ogxo-decide` | `war-room`: multi-persona deliberation for hard-to-reverse decisions — game-theory lenses, red-team pass, a portfolio of options rather than a single winner; `prd-create` (PRDs, optionally saved to ThryX), `task-architect`, and the architecture-advisor agent. Also `diagram-generator` for Mermaid diagrams. | 0.3.5 |
+| `ogxo-design` | `recolor`: audit an app's colors and implement an accessible, token-based color system, with contrast ratios computed by a bundled script. | 0.1.2 |
+| `ogxo-guards` | Hooks that reject a `git add` whose pathspecs, or for broad adds the files git status lists, include .env, key, certificate, or credentials files, Edit/Write calls on lock files and node_modules/vendor/.git paths, and single writes over 1,048,576 characters. Pattern-based; see its README for what each does not catch. Requires `jq`. | 0.3.0 |
+| `ogxo-format` | Hooks that format each edited file with prettier, gofmt, rustfmt, or black when found, report trailing whitespace to the host, and check YAML syntax. Supports Codex multi-file patches. Opt-in: auto-format rewrites whole files. Requires `jq`. | 0.2.0 |
+| `ogxo-specialists` | Subagents that take a noisy job and return one structured report: `log-analyst` (logs → root cause), `codebase-archaeologist` (map a legacy system), `performance-optimizer` (measure, fix by impact, re-measure), `migration-specialist` (breaking changes, phased plan with rollback points). | 0.1.6 |
+| `ogxo-statusline` | Status line for Claude Code and Grok Build: model, context use, git branch and changes, session time, effort, output tokens, and session cost. Claude Code also shows thinking, prompt-cache state, and 5-hour / 7-day usage bars. Grok Build uses the live context window, session output and cache-read share, and the active turn. `/ogxo-statusline:setup` installs the Claude line; `/ogxo-statusline:setup-grok` installs the Grok line; `setup-codex` configures the native Codex footer. Shell renderers require `jq`. | 0.2.7 |
+| `ogxo-route` | Cost-aware routing for Claude Code: a routing skill and session-start summary, Sonnet/Haiku worker subagents (scout, test-runner, verifier, implementer, implementer-risky, log-extractor, e2e-runner), and hooks that warn on generic subagents dispatched without a model, log each dispatch and permission request, and count advisor calls (`/ogxo-route:stats`). Opt-in: desktop or push alerts when Claude Code waits on a permission prompt (`/ogxo-route:alerts`), and a live HTML board of a session's agents and tool calls (`/ogxo-route:dashboard`). Core-risk work and reviews stay at Opus or above; contained risk may run on Sonnet or grok and then gets the Opus review. Warns, never blocks. Claude/Grok telemetry requires `jq`; Codex exports native routing and worker procedures. | 0.6.8 |
 
 Plugins backed by a product (an MCP server or binary) pin to a release tag and
 commit sha in that product's repository. Content-only plugins — skills, agents,

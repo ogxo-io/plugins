@@ -1,0 +1,23 @@
+{
+  "name": "ogxo-decide",
+  "version": "0.3.5",
+  "description": "Decision and planning skills for architecture advice, task prompts, diagrams, PRDs, and multi-perspective war rooms.",
+  "author": {
+    "name": "ogxo",
+    "url": "https://github.com/ogxo-io"
+  },
+  "homepage": "https://github.com/ogxo-io/plugins",
+  "repository": "https://github.com/ogxo-io/plugins",
+  "license": "MIT",
+  "keywords": [
+    "decision-making",
+    "architecture",
+    "strategy",
+    "red-team",
+    "agents"
+  ],
+  "skills": [
+    "./skills/",
+    "./codex-skills/"
+  ]
+}

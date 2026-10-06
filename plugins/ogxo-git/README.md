@@ -20,3 +20,7 @@ claude plugin install ogxo-git@ogxo
 - `/ogxo-git:release` (command)
 - `/ogxo-git:quick-fix` (command)
 - `/ogxo-git:ship-feature [--no-gates] [base]` (command): security review, tests, and build, then branch (when on the default branch), commit what you staged, push, and open the PR with `pr-generator`, after one confirmation. `--no-gates` skips the checks for work already tested.
+
+## Codex
+
+The native `.codex-plugin/plugin.json` exports the existing skills plus `catchup`, `quick-fix`, `ship-feature`, and `release` from `codex-skills/`. Invoke them as skills or describe the task in conversation; Claude slash-command preprocessing is not used. Helper paths come from the loaded skill location. GitHub operations need an authenticated `gh`; release/build/test tools come from the project.

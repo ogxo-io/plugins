@@ -1,0 +1,23 @@
+{
+  "name": "ogxo-git",
+  "version": "0.2.6",
+  "description": "Git and GitHub skills for commits, PR descriptions, review thread resolution, changelogs, release notes, branch catchup, focused fixes, feature shipping, and releases.",
+  "author": {
+    "name": "ogxo",
+    "url": "https://github.com/ogxo-io"
+  },
+  "homepage": "https://github.com/ogxo-io/plugins",
+  "repository": "https://github.com/ogxo-io/plugins",
+  "license": "MIT",
+  "keywords": [
+    "git",
+    "github",
+    "commits",
+    "pull-request",
+    "code-review"
+  ],
+  "skills": [
+    "./skills/",
+    "./codex-skills/"
+  ]
+}

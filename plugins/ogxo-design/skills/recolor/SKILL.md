@@ -2,8 +2,9 @@
 name: recolor
 description: Audit an application's color usage and design, then implement a cohesive, accessible, token-based color system grounded in color theory. Use when the user wants to improve or unify UI colors, redesign a palette, fix contrast or WCAG color issues, add or repair dark mode, or evaluate or replace a brand color.
 ---
-
 # Recolor
+
+In Claude Code, `${CLAUDE_PLUGIN_ROOT}` in the commands below is already the plugin's absolute path. Elsewhere (Codex) it is not filled in: replace it with the plugin root, two directories above this SKILL.md. Quote expanded paths.
 
 You are a senior product designer, color-theory specialist, accessibility
 expert, and design-systems engineer. Your job is to determine what this
@@ -42,10 +43,10 @@ it): `audit` fills sections 1–2, `propose` sections 1–4.
    takes opaque 3- or 6-digit hex only: convert other notations to hex first,
    and composite colors with alpha over their actual background (say so in
    the report).
-3. ✅ **Paths in this skill are relative to its base directory** (printed when
-   the skill loads — `${CLAUDE_PLUGIN_ROOT}/skills/recolor/`). When working
+3. ✅ **Paths in this skill are relative to its base directory** (the skill directory is
+   `${CLAUDE_PLUGIN_ROOT}/skills/recolor/`; in `references/*.md`, `<plugin-root>` means `${CLAUDE_PLUGIN_ROOT}`). When working
    inside a target repo, invoke the script by that absolute path, e.g.
-   `python3 ${CLAUDE_PLUGIN_ROOT}/skills/recolor/scripts/color_tools.py check '#777' '#fff'`.
+   `python3 "${CLAUDE_PLUGIN_ROOT}/skills/recolor/scripts/color_tools.py" check '#777' '#fff'`.
    Load `references/*.md` per phase as instructed below — don't re-derive what
    they contain, don't load them all upfront.
 4. ✅ **Honest verification.** Report only checks actually run, with exact

@@ -4,8 +4,9 @@ description: Generate PR titles and descriptions by analyzing commits and file c
 allowed-tools: Bash(git log:*), Bash(git diff:*), Bash(git status:*), Bash(git push:*), Bash(python3:*), Bash(gh pr:*), Read, Glob, Grep
 effort: low
 ---
-
 # PR Generator
+
+In Claude Code, `${CLAUDE_PLUGIN_ROOT}` in the commands below is already the plugin's absolute path. Elsewhere (Codex) it is not filled in: replace it with the plugin root, two directories above this SKILL.md. In `references/*.md`, `<plugin-root>` means `${CLAUDE_PLUGIN_ROOT}`. Quote expanded paths.
 
 ## Rules
 
@@ -23,7 +24,7 @@ This skill generates comprehensive, professional pull request titles and descrip
 Run the analysis script to gather branch info, commits, file changes, and status:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/pr-generator/scripts/analyze_pr_changes.py --pretty
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/pr-generator/scripts/analyze_pr_changes.py" --pretty
 ```
 
 **Output (JSON):** branch info (current/base, plus the issue key extracted from the branch name, e.g. `PROJ-123` from `PROJ-123-feature-branch`); commit analysis (parsed Conventional Commits types/scopes/subjects, most common type, scope frequency, breaking-change detection, counts); file changes (added/modified/deleted/renamed, categorized as code/tests/docs/config/styles/build/ci, with insertion/deletion stats); and branch status (has remote tracking, needs push).
@@ -33,7 +34,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/skills/pr-generator/scripts/analyze_pr_changes.py 
 Run this every time — repository templates often have required sections that must be included.
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/pr-generator/scripts/detect_pr_template.py --pretty
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/pr-generator/scripts/detect_pr_template.py" --pretty
 ```
 
 Checks common locations: `.github/PULL_REQUEST_TEMPLATE.md`, `.github/PULL_REQUEST_TEMPLATE/`, `.github/pull_request_template.md`, `PULL_REQUEST_TEMPLATE.md`, `docs/PULL_REQUEST_TEMPLATE.md`.
@@ -61,7 +62,7 @@ Generate a Conventional Commits title using the **most common commit type** from
 
 ### Step 4: Generate PR Description
 
-**4a. Load template:** if a repository template exists, get its content with `python3 ${CLAUDE_PLUGIN_ROOT}/skills/pr-generator/scripts/detect_pr_template.py --content-only`; otherwise use `${CLAUDE_PLUGIN_ROOT}/skills/pr-generator/assets/pr-template-default.md`.
+**4a. Load template:** if a repository template exists, get its content with `python3 "${CLAUDE_PLUGIN_ROOT}/skills/pr-generator/scripts/detect_pr_template.py" --content-only`; otherwise use `${CLAUDE_PLUGIN_ROOT}/skills/pr-generator/assets/pr-template-default.md`.
 
 **4b. Fill sections:**
 - **Summary** (always required) — 2-3 sentences: what changed (high-level), why (motivation), and impact on users/system.

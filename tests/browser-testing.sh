@@ -127,5 +127,27 @@ expect "unwritable data dir: does not hang" [ "$hung" -eq 0 ]
 expect "unwritable data dir: exit 1" [ "$code" -ne 0 ]
 expect "unwritable data dir: says the install failed" grep -q 'one-time install failed' "$tmp/ro-out"
 
+# Data directory resolution: BROWSER_TESTING_HOME, then PLUGIN_DATA, then the cache;
+# CLAUDE_PLUGIN_DATA (possibly another plugin's) and an unfilled "/browser-testing" are ignored.
+homeprobe='console.log(1)'
+resolve() { # resolve [VAR=value ...]: the data dir the runner chose, in $out
+  out=$(cd "$tmp" && env -u BROWSER_TESTING_HOME -u PLUGIN_DATA -u CLAUDE_PLUGIN_DATA -u XDG_CACHE_HOME \
+    HOME="$tmp/fakehome" BROWSER_TESTING_NO_INSTALL=1 PATH="$stubs:$PATH" CALLS="$tmp/calls" "$@" \
+    node "$runner" "$homeprobe" 2>&1)
+  out=$(printf '%s\n' "$out" | sed -n 's/.*not in \(.*\) nor in the project.*/\1/p')
+}
+real() { printf "%s\n" "$1"; }
+resolve BROWSER_TESTING_HOME="$tmp/explicit"
+expect "home: BROWSER_TESTING_HOME wins" [ "$out" = "$(real "$tmp/explicit")" ]
+resolve BROWSER_TESTING_HOME=/browser-testing PLUGIN_DATA="$tmp/pd"
+expect "home: '/browser-testing' is ignored, PLUGIN_DATA used" [ "$out" = "$(real "$tmp/pd/browser-testing")" ]
+resolve PLUGIN_DATA="$tmp/pd"
+expect "home: PLUGIN_DATA/browser-testing" [ "$out" = "$(real "$tmp/pd/browser-testing")" ]
+resolve CLAUDE_PLUGIN_DATA="$tmp/leaked"
+expect "home: CLAUDE_PLUGIN_DATA is never read" [ "$out" = "$(real "$tmp/fakehome/.cache/ogxo-debug/browser-testing")" ]
+expect "home: leaked CLAUDE_PLUGIN_DATA dir not created" [ ! -e "$tmp/leaked" ]
+resolve BROWSER_TESTING_HOME=/browser-testing XDG_CACHE_HOME="$tmp/xdg"
+expect "home: '/browser-testing' falls back to XDG_CACHE_HOME" [ "$out" = "$(real "$tmp/xdg/ogxo-debug/browser-testing")" ]
+
 echo "browser-testing tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

@@ -2,8 +2,11 @@
 name: war-room
 description: Multi-persona deliberation for high-stakes decisions. Game-theory lenses, red-team passes, Pareto-marked options, no single winner. Use when facing a hard-to-reverse choice (build vs buy, framework or vendor pick, deprecation timing, architecture one-way doors) or when the user says "war room this", "should we X or Y", or "let's deliberate".
 ---
-
 # War Room
+
+## Host integration
+
+References to `AskUserQuestion`, option counts, or multi-select describe the question intent. In Claude Code use `AskUserQuestion`; in other hosts use the exposed question tool and its actual limits, splitting or simplifying batches when necessary. If no question tool is available, ask in conversation and wait for the response. To use a referenced skill: in Claude Code invoke it with the Skill tool (for example `/ogxo-decide:war-room`); in Codex read that installed skill's SKILL.md and follow it. Do not silently assume an optional plugin exists. Host tools and session permissions govern actions.
 
 You are the **War Room facilitator**. Convene multi-persona deliberation, surface competing options, apply game-theory lenses, stress-test the strongest options with red-team agents, and produce a structured multi-option report. **You never declare a winner.** The user retains the final decision.
 
@@ -101,15 +104,13 @@ The decisions most damaged by skipping war-room are the ones that *felt* small. 
 
 ## Phase 1 — Independent Ideation (parallel sub-agent dispatch)
 
-Dispatch each persona as a separate sub-agent (Claude Code: `Agent` with `subagent_type: general-purpose`) in a **single message** (multiple tool calls in one block — required for true parallelism). Each persona gets ONLY:
+Dispatch each persona as a separate sub-agent in a **single message** (multiple tool calls in one block, required for true parallelism). In Claude Code use the `Agent` tool with `subagent_type: general-purpose`; in Codex use its native subagents with a plain task prompt. Respect the session's concurrency limit and queue excess personas. If no parallel subagents are available, evaluate the personas sequentially in separate passes without re-reading earlier ones, and disclose in the report's Open Questions that the views were not independent. Each persona gets ONLY:
 
 - The decision question + framing from Phase 0 (constraints, success criteria, deadline)
 - Their persona brief from `references/personas.md` (role, worldview, must-say stances)
 - The response template (from `references/personas.md`)
 
 Personas do not see each other's positions; this prevents anchoring.
-
-If the host has no sub-agent tool, draft each persona in turn without re-reading the earlier ones, and note in the report's Open Questions that isolation was not possible.
 
 **Per-persona prompt template:**
 
@@ -197,7 +198,7 @@ If the user picks **stop** → jump directly to Phase 4 with no Phase 3 outputs 
 
 ## Phase 3 — Adversarial Stress Test (parallel sub-agent dispatch)
 
-**Skip on `--depth quick`.** Otherwise dispatch one red-team agent per top option, in a single message (parallel).
+**Skip on `--depth quick`.** Otherwise dispatch one red-team agent per top option, in a single message (parallel), using the same host tools, concurrency limits, and sequential fallback as Phase 1.
 
 **Per red-team prompt template:**
 

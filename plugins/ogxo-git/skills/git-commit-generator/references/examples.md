@@ -7,7 +7,7 @@ This document provides detailed examples of how to use the git-commit-generator 
 **User Request:** "I've added JWT authentication to the API. Can you create a commit message?"
 
 **Process:**
-1. Run analysis: `python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-commit-generator/scripts/analyze_changes.py`
+1. Run analysis: `python3 "<plugin-root>/skills/git-commit-generator/scripts/analyze_changes.py"`
 2. Review staged files: `src/auth/jwt.js`, `src/middleware/auth.js`, `tests/auth.test.js`
 3. Determine type: `feat` (new feature)
 4. Determine scope: `auth` (authentication module)

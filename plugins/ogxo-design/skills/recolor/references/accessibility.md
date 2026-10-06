@@ -46,8 +46,8 @@ Run:
 
 ```bash
 # color_tools.py lives in this skill's install dir, not the target repo
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/recolor/scripts/color_tools.py matrix docs/recolor/contrast-light.json
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/recolor/scripts/color_tools.py matrix docs/recolor/contrast-dark.json
+python3 "<plugin-root>/skills/recolor/scripts/color_tools.py" matrix docs/recolor/contrast-light.json
+python3 "<plugin-root>/skills/recolor/scripts/color_tools.py" matrix docs/recolor/contrast-dark.json
 ```
 
 Exit code 1 means at least one AA failure — fix the token values (usually by
@@ -71,7 +71,7 @@ For every pair of colors users must *tell apart* (not read text on — status
 colors vs. each other, adjacent chart series, on/off states):
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/recolor/scripts/color_tools.py cvd '#16a34a' '#dc2626'
+python3 "<plugin-root>/skills/recolor/scripts/color_tools.py" cvd '#16a34a' '#dc2626'
 ```
 
 The tool simulates protanopia, deuteranopia, and tritanopia (Machado et al.

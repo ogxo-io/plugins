@@ -11,7 +11,7 @@ readme="$root/README.md"
 want=$(jq -r '.plugins[] | "\(.name) \(.version)"' "$catalog" | sort)
 # Rows look like: | `name` | description | version |
 # shellcheck disable=SC2016 # the backticks are literal, not command substitution
-have=$(grep -E '^\| `[^`]+` \|' "$readme" | awk -F'|' '{
+have=$(awk '/^## Plugins$/ { table = 1; next } /^## / { table = 0 } table' "$readme" | grep -E '^\| `[^`]+` \|' | awk -F'|' '{
   name = $2; gsub(/[ `]/, "", name)
   ver = $(NF - 1); gsub(/ /, "", ver)
   print name " " ver

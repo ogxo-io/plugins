@@ -1,0 +1,16 @@
+{
+  "name": "ogxo-statusline",
+  "version": "0.2.7",
+  "author": {
+    "name": "ogxo",
+    "url": "https://github.com/ogxo-io"
+  },
+  "homepage": "https://github.com/ogxo-io/plugins",
+  "repository": "https://github.com/ogxo-io/plugins",
+  "license": "MIT",
+  "description": "Set up the native Codex CLI status line through /statusline: model and reasoning, context, git branch, rate limits, and token counters supplied by Codex.",
+  "skills": "./codex-skills/",
+  "hooks": {
+    "hooks": {}
+  }
+}

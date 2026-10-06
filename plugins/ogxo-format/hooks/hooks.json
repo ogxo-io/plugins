@@ -1,5 +1,5 @@
 {
-  "description": "Formatting hooks after every Edit/Write: format the changed file with prettier, gofmt, rustfmt, or black when found, whether or not the project uses that formatter; report trailing whitespace back to Claude; and check YAML syntax. Requires jq.",
+  "description": "Format edited files or native Codex patch destinations with available prettier, gofmt, rustfmt, or black, then report trailing whitespace and YAML syntax errors. Requires jq.",
   "hooks": {
     "PostToolUse": [
       {
@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "command -v jq >/dev/null 2>&1 || { echo \"ogxo-format: jq not found; this hook is inactive. Install jq to enable it.\" >&2; exit 1; }; f=$(jq -r '.tool_input.file_path // empty'); [ -n \"$f\" ] && [ -f \"$f\" ] || exit 0; case \"$f\" in *.js|*.jsx|*.ts|*.tsx|*.json|*.css|*.scss|*.md|*.html|*.yaml|*.yml) npx --no-install prettier --write \"$f\" >/dev/null 2>&1 || true ;; *.go) gofmt -w \"$f\" 2>/dev/null || true ;; *.rs) rustfmt \"$f\" 2>/dev/null || true ;; *.py) black --quiet \"$f\" 2>/dev/null || true ;; esac; problems=''; case \"$f\" in *.md|*.markdown|*.diff|*.patch) ;; *) lines=$(grep -nE '[[:blank:]]+$' \"$f\" 2>/dev/null | head -5); [ -n \"$lines\" ] && problems=\"Trailing whitespace in $f — remove it (line:content): $(printf '%s' \"$lines\" | tr '\\n' ' ')\" ;; esac; case \"$f\" in *.yml|*.yaml) if python3 -c 'import yaml' 2>/dev/null; then err=$(python3 -c 'import sys,yaml\ntry:\n    list(yaml.compose_all(open(sys.argv[1]), Loader=yaml.SafeLoader))\nexcept yaml.YAMLError as e:\n    print(e); sys.exit(1)' \"$f\" 2>&1) || problems=\"${problems:+$problems\n}YAML syntax error in $f: $err\"; fi ;; esac; [ -z \"$problems\" ] || { printf '%s\\n' \"$problems\" >&2; exit 2; }"
+            "command": "command -v jq >/dev/null 2>&1 || { echo \"ogxo-format: jq not found; this hook is inactive. Install jq to enable it.\" >&2; exit 1; }; bash \"${CLAUDE_PLUGIN_ROOT}/hooks/format.sh\""
           }
         ]
       }

@@ -1,7 +1,7 @@
 {
   "name": "ogxo-guards",
-  "version": "0.2.0",
-  "description": "Safety hooks: reject a `git add` that would stage a .env, key, certificate, or credentials file (the pathspecs it names, and for broad adds what git status lists), reject Edit/Write calls on lock files and on node_modules/, vendor/, and .git/ paths, and reject single file writes over 1,048,576 characters. Pattern-based, so it does not catch everything; see the README. Requires jq.",
+  "version": "0.3.0",
+  "description": "Pattern-based hooks for sensitive git staging, generated file paths, and large Write content or added patch text. Supports Claude Code, Grok Build, and native Codex tool payloads. Requires jq; see README for limits.",
   "author": {
     "name": "ogxo",
     "url": "https://github.com/ogxo-io"

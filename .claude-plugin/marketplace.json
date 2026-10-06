@@ -12,8 +12,8 @@
   "plugins": [
     {
       "name": "ogxo",
-      "description": "The ogxo plugin set in one install: code review, git and GitHub workflows, browser debugging, decision and planning skills, color-system design, safety hooks, specialist subagents, the status line, and model routing. Installing it installs each of those plugins; thryx (needs a ThryX account) and ogxo-format (rewrites every file Claude edits) are left out and install on their own.",
-      "version": "0.1.3",
+      "description": "The ogxo plugin set in one install: code review, git and GitHub workflows, browser debugging, decision and planning skills, color-system design, safety hooks, specialist subagents, the status line, and model routing. Installing it installs each of those plugins; thryx (needs a ThryX account) and ogxo-format (rewrites every file Claude edits) are left out and install on their own. In Codex, a setup skill installs the members one at a time.",
+      "version": "0.1.4",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -48,7 +48,7 @@
     {
       "name": "ogxo-review",
       "description": "Multi-agent code review: full-review cross-correlates several reviewers and has the finding-verifier agent check every finding; code-review-git posts line-level findings as a GitHub PR review and answers other reviewers' comments. Bundles the code-review-agent, security-auditor, code-metrics-analyst, and finding-verifier agents; code-review-git verifies every finding before it is shown. Also security-check, a focused security review of a branch, and the dependency-auditor agent.",
-      "version": "0.4.0",
+      "version": "0.4.1",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -67,7 +67,7 @@
     {
       "name": "ogxo-git",
       "description": "Git and GitHub workflow skills: Conventional Commit messages, PR titles and descriptions with template detection, resolving PR review threads (its workflow instructs it to present its analysis and wait for approval before replying or resolving), and a catchup command to restore branch context. Also release, quick-fix, and ship-feature workflows, and changelog-generator and release-notes skills.",
-      "version": "0.2.5",
+      "version": "0.2.6",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -86,7 +86,7 @@
     {
       "name": "ogxo-debug",
       "description": "Debug a running web app by driving the browser: reproduce the symptom, read console and network errors, fix, and verify in the page. Also css-alignment-debug, which injects temporary outline overlays and reads a screenshot of the rendered page for layout bugs that won't resolve from reading source. Also browser-testing: Playwright test scripts with dev-server detection; Playwright installs into the plugin's data directory during a one-time setup.",
-      "version": "0.3.4",
+      "version": "0.3.5",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -105,7 +105,7 @@
     {
       "name": "ogxo-decide",
       "description": "War room: multi-persona deliberation for hard-to-reverse decisions, with game-theory lenses, a red-team pass, and a portfolio of options instead of a single winner. Also prd-create (section-by-section PRDs with pressure-testing, optionally saved to ThryX as a document plus epic and stories), task-architect (turns an idea into an agent-ready prompt), and the architecture-advisor agent. Also diagram-generator: Mermaid diagrams from a description or from the codebase.",
-      "version": "0.3.4",
+      "version": "0.3.5",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -124,7 +124,7 @@
     {
       "name": "ogxo-design",
       "description": "Recolor: audit an app's color usage, then implement a cohesive, accessible, token-based color system grounded in color theory, with contrast ratios computed by a bundled script.",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -143,8 +143,8 @@
     },
     {
       "name": "ogxo-guards",
-      "description": "Safety hooks: reject a `git add` that would stage a .env, key, certificate, or credentials file (the pathspecs it names, and for broad adds what git status lists), reject Edit/Write calls on lock files and on node_modules/, vendor/, and .git/ paths, and reject single file writes over 1,048,576 characters. Pattern-based, so it does not catch everything; see the README. Requires jq.",
-      "version": "0.2.0",
+      "description": "Pattern-based hooks for sensitive git staging, generated file paths, and large Write content or added patch text. Supports Claude Code, Grok Build, and native Codex tool payloads. Requires jq; see README for limits.",
+      "version": "0.3.0",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -161,8 +161,8 @@
     },
     {
       "name": "ogxo-format",
-      "description": "Formatting hooks after every Edit/Write: format the changed file with prettier, gofmt, rustfmt, or black when found, whether or not the project uses that formatter; report trailing whitespace back to Claude; and check YAML syntax. Requires jq.",
-      "version": "0.1.1",
+      "description": "Format edited files or native Codex patch destinations with available prettier, gofmt, rustfmt, or black, then report trailing whitespace and YAML syntax errors. Requires jq.",
+      "version": "0.2.0",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -181,7 +181,7 @@
     {
       "name": "ogxo-specialists",
       "description": "Specialist subagents that take a noisy job and return one structured report: log-analyst (correlate logs to a root cause), codebase-archaeologist (map an unfamiliar or legacy system), performance-optimizer (measure, fix by impact, re-measure), and migration-specialist (breaking-change catalog and a phased plan with rollback points).",
-      "version": "0.1.5",
+      "version": "0.1.6",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -199,8 +199,8 @@
     },
     {
       "name": "ogxo-statusline",
-      "description": "Status line for Claude Code and Grok Build: model, context use, git branch and changes, session time, effort, output tokens, and session cost. Claude Code also shows thinking, prompt-cache state, and 5-hour, 7-day, and spend-limit bars. Grok Build uses the live context window, session output and cache-read share, and the active turn. /ogxo-statusline:setup writes Claude settings; /ogxo-statusline:setup-grok writes [ui.status_line] in the Grok user config. Requires jq.",
-      "version": "0.2.6",
+      "description": "Status line for Claude Code and Grok Build: model, context use, git branch and changes, session time, effort, output tokens, and session cost. Claude Code also shows thinking, prompt-cache state, and 5-hour, 7-day, and spend-limit bars. Grok Build uses the live context window, session output and cache-read share, and the active turn. /ogxo-statusline:setup writes Claude settings; /ogxo-statusline:setup-grok writes [ui.status_line] in the Grok user config. Requires jq. In Codex, setup-codex configures Codex's native /statusline footer instead.",
+      "version": "0.2.7",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -219,8 +219,8 @@
     },
     {
       "name": "ogxo-route",
-      "description": "Cost-aware routing for Claude Code: a routing skill and session-start summary that tell the main session which tier handles which task, worker subagents pinned to Sonnet or Haiku with explicit tool lists, hooks that warn when a generic subagent is dispatched without a model, log each dispatch and permission request, and count advisor calls, plus opt-in alerts when Claude Code waits on a permission prompt and an opt-in live HTML board of a session's agents and tool calls. Core-risk work and reviews stay at Opus or above; contained risk may run on Sonnet or grok and then gets the Opus review. Warns, never blocks. Claude Code only. Requires jq.",
-      "version": "0.6.7",
+      "description": "Cost-aware routing for Claude Code: a routing skill and session-start summary that tell the main session which tier handles which task, worker subagents pinned to Sonnet or Haiku with explicit tool lists, hooks that warn when a generic subagent is dispatched without a model, log each dispatch and permission request, and count advisor calls, plus opt-in alerts when Claude Code waits on a permission prompt and an opt-in live HTML board of a session's agents and tool calls. Core-risk work and reviews stay at Opus or above; contained risk may run on Sonnet or grok and then gets the Opus review. Warns, never blocks. Requires jq. In Codex, the routing skill and seven worker procedures install without the hooks, alerts, or board.",
+      "version": "0.6.8",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"

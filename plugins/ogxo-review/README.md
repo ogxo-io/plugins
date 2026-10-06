@@ -26,3 +26,7 @@ claude plugin install ogxo-review@ogxo
 - Each finding says whether it was verified by running a command or by reading the code. Test commands with side effects (code generation, snapshot updates, shared test-database resets) are not run; the finding gives the command instead. `code-review-git` skips its coverage run for the same reason.
 - A test that would pass without the change it covers is reported as vacuous. The test-file exclusions in `code-review-agent`, `security-auditor`, and `security-check` apply to security findings only.
 - `code-review-git` writes its review payload to a file named after the owner, repository, and PR number, so parallel reviews of different PRs don't share one file.
+
+## Codex
+
+The native `.codex-plugin/plugin.json` exports the reviewer procedures and `full-review`, `code-review-git`, and `security-check` as skills from `codex-skills/`. These read the corresponding agent procedures and use the host's available workers, or separate sequential passes when workers are unavailable. Agent frontmatter does not configure Codex tools or models. Optional scanners, CodeRabbit, and GitHub tooling are reported as unavailable when absent; there is no assumed Codex MCP reviewer.

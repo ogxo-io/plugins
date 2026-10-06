@@ -1,0 +1,23 @@
+{
+  "name": "ogxo-design",
+  "version": "0.1.2",
+  "description": "Audit color usage and implement a color token system, with contrast and palette calculations from a bundled script.",
+  "author": {
+    "name": "ogxo",
+    "url": "https://github.com/ogxo-io"
+  },
+  "homepage": "https://github.com/ogxo-io/plugins",
+  "repository": "https://github.com/ogxo-io/plugins",
+  "license": "MIT",
+  "keywords": [
+    "design",
+    "color",
+    "accessibility",
+    "wcag",
+    "design-tokens",
+    "dark-mode"
+  ],
+  "skills": [
+    "./skills/"
+  ]
+}

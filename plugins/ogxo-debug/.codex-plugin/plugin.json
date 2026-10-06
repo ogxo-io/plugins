@@ -1,0 +1,22 @@
+{
+  "name": "ogxo-debug",
+  "version": "0.3.5",
+  "description": "Browser testing, CSS layout diagnosis, and live web app debugging skills; browser tools and Playwright dependencies depend on the host environment.",
+  "author": {
+    "name": "ogxo",
+    "url": "https://github.com/ogxo-io"
+  },
+  "homepage": "https://github.com/ogxo-io/plugins",
+  "repository": "https://github.com/ogxo-io/plugins",
+  "license": "MIT",
+  "keywords": [
+    "debugging",
+    "browser",
+    "frontend",
+    "devtools",
+    "playwright"
+  ],
+  "skills": [
+    "./skills/"
+  ]
+}

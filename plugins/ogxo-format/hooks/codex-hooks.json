@@ -1,0 +1,16 @@
+{
+  "description": "Format edited files or native Codex patch destinations with available prettier, gofmt, rustfmt, or black, then report trailing whitespace and YAML syntax errors. Requires jq.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v jq >/dev/null 2>&1 || { echo \"ogxo-format: jq not found; this hook is inactive. Install jq to enable it.\" >&2; exit 1; }; bash \"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/hooks/format.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}

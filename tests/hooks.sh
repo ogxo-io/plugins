@@ -116,6 +116,7 @@ echo '{"tool_input": {}}' >"$tmp/payload"
 check 0 "large-file-guard: no content" "$large" "$tmp/payload"
 
 # One hook formats, then checks, in that order; the checks must never race the formatter.
+export CLAUDE_PLUGIN_ROOT="$root/plugins/ogxo-format"
 format_hook=$(hook_cmd "$format" "ogxo-format: jq not found")
 trailing=$format_hook
 printf 'x = 1 \n' >"$tmp/dirty.py"

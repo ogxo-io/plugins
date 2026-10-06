@@ -1,0 +1,22 @@
+{
+  "name": "ogxo-specialists",
+  "version": "0.1.6",
+  "description": "Specialist procedure skills for log analysis, codebase exploration, performance optimization, and migration planning.",
+  "author": {
+    "name": "ogxo",
+    "url": "https://github.com/ogxo-io"
+  },
+  "homepage": "https://github.com/ogxo-io/plugins",
+  "repository": "https://github.com/ogxo-io/plugins",
+  "license": "MIT",
+  "keywords": [
+    "agents",
+    "logs",
+    "legacy-code",
+    "performance",
+    "migrations"
+  ],
+  "skills": [
+    "./codex-skills/"
+  ]
+}

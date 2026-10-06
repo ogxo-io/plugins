@@ -143,11 +143,11 @@ Don't commit until the checks pass; you can still draft the message if the user 
 
 ## Script Not Running
 
-**Issue:** `python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-commit-generator/scripts/analyze_changes.py` fails
+**Issue:** `python3 "<plugin-root>/skills/git-commit-generator/scripts/analyze_changes.py"` fails
 
 **Solutions:**
 - Check Python 3 is installed: `python3 --version`
-- Verify script permissions: `chmod +x ${CLAUDE_PLUGIN_ROOT}/skills/git-commit-generator/scripts/analyze_changes.py`
+- Verify the script is readable (it is run as `python3 <path>`, so no execute bit is needed): `test -r "<plugin-root>/skills/git-commit-generator/scripts/analyze_changes.py" || chmod u+r "<plugin-root>/skills/git-commit-generator/scripts/analyze_changes.py"`
 - Run from skill directory or use absolute path
 - Fall back to manual git commands if script unavailable
 

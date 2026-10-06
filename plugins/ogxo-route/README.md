@@ -1,6 +1,28 @@
 # ogxo-route
 
-Cost-aware routing for Claude Code. The main session plans and routes; worker subagents pinned to Sonnet or Haiku do scoped work; core-risk work and reviews stay at Opus or above, and contained risk may run on Sonnet or grok before the Opus review. The goal is to make Claude Pro and Max usage windows last longer without lowering the bar for risky code. Claude Code only. Requires `jq`.
+Cost-aware routing for Claude Code, with separate Codex routing procedures. In Claude Code the main session plans and routes; worker subagents pinned to Sonnet or Haiku do scoped work; core-risk work and reviews stay at Opus or above, and contained risk may run on Sonnet or grok before the Opus review. The goal is to make Claude Pro and Max usage windows last longer without lowering the bar for risky code. Claude hooks require `jq`.
+
+## Codex
+
+The `.codex-plugin/plugin.json` overlay exports `codex-skills/routing` and
+`codex-skills/worker-procedures`. Load `routing` to classify tasks and prepare
+briefs for native Codex workers when collaboration is available. Seven
+procedures cover exploration, standard/risky implementation, test execution,
+diff verification, log extraction, and browser scenarios. Without delegation,
+the main session applies the same procedures inline. Model selection inherits
+the session; Claude model pins and frontmatter tool lists are not translated
+into Codex agent configuration.
+
+The overlay sets `hooks: { "hooks": {} }` explicitly. An empty path array still
+allows default hook discovery in the tested Codex CLI, so an empty inline
+configuration is used and verified with the plugin reader. Claude/Grok session telemetry,
+cost estimates, quota tracking, permission alerts, dispatch logs, advisor
+counts, live boards, and commands (`stats`, `dashboard`, `alerts`, `external`,
+`handoff`) are not exported for Codex. They depend on Claude/Grok payloads
+and session state. Use Codex `/status` for native session/account details,
+and ogxo-statusline's `setup-codex` for its CLI footer.
+
+The remaining sections describe the existing Claude/Grok surfaces.
 
 ## Install
 

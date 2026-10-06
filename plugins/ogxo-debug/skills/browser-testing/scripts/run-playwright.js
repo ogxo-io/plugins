@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Universal Playwright Executor for Claude Code
+ * Universal Playwright Executor
  *
  * Executes Playwright automation code from:
  * - File path: node run.js script.js
@@ -16,14 +16,18 @@ const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
-// Dependencies live in a writable per-user directory: BROWSER_TESTING_HOME (set by the
-// skill to ${CLAUDE_PLUGIN_DATA}/browser-testing), else ${CLAUDE_PLUGIN_DATA}/browser-testing,
-// else ~/.cache/ogxo-browser-testing. Never the plugin copy, which updates replace.
+// Dependencies live in a writable per-user directory: BROWSER_TESTING_HOME (passed by the
+// skill), else PLUGIN_DATA/browser-testing, else ${XDG_CACHE_HOME:-~/.cache}/ogxo-debug/browser-testing.
+// CLAUDE_PLUGIN_DATA is deliberately never read: it can point at another plugin's data dir.
+// A BROWSER_TESTING_HOME of just "/browser-testing" is what an unfilled
+// `${CLAUDE_PLUGIN_DATA}/browser-testing` expands to outside Claude Code; it is ignored.
+// Never the plugin copy, which updates replace.
 const SKILL_DIR = path.join(__dirname, '..');
 const ORIG_CWD = process.cwd();
-const HOME = process.env.BROWSER_TESTING_HOME
-  || (process.env.CLAUDE_PLUGIN_DATA && path.join(process.env.CLAUDE_PLUGIN_DATA, 'browser-testing'))
-  || path.join(os.homedir(), '.cache', 'ogxo-browser-testing');
+const explicitHome = process.env.BROWSER_TESTING_HOME;
+const HOME = (explicitHome && explicitHome !== '/browser-testing' && explicitHome)
+  || (process.env.PLUGIN_DATA && path.join(process.env.PLUGIN_DATA, 'browser-testing'))
+  || path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), '.cache'), 'ogxo-debug', 'browser-testing');
 // Wrapped scripts are written to the OS temp directory.
 const TEMP_DIR = path.join(os.tmpdir(), 'ogxo-browser-testing');
 fs.mkdirSync(HOME, { recursive: true });

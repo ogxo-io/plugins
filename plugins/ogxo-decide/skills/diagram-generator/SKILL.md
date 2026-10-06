@@ -2,8 +2,11 @@
 name: diagram-generator
 description: Generate Mermaid diagrams from descriptions or codebase analysis. Supports flowcharts, sequence, class, ER, state, Gantt, C4. Use when the user asks for a diagram, flowchart, sequence/ER/state/class diagram, Gantt chart or mindmap, or wants to visualize architecture, data flow, or dependencies.
 ---
-
 # Diagram Generator
+
+## Host integration
+
+References to `AskUserQuestion`, option counts, or multi-select describe the question intent. In Claude Code use `AskUserQuestion`; in other hosts use the exposed question tool and its actual limits, splitting or simplifying batches when necessary. If no question tool is available, ask in conversation and wait for the response. To use a referenced skill: in Claude Code invoke it with the Skill tool (for example `/ogxo-decide:war-room`); in Codex read that installed skill's SKILL.md and follow it. Do not silently assume an optional plugin exists. Host tools and session permissions govern actions.
 
 ## Overview
 

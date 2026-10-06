@@ -4,8 +4,9 @@ description: Generate professional commit messages following Conventional Commit
 allowed-tools: Bash(git diff:*), Bash(git status:*), Bash(git log:*), Bash(git rev-parse:*), Bash(git commit:*), Bash(python3:*), Read, Glob, Grep
 effort: low
 ---
-
 # Git Commit Message Generator
+
+In Claude Code, `${CLAUDE_PLUGIN_ROOT}` in the commands below is already the plugin's absolute path. Elsewhere (Codex) it is not filled in: replace it with the plugin root, two directories above this SKILL.md. In `references/*.md`, `<plugin-root>` means `${CLAUDE_PLUGIN_ROOT}`. Quote expanded paths.
 
 ## Rules
 
@@ -40,7 +41,7 @@ For the full detection catalog and per-language commands, see [references/troubl
 ### Step 2: Analyze Git State
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/skills/git-commit-generator/scripts/analyze_changes.py
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/git-commit-generator/scripts/analyze_changes.py"
 ```
 
 The script returns JSON with the branch name (and any issue key), staged/unstaged/untracked files, file categorization, change stats, and recent commit messages for style reference. It does **not** include diff content — also run `git diff --staged` to read the actual changes before Step 3.

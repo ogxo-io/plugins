@@ -1,6 +1,26 @@
 # ogxo-statusline
 
-A status line for Claude Code and Grok Build. Each host has its own script, because the JSON on stdin and the settings file are different. Both take every value from that JSON plus local `git`. The scripts make no network calls and don't read credentials.
+A status line for Claude Code, Grok Build, and Codex CLI. Claude and Grok each have their own script, because the JSON on stdin and the settings file are different. Both take every value from that JSON plus local `git`. The scripts make no network calls and don't read credentials. Codex uses its native footer picker instead of a shell renderer.
+
+## Codex CLI
+
+The Codex overlay exports only `codex-skills/setup-codex`. Invoke the
+`setup-codex` skill for guidance, then enter `/statusline` in the interactive
+CLI to select and order built-in footer items. Suggested order: model with
+reasoning, context remaining, current directory/project root, git branch,
+rate limits, and token counters. Pick from the items offered by your version.
+The picker updates the footer and persists `tui.status_line` in config.toml.
+There is no script copy or `jq` requirement. To change or remove items,
+reopen the picker. Loading the skill does not edit your configuration.
+
+The Claude `statusLine` and Grok `[ui.status_line]` settings are separate
+from Codex `[tui] status_line`. Codex supplies its own displayed values;
+this integration adds no dollar estimate, Claude cache state, ogxo-route
+dispatch counter, or Claude board telemetry. Desktop, IDE, and noninteractive
+`codex exec` interfaces do not use this CLI footer setup.
+
+See the official [CLI command reference](https://developers.openai.com/codex/cli/slash-commands/)
+and [config reference](https://developers.openai.com/codex/config-reference/).
 
 ## Claude Code
 
@@ -70,7 +90,7 @@ Append options to the `command` value, for example `command = "~/.grok/ogxo-stat
 
 ## Requirements
 
-`jq` on `PATH` (without it the status line shows only `ogxo`), and `git` for the branch segment. The Grok setup skill uses `python3` to edit `config.toml`.
+Claude and Grok scripts require `jq` on `PATH` (without it the status line shows only `ogxo`), and `git` for the branch segment. The Grok setup skill uses `python3` to edit `config.toml`. Codex setup uses the native interactive CLI picker.
 
 Each script runs one `jq` call and one `git status` per render, with `--no-optional-locks` so it doesn't contend with other git commands.
 
@@ -82,6 +102,7 @@ Edit the color variables at the top of the installed copy (`~/.claude/ogxo-statu
 
 - `/ogxo-statusline:setup` (Claude Code skill)
 - `/ogxo-statusline:setup-grok` (Grok Build skill)
+- `codex-skills/setup-codex` (Codex CLI skill)
 - `scripts/ogxo-statusline.sh`
 - `scripts/ogxo-statusline-grok.sh`
 - `scripts/configure-grok.py`

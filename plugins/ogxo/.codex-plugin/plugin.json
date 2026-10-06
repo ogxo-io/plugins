@@ -1,0 +1,19 @@
+{
+  "name": "ogxo",
+  "version": "0.1.4",
+  "description": "Set up the ogxo collection in Codex: install individual workflow, review, debugging, design, guard, specialist, routing, and status-line plugins.",
+  "author": { "name": "ogxo", "url": "https://github.com/ogxo-io" },
+  "homepage": "https://github.com/ogxo-io/plugins",
+  "repository": "https://github.com/ogxo-io/plugins",
+  "license": "MIT",
+  "skills": "./codex-skills/",
+  "hooks": { "hooks": {} },
+  "interface": {
+    "displayName": "ogxo",
+    "shortDescription": "Set up the ogxo workflow collection in Codex",
+    "developerName": "ogxo",
+    "category": "Productivity",
+    "capabilities": ["Interactive"],
+    "defaultPrompt": ["Install the ogxo plugin collection in Codex"]
+  }
+}
