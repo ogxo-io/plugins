@@ -32,6 +32,45 @@ curl -fsSL https://raw.githubusercontent.com/ogxo-io/plugins/main/install.sh | b
 
 [`install.sh`](install.sh) only runs `claude plugin` commands and needs `jq`; read it before piping it to bash.
 
+### Codex
+
+Add the marketplace once:
+
+```bash
+codex plugin marketplace add ogxo-io/plugins
+```
+
+Install an individual plugin by its name from the table below:
+
+```text
+codex plugin add <plugin>@ogxo
+```
+
+For example:
+
+```bash
+codex plugin add ogxo-git@ogxo
+codex plugin add thryx@ogxo
+```
+
+Start a new Codex session after installation. Installing a plugin does not
+establish that all of its Claude workflows work in Codex. Current support:
+
+| Plugins | Codex support |
+|---|---|
+| `thryx` | Explicit Codex manifest and shared skills for both clients. |
+| `ogxo-git`, `ogxo-debug`, `ogxo-design`, `ogxo-decide` | Contain reusable skills; complete workflows, helper paths, and agent integrations still need Codex runtime verification. |
+| `ogxo-review`, `ogxo-specialists` | Claude agent definitions and dispatch instructions need Codex adaptation. |
+| `ogxo-guards`, `ogxo-format` | File hooks expect Claude's `file_path` or `content` fields; Codex patch inputs need adaptation. |
+| `ogxo-route`, `ogxo-statusline` | Claude-focused routing and Claude/Grok status line setup; no complete Codex implementation. |
+| `ogxo` | Bundle dependency installation has not been verified in Codex. Install the individual plugins you need. |
+
+ThryX ships Codex skills for connection, replanning, product management,
+working tickets, and running a board. Ask "connect ThryX workspace ogxo"
+to configure its MCP server; set the token outside the chat in Codex's
+environment. See the [ThryX README](plugins/thryx/README.md#codex).
+`install.sh` and the bundle instructions above use Claude Code.
+
 ## Update
 
 Auto-update is off by default for third-party marketplaces like this one, so refresh the catalog, then update each installed ogxo plugin (`jq` lists them):
@@ -66,7 +105,7 @@ An open session keeps the versions it loaded: run `/reload-plugins` in it to app
 | Plugin | What it is | Status |
 |---|---|---|
 | `ogxo` | The bundle: installs every plugin below except `thryx` and `ogxo-format`. No skills or hooks of its own. | 0.1.3 |
-| `thryx` | Skills for the hosted ThryX MCP server, vendored in this repo (`plugins/thryx`): issues, projects, cycles, the client-facing Roadmap, and documents. `/thryx:connect <workspace>` connects each ThryX workspace as its own MCP server (on macOS the token goes into your Keychain through a dialog), so one install covers several companies. | 0.6.1 |
+| `thryx` | Skills for the hosted ThryX MCP server, vendored in this repo (`plugins/thryx`): issues, projects, cycles, the client-facing Roadmap, and documents. `/thryx:connect <workspace>` connects each ThryX workspace as its own MCP server (on macOS the token goes into your Keychain through a dialog), so one install covers several companies. | 0.6.2 |
 | `ogxo-review` | Multi-agent code review: `/ogxo-review:full-review` cross-correlates reviewers and has finding-verifier check every finding; `/ogxo-review:code-review-git` posts line-level findings as a GitHub PR review and answers other reviewers' comments. Bundles the code-review-agent, security-auditor, code-metrics-analyst, dependency-auditor, and finding-verifier agents (code-review-git verifies every finding before it is shown); `/ogxo-review:security-check` for a focused security pass. | 0.4.0 |
 | `ogxo-git` | Conventional Commit messages, PR titles/descriptions with template detection, resolving PR review threads (its workflow instructs it to present its analysis and wait for approval before replying or resolving), `/ogxo-git:catchup` to restore branch context, plus release, quick-fix, and ship-feature workflows and changelog/release-notes skills. | 0.2.5 |
 | `ogxo-debug` | `live-debug`: reproduce a web-app bug in the browser, read console and network errors, fix, and verify in the page; `css-alignment-debug` injects temporary outline overlays and reads a screenshot to find stubborn layout bugs. Also `browser-testing` for Playwright test scripts. | 0.3.4 |

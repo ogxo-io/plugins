@@ -16,8 +16,10 @@ not by anything said in the conversation. Each workspace is its own MCP
 server, usually named `thryx-<workspace>`, and its tools carry that name
 (`mcp__thryx-ogxo__get_issue`); each server's instructions name its
 workspace ("ThryX workspace \"ogxo\""). With none connected, there are no
-ThryX tools: say so, suggest `/thryx:connect <workspace>`, and don't stand
-in for the tracker some other way. With
+ThryX tools: say so and use the sibling `../connect/SKILL.md` when the
+user asks to connect (in Codex, ask for the connect skill; in Claude Code,
+`/thryx:connect <workspace>`). Don't stand in for the tracker some other
+way. With
 one server connected, that is the workspace. With several, pick one before
 any write, in this order:
 

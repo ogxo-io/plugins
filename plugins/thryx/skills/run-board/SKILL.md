@@ -11,8 +11,9 @@ what is done, running, or waiting, so a session can stop at any wave
 boundary and a new one can pick up from the board. Read the thryx skill
 first for how the tools behave (workspace, starting a ticket, batching, the
 one-write-per-message rule); this skill adds the loop around them. When
-ogxo-route is installed, its routing skill decides who does each task; it is
-named where it applies below.
+ogxo-route and its named worker agents are available in the current host,
+its routing skill decides who does each task. Otherwise use the host
+fallback below; installation alone does not establish worker availability.
 
 ## 1. Take the request apart
 
@@ -60,11 +61,12 @@ named where it applies below.
 
 Order by priority (urgent first), then tickets in the running sprint, then
 the rest. Group into waves of at most two writers on disjoint files plus any
-read-only work, the shape ogxo-route's Step 8 describes. A ticket that
+read-only work. With ogxo-route available, follow its Step 8. A ticket that
 touches the same files as a running one goes to a later wave.
 
 Show one table: key, title, priority, class (standard, contained risk, core
-risk, from the routing skill), wave, and the ticket it waits for. Add the
+risk; use the routing skill when available, otherwise classify by impact),
+wave, and the ticket it waits for. Add the
 `estimate` column when the project uses estimates. Then say
 in specifics what the run will write: statuses moved, assignees set,
 comments added, and commits if asked. Name the holder of every ticket that
@@ -85,17 +87,23 @@ and the assignee; the branch or worktree name carries the key (for example
 
 ## 5. Work the wave
 
-- **With ogxo-route:** follow its routing skill: scout map first, classify
+- **With ogxo-route and its worker agents available:** follow its routing
+  skill: scout map first, classify
   each task not the ticket, standard work to `ogxo-route:implementer`,
   the risky part of a ticket to `implementer-risky` (at the tier the
   routing skill gives it), about 60 tool calls per worker with a
   handoff file when one stops early, tests through `test-runner` (long suites
   and e2e in the background), `verifier` on each diff, the risky-task review
   on risky ones.
-- **Without it:** one subagent per task with a self-contained brief (goal,
-  files, acceptance checks, a rule not to commit), `model: sonnet` for
-  implementation and `haiku` for lookups, two writers at most, and the
-  tests re-run on the combined tree before a ticket counts as done.
+- **Host fallback (including Codex):** use the host's available subagent
+  tools with a self-contained brief (goal, files, acceptance checks, a rule
+  not to commit), at most two writers on disjoint files, and tests re-run
+  on the combined tree before a ticket counts as done. In Claude Code,
+  pass `model: sonnet` for implementation and `haiku` for lookups.
+  Elsewhere, use the host's configured model unless the user or repository
+  specifies one; do not pass Claude model names or agent types to Codex. If subagents are
+  unavailable, work sequentially and keep the same verification and
+  checkpoint rules.
 - **Briefs** come from the ticket's description and acceptance checks; the
   workers have no ThryX tools, so put what they need in the brief. Pass
   paths and `file:line` references, not pasted code.
@@ -129,14 +137,15 @@ and the assignee; the branch or worktree name carries the key (for example
 ## 7. Checkpoint, or continue
 
 Stop starting new tickets when: the cap is reached; the user says the
-status line shows the context getting long (300k tokens is yellow); a
+client shows that context is getting long (in Claude Code with
+ogxo-statusline, 300k tokens is yellow; elsewhere use that host's limits); a
 rate-limit error comes back (wait the `retry_after`); a ticket needs the
 user's decision; or the same check fails twice. Let the running wave
 finish, record it (step 6), then print the run table as the summary and the
 tickets still waiting, and tell the user to compact or start a fresh session
-and say "continue the board". The board holds the ticket state; when ogxo-route is
-installed, `/ogxo-route:handoff` can also save decisions and context that are
-not on any ticket.
+and say "continue the board". The board holds the ticket state; when
+ogxo-route and its handoff command are available, `/ogxo-route:handoff` can
+also save decisions and context that are not on any ticket.
 
 **Continue:** list the person's tickets in the in-progress status for the
 project. For each one, look for local traces: a branch or worktree whose

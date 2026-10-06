@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Tests for plugins/thryx/scripts/connect.sh against stubs of `claude`,
-# `security`, and `osascript` that record every call. PATH holds only the
+# `codex`, `security`, and `osascript` that record every call. PATH holds only the
 # stubs and the tools the script needs, so the real Keychain, dialogs, and
 # Claude Code config are never touched.
 set -uo pipefail
@@ -34,6 +34,15 @@ case "$1 $2" in
   "mcp get") grep -qxF "$3" "$STUB_DIR/servers" ;;
   "mcp remove") grep -vxF "$3" "$STUB_DIR/servers" >"$STUB_DIR/s.tmp"; mv "$STUB_DIR/s.tmp" "$STUB_DIR/servers" ;;
   "mcp add-json") printf '%s\n' "$6" >"$STUB_DIR/json"; printf '%s\n' "$5" >>"$STUB_DIR/servers" ;;
+esac
+STUB
+# Codex stores the variable name, not a headers helper or token.
+cat >"$stubs/codex" <<'STUB'
+#!/usr/bin/env bash
+printf '%s\n' "codex $*" >>"$STUB_DIR/calls"
+case "$1 $2" in
+  "mcp get") grep -qxF "$3" "$STUB_DIR/servers" ;;
+  "mcp add") [ -z "${CODEX_ADD_FAIL:-}" ] || exit 1; printf '%s\n' "$*" >"$STUB_DIR/codex-config" ;;
 esac
 STUB
 # security find-generic-password -s S -a A [-w]; add-generic-password -U -s S -a A -l L -w T
@@ -149,6 +158,28 @@ run env THRYX_TOKEN=s -- ogxo --token-var 'x;y'
 expect "bad variable name: exit 2" [ "$code" -eq 2 ]
 run env THRYX_TOKEN=s --
 expect "no workspace: exit 2, nothing called" bash -c '[ "$2" -eq 2 ] && [ ! -s "$1/stub/calls" ]' _ "$tmp" "$code"
+
+# --- Codex: environment references, including on macOS ---
+run keychain -- ogxo --client codex
+expect "codex: registers even before token is set" [ "$code" -eq 0 ]
+expect "codex: workspace URL and bearer variable" grep -qxF 'mcp add thryx-ogxo --url https://app.thryx.io/api/v1/mcp/ogxo --bearer-token-env-var THRYX_TOKEN' "$tmp/stub/codex-config"
+expect "codex: no Claude or Keychain calls" bash -c '! grep -qE "^(claude|security|osascript) " "$1/stub/calls"' _ "$tmp"
+expect "codex: explains environment setup" grep -qF 'THRYX_TOKEN' <<<"$out"
+run keychain THRYX_TOKEN_KLEVER=secret-codex -- klever --client codex --token-var THRYX_TOKEN_KLEVER
+expect "codex: custom variable" grep -qF -- '--bearer-token-env-var THRYX_TOKEN_KLEVER' "$tmp/stub/codex-config"
+expect "codex: no token in output or registration" bash -c '! grep -q secret-codex "$1/stub/calls" && ! grep -q secret-codex <<<"$2"' _ "$tmp" "$out"
+SEED_SERVERS=$'thryx-ogxo\n' run keychain -- ogxo --client codex
+expect "codex: preserves an existing server" bash -c '[ "$2" -eq 0 ] && ! grep -q "mcp add" "$1/stub/calls"' _ "$tmp" "$code"
+SEED_SERVERS=$'thryx-ogxo\n' run keychain -- ogxo --client codex --replace
+expect "codex: replaces by adding without removing first" bash -c '[ "$2" -eq 0 ] && grep -q "codex mcp add" "$1/stub/calls" && ! grep -q "mcp remove" "$1/stub/calls"' _ "$tmp" "$code"
+run keychain CODEX_ADD_FAIL=1 -- ogxo --client codex
+expect "codex: reports registration failure" [ "$code" -eq 1 ]
+for flag in --own-token --set-token; do
+  run keychain -- ogxo --client codex "$flag"
+  expect "codex: rejects $flag before any calls" bash -c '[ "$2" -eq 2 ] && [ ! -s "$1/stub/calls" ]' _ "$tmp" "$code"
+done
+run keychain -- ogxo --client unknown
+expect "unknown client: rejects before any calls" bash -c '[ "$2" -eq 2 ] && [ ! -s "$1/stub/calls" ]' _ "$tmp" "$code"
 
 echo "thryx tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

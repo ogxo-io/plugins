@@ -5,23 +5,28 @@ searching, creating, and updating issues, planning cycles, keeping the client-fa
 current, and reading or writing project documents, all against your
 live workspace data.
 
-The plugin ships the skills and `/thryx:connect`, which connects each ThryX
-workspace as its own MCP server, so one install covers every company you
-work with. There is no local binary or server process: every tool call is
-an HTTP request to `app.thryx.io`, authenticated with your API token, which
-a small command reads from your Keychain or environment when the server
-connects.
+The plugin ships five skills for Claude Code and Codex, including `connect`
+and `replan`. Connect each ThryX workspace as its own MCP server, so one
+install covers every company you work with. Every tool call is an HTTP
+request to `app.thryx.io`, authenticated with your API token. Claude Code
+uses a header helper to read the token from your Keychain or environment;
+Codex uses its bearer-token environment variable setting.
 
 ## What's in it
 
 - **`thryx`**: how the MCP tools behave, covering search before create,
   where a new ticket goes, batching, which writes need an explicit
   confirmation, and what isn't available over MCP.
-- **`/thryx:connect [workspace]`**: connects a workspace; see below.
+- **`connect`**: connects a workspace in either client; in Claude Code,
+  `/thryx:connect [workspace]` runs the same workflow. See below.
+- **`replan`**: proposes a cycle replan from every open ticket. In Codex,
+  ask to replan the project or select the replan skill; in Claude Code,
+  `/thryx:replan [KEY]` runs the same workflow. Tracker writes wait for
+  your approval.
 - **`run-board`**: works a project's open Todo tickets (yours, someone's, or all) in
   waves: it reads the board, plans once and asks once, claims each wave's
-  tickets, works them in parallel with subagents (through ogxo-route's routing
-  when that is installed), and records each result on the ticket. It stops at
+  tickets, works them with the host's available subagents (through ogxo-route
+  when its workers are available, sequentially when subagents are unavailable), and records each result on the ticket. It stops at
   a checkpoint after a set number of tickets so a long run doesn't pile up in
   one session, and "continue the board" picks the board up again from ticket
   statuses and local branches. Ask for it with "run the board", "work my Todo
@@ -36,10 +41,32 @@ connects.
 
 ## Install
 
+### Claude Code
+
 ```bash
 claude plugin marketplace add ogxo-io/plugins
 claude plugin install thryx@ogxo
 ```
+
+### Codex
+
+```bash
+codex plugin marketplace add ogxo-io/plugins
+codex plugin add thryx@ogxo
+```
+
+For a local checkout, use its absolute path instead of `ogxo-io/plugins`.
+After editing the checkout, refresh and reinstall before starting a new session:
+
+```bash
+codex plugin marketplace upgrade ogxo
+codex plugin add thryx@ogxo
+```
+
+Codex discovers all five workflows under `skills/`; use its skill picker or
+ask in plain language, for example "connect ThryX workspace ogxo" or
+"replan project THRY through the December promise". The Claude slash
+commands remain wrappers around those shared skills.
 
 ## Connect your workspaces
 
@@ -86,11 +113,34 @@ Claude Code passes `TOKEN` variables to the helper for user- and
 local-scope servers but removes them for servers in a project's
 `.mcp.json`, so add these at user scope.
 
-For Codex, the token comes from the environment:
+### Codex connection
+
+Ask Codex to "connect ThryX workspace ogxo". The `connect` skill runs:
+
+```bash
+bash "<plugin-path>/scripts/connect.sh" ogxo --client codex
+```
+
+It configures the same endpoint as this manual command:
 
 ```bash
 codex mcp add thryx-ogxo --url https://app.thryx.io/api/v1/mcp/ogxo --bearer-token-env-var THRYX_TOKEN
 ```
+
+Set `THRYX_TOKEN` outside the chat in the environment of the process that
+starts Codex, then start a new session and check `/mcp`. Registration only
+configures the server; a successful tool call verifies authentication.
+A shell export applies to clients launched from that shell; make sure the
+desktop app receives the variable too if that is the client you use.
+
+Use `--token-var THRYX_TOKEN_OGXO` for a separate workspace token and
+`--replace` to update an existing server. For rotation, change the variable
+outside the chat and restart Codex. `--own-token` and `--set-token` apply
+only to the Claude Keychain flow. Codex connection does not require `jq`,
+`security`, or `osascript`.
+
+See [OpenAI's plugin packaging guidance](https://developers.openai.com/plugins/build/plugins)
+for local marketplaces and plugin skill discovery.
 
 **Never put a literal token in a committed `.mcp.json`.**
 

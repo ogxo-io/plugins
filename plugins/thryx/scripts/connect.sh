@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Connect a ThryX workspace to Claude Code as its own MCP server.
-#   connect.sh <workspace> [--own-token] [--set-token] [--token-var NAME] [--replace]
-# Adds a user-scope HTTP server named thryx-<workspace> for
+# Connect a ThryX workspace to Claude Code or Codex as its own MCP server.
+#   connect.sh <workspace> [--client claude|codex] [--own-token] [--set-token] [--token-var NAME] [--replace]
+# In Claude mode, adds a user-scope HTTP server named thryx-<workspace> for
 # https://app.thryx.io/api/v1/mcp/<workspace>. Its headersHelper builds the
 # Authorization header each time the server connects, so the token is never
 # written to Claude Code's config and never printed here.
@@ -15,13 +15,16 @@
 # - Otherwise: an environment variable, THRYX_TOKEN or the one --token-var
 #   names, which must be set in the environment Claude Code started with.
 #
-# --replace removes an existing server of that name first (for example one
-# added with the token in plaintext). Only runs `claude mcp`, `security`, and
-# `osascript` commands.
+# Codex (--client codex) uses --bearer-token-env-var without reading the token
+# and does not use the Keychain or require jq.
+#
+# In Claude mode, --replace removes an existing server first (for example
+# one added with the token in plaintext). Codex mode updates it with mcp add.
 set -uo pipefail
 
-usage() { echo "usage: connect <workspace> [--own-token] [--set-token] [--token-var NAME] [--replace]" >&2; exit 2; }
+usage() { echo "usage: connect <workspace> [--client claude|codex] [--own-token] [--set-token] [--token-var NAME] [--replace]" >&2; exit 2; }
 
+client=claude
 ws=""
 var=""
 own=false
@@ -29,6 +32,7 @@ set_token=false
 replace=false
 while [ $# -gt 0 ]; do
   case $1 in
+    --client) [ $# -ge 2 ] || usage; client=$2; shift 2 ;;
     --token-var) [ $# -ge 2 ] || usage; var=$2; shift 2 ;;
     --own-token) own=true; shift ;;
     --set-token) set_token=true; shift ;;
@@ -40,6 +44,36 @@ done
 [ -n "$ws" ] || usage
 [[ "$ws" =~ ^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$ ]] || { echo "thryx: '$ws' is not a workspace slug (the last part of its MCP URL)" >&2; exit 2; }
 [ -z "$var" ] || [[ "$var" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || { echo "thryx: '$var' is not an environment variable name" >&2; exit 2; }
+
+case $client in
+  claude|codex) ;;
+  *) echo "thryx: --client must be claude or codex" >&2; exit 2 ;;
+esac
+
+# Codex's HTTP MCP configuration stores a bearer token variable name.
+# Register it without reading the variable; the user sets it before starting Codex.
+if [ "$client" = codex ]; then
+  if $own || $set_token; then
+    echo "thryx: Codex uses environment tokens; use --token-var NAME for a workspace-specific token and rotate its value outside the chat" >&2
+    exit 2
+  fi
+  command -v codex >/dev/null 2>&1 || { echo "thryx: the codex command was not found" >&2; exit 1; }
+  name="thryx-$ws"
+  url="https://app.thryx.io/api/v1/mcp/$ws"
+  var=${var:-THRYX_TOKEN}
+  if codex mcp get "$name" >/dev/null 2>&1 && ! $replace; then
+    echo "$name is already configured in Codex; use --replace to change its URL or token variable."
+    exit 0
+  fi
+  # add updates an existing entry; do not remove it before a possibly failing add.
+  codex mcp add "$name" --url "$url" --bearer-token-env-var "$var" >/dev/null \
+    || { echo "thryx: codex mcp add failed for $name" >&2; exit 1; }
+  echo "Configured $name ($url) in Codex; its token comes from \$$var."
+  echo "Set $var outside the chat before starting Codex (Account settings -> API tokens)."
+  echo "Start a new Codex session; /mcp shows whether the server connected."
+  echo "For each repository using it, add 'ThryX workspace: $ws' to AGENTS.md."
+  exit 0
+fi
 
 command -v claude >/dev/null 2>&1 || { echo "thryx: the claude command was not found" >&2; exit 1; }
 command -v jq >/dev/null 2>&1 || { echo "thryx: jq is required" >&2; exit 1; }
