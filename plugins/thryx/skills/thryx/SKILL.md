@@ -13,13 +13,14 @@ exists.
 
 Every call is company-scoped by the workspace slug in its server's URL,
 not by anything said in the conversation. Each workspace is its own MCP
-server, usually named `thryx-<workspace>`, and its tools carry that name
-(`mcp__thryx-ogxo__get_issue`); each server's instructions name its
-workspace ("ThryX workspace \"ogxo\""). With none connected, there are no
-ThryX tools: say so and use the sibling `../connect/SKILL.md` when the
-user asks to connect (in Codex, ask for the connect skill; in Claude Code,
-`/thryx:connect <workspace>`). Don't stand in for the tracker some other
-way. With
+server, usually named `thryx-<workspace>`, and its tools carry that name:
+`mcp__thryx-ogxo__get_issue` in Claude Code, `mcp__thryx_ogxo__get_issue`
+in Codex, which turns the hyphen into an underscore. Each server's
+instructions name its workspace ("ThryX workspace \"ogxo\""). With none
+connected, there are no ThryX tools: say so and use the sibling
+`../connect/SKILL.md` when the user asks to connect (in Codex, ask for
+the connect skill; in Claude Code, `/thryx:connect <workspace>`). Don't
+stand in for the tracker some other way. With
 one server connected, that is the workspace. With several, pick one before
 any write, in this order:
 
@@ -97,9 +98,10 @@ advisory with `link_github_advisory` and `unlink_github_advisory`, which
 only record the link and never create or delete the advisory on GitHub.
 For a new advisory, `draft_github_advisory_command` builds a `gh` command
 the user runs in their own terminal; it files nothing itself. "Is this shipped?"
-is answered by `list_pull_requests`, from the code, not from the status
-field. Put what you found in `add_comment` so the next person does not
-repeat the digging.
+is answered from evidence, not from the status field: `list_pull_requests`,
+the release tag in the repository, and `shipped_in` on `get_issue`. When
+one is missing, say so rather than guessing a link. Put what you found
+in `add_comment` so the next person does not repeat the digging.
 
 Starting a ticket has its own section below, because it is the step that
 gets skipped.
@@ -141,8 +143,9 @@ assignment is per person, but scope is often per team. `create_project`
 takes goals, scope, and non-goals in its description. Before changing a
 project's owning team, run `preview_project_team_change`, tell the user
 who gains and who loses access, and pass its confirmation token to
-`update_project`. Propose in your message, wait
-for the answer, then write with the batch tools. How to do this part well
+`update_project`. Propose in your message, wait for the answer, then
+write with the batch tools; when the user already asked for the work
+itself, that request is the answer. How to do this part well
 (writing tickets, PRDs, ADRs and the project overview, and running
 standups, reviews, cycles and releases) is in the product-management
 skill.
@@ -316,6 +319,24 @@ and how to write the copy) is in the product-management skill's roadmap
 reference. Read it before creating, showing, editing, or deleting a
 promise, criterion, outcome, or release.
 
+## Tickets in a release
+
+A ticket's `release` field says which release it is meant to ship in.
+`create_issue`, `update_issue`, and `update_issues` take it as a version
+or id, and `null` clears it; `create_issues` has no per-ticket `release`,
+so create the tickets and then assign them with one `update_issues`.
+Check the returned rows and per-item errors: a call that succeeds overall
+can still have refused some tickets. Assignment is only the intention.
+What actually shipped is `shipped_in` on `get_issue`, frozen when the
+release ships.
+
+Release notes are the team's Markdown, read only inside the workspace.
+`list_releases` with one `release` returns them whole, and
+`update_release` with `notes` replaces them whole, so read them first and
+keep what is there. A note may name only tickets the release carries or
+shipped. Before preparing or shipping a release, read the
+product-management skill's [release reference](../product-management/references/release.md).
+
 ## Batch, do not loop
 
 Prefer `create_issues` and `update_issues` over calling the singular tool
@@ -350,6 +371,10 @@ anything lands. There is no staging tool over MCP: every call you make
 takes effect the moment you make it. The discipline does not disappear —
 it moves to you. Before a batch write, or any change to work someone else
 owns, say in specifics what you are about to do and let the user answer.
+When the user already asked for that work ("prepare the v1.4 release"),
+the request is the answer: don't ask again for each write inside it.
+Shipping a release, widening an audience, completing a cycle, and posting
+outside ThryX each need their own yes.
 
 `confirm_irreversible` below covers only a handful of destructive calls.
 It is not a substitute for this. Most damage done over MCP comes from
@@ -359,9 +384,9 @@ ordinary writes at scale, not from the gated few.
 
 `move_issue`, `update_document`, `send_feedback`,
 `reply_to_my_feedback`, the three deletes (`delete_milestone`,
-`delete_macro_item`, `delete_done_when`), every release write
+`delete_macro_item`, `delete_done_when`), the release writes
 (`create_release`, `update_release`, `delete_release`,
-`set_release_promises`, `set_release_gate`), and the public link
+`set_release_promises`, `set_release_gate`, `archive_release`), and the public link
 (`set_timeline_share`, `rotate_timeline_share`, `revoke_timeline_share`)
 **always** require `confirm_irreversible: true`. `move_issue` re-keys the
 ticket and drops its parent, children, live cycle membership, and
@@ -378,7 +403,8 @@ What counts is replacing text someone wrote, or putting something in
 front of a client: creating a promise or outcome with a Partners or
 Public audience, widening one, adding or editing criteria text on a
 shown promise, replacing or clearing the owner name on a shown
-outcome, or moving a release to `shipped`. Marking a criterion
+outcome, or shipping a release marked for partners or the public
+(`set_release_state` asks for the flag only then). Marking a criterion
 true or false, and changing status, health, or dates, ask nothing.
 `update_project` asks when `description` would replace a written
 description (even one you only added to), when `public_description`
@@ -393,6 +419,12 @@ The flag is not an error to route around. It means: tell the user what
 will be lost, in the specific, and then pass the flag once they have
 answered. The server sees only the flag, not whether anyone was asked, so
 setting `confirm_irreversible: true` reflexively turns the check off.
+
+Your host may also stop a call: a Claude Code permission prompt or
+auto-mode check, or Codex's approval policy. Treat a refusal the same
+way. Report what was refused and why, finish the work it doesn't touch,
+and ask the user about that one call. Never reach the same change through
+another tool, or by deleting and recreating the record.
 
 ## Feedback to the ThryX team
 
@@ -420,6 +452,12 @@ withdrawn, which is why both always ask for `confirm_irreversible` (the
 contract above).
 
 ## Not available over MCP
+
+There is no tool that lists a release's tickets, none that refines
+release notes with AI, and none that posts a release to Slack, even
+though the web app does some of this. Check a release against the tickets
+you assigned and their `get_issue` history, and write announcements as
+drafts for the user to post.
 
 **Genuinely unavailable** — do not reconstruct them from other tools:
 `web_search`, `fetch_url`, `list_notes`, `write_note`,

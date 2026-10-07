@@ -1,6 +1,6 @@
 ---
 name: product-management
-description: Use when the user asks for product or project management work in ThryX - define, plan, review, or close a cycle or sprint; replan or rebalance the cycles, triage the backlog, or redistribute open work across sprints; what's the status, a standup, weekly review, or post-release check; write a spec or PRD, record a decision (ADR), or write or refresh the project overview; break down an epic or rewrite a vague ticket; build or audit the Roadmap a client reads (releases, promises and their criteria, outcomes, the public timeline link), including building a project's Roadmap from what its repository has shipped and plans.
+description: Use when the user asks for product or project management work in ThryX - define, plan, review, or close a cycle or sprint; replan or rebalance the cycles, triage the backlog, or redistribute open work across sprints; what's the status, a standup, weekly review, or post-release check; prepare a release draft, assign release tickets, write release notes, review promises or gates, record shipment, or draft an announcement; write a spec or PRD, record a decision (ADR), or write or refresh the project overview; break down an epic or rewrite a vague ticket; build or audit the Roadmap a client reads (releases, promises and their criteria, outcomes, the public timeline link), including building a project's Roadmap from what its repository has shipped and plans.
 ---
 
 # Managing a product with ThryX
@@ -26,6 +26,14 @@ written, whether a status, a health, a date, a ticket, or a comment,
 until the person answers. Where a reference says "update" or "set", read
 it as "propose, then write once agreed".
 
+When the person asked for the work itself ("prepare the v1.4 release",
+"close the sprint"), that request is the answer for the ordinary writes
+it takes, so don't ask again for each one. It doesn't stretch to the
+next step: shipping a release, showing something to a wider audience,
+completing a cycle, and posting outside ThryX each need their own yes,
+asked with the finished draft in front of the person.
+`confirm_irreversible` is not that yes; it only records that you asked.
+
 ## You have the repository, so use it
 
 ThryX's own assistant plans from the tracker alone. You can also read the
@@ -45,7 +53,8 @@ guess about the code as something you read.
 | The page that says what the project is | `references/project-doc.md` |
 | Defining a cycle: its goal, its tickets, its description, closing it | `references/cycle.md` |
 | Replanning across cycles: triage, what advances, what stays in the backlog, which cycle each ticket goes to, whether more cycles are needed | `references/replan.md` |
-| Standup, weekly review, after a release | `references/follow-up.md` |
+| Standup or weekly review | `references/follow-up.md` |
+| Preparing, shipping, or checking a release: its tickets, notes, promises, gate, and announcement | `references/release.md`, with `references/roadmap.md` for promises and audiences |
 | The Roadmap (releases, promises, criteria, outcomes, the public link), anything a client reads, or a Roadmap built from the repository | `references/roadmap.md` |
 
 The server also ships prompts for some of this work (`write_ticket`,

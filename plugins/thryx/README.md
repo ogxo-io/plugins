@@ -5,8 +5,8 @@ searching, creating, and updating issues, planning cycles, keeping the client-fa
 current, and reading or writing project documents, all against your
 live workspace data.
 
-The plugin ships five skills for Claude Code and Codex, including `connect`
-and `replan`. Connect each ThryX workspace as its own MCP server, so one
+The plugin ships six skills for Claude Code and Codex, including `connect`,
+`replan`, and `release`. Connect each ThryX workspace as its own MCP server, so one
 install covers every company you work with. Every tool call is an HTTP
 request to `app.thryx.io`, authenticated with your API token. Claude Code
 uses a header helper to read the token from your Keychain or environment;
@@ -24,6 +24,10 @@ environment variable setting for environment tokens.
   ask to replan the project or select the replan skill; in Claude Code,
   `/thryx:replan [KEY]` runs the same workflow. Tracker writes wait for
   your approval.
+- **`release`**: prepares a release from its git tag: reconciles the tag
+  with the tracker, assigns the release's tickets, writes its notes and
+  promises, then asks before shipping and checks what shipped. In Codex, ask
+  to prepare the release; in Claude Code, `/thryx:release [KEY] [version]`.
 - **`run-board`**: works a project's open Todo tickets (yours, someone's, or all) in
   waves: it reads the board, plans once and asks once, claims each wave's
   tickets, works them with the host's available subagents (through ogxo-route
@@ -64,7 +68,7 @@ codex plugin marketplace upgrade ogxo
 codex plugin add thryx@ogxo
 ```
 
-Codex discovers all five workflows under `skills/`; use its skill picker or
+Codex discovers all six workflows under `skills/`; use its skill picker or
 ask in plain language, for example "connect ThryX workspace ogxo" or
 "replan project THRY through the December promise". The Claude slash
 commands remain wrappers around those shared skills.

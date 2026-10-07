@@ -70,20 +70,14 @@ The report doesn't find these, so check them yourself:
 
 ## After a release
 
-1. Compare the release tag or CHANGELOG with the tracker. Look for
-   tickets marked done that aren't in the release, and changes in the
-   release that no ticket covers. Check the tag has a release in ThryX
-   (`list_releases`), and propose creating it if not.
-2. Propose the updates for what shipped (`references/roadmap.md`,
-   including holding back security fixes): the criteria the release
-   made true, the outcomes' status and client copy, and keeping a
-   promise (status `completed`, which sets its health to `shipped`) when
-   all of it shipped.
-3. Propose `set_release_state` `shipped`. It is refused while the
-   release's gate is open; the fix is to keep the promise or mark the
-   criterion that holds it, never to clear the gate.
-4. Propose a refreshed "where it stands" in the project description,
-   and the release entry in the overview if the project keeps a history
-   there.
-5. Where the project keeps a runbook for releases, follow it and say
+Follow [release.md](release.md): it compares the tag with the tracker,
+ships the release record, and checks what shipped. Then:
+
+1. Report each step on its own: the tag pushed, the build published,
+   the deploy verified, the release marked shipped. One being done says
+   nothing about the others.
+2. Propose a refreshed "where it stands" in the project description,
+   the release entry in the overview if the project keeps a history
+   there, and fixes for any Roadmap copy the release made stale.
+3. Where the project keeps a runbook for releases, follow it and say
    which one you followed.

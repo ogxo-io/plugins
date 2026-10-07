@@ -103,3 +103,6 @@ description.
 - Does the ticket say where it belongs? Settle its state, cycle, epic,
   priority, estimate, and assignee as in the thryx skill's "Settle where
   a new ticket goes".
+- Does it belong to a release? Set `release` to the version it is meant
+  to ship in. The thryx skill's "Tickets in a release" covers the call,
+  and [release.md](release.md) the rest of the release.

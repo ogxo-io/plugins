@@ -141,33 +141,36 @@ That leaves the agent these jobs:
 
 ## Releases and gates
 
-Line releases up with how the project ships. A git release tag is a
-release's `version`, one for one.
+Line releases up with how the project ships. A git release tag and a
+release's `version` should match one for one, but the tag is evidence
+to reconcile with the record: pushing it neither creates the release
+nor ships it. [release.md](release.md) has the whole procedure, from
+the tag to a verified shipment; this section covers how a release sits
+on the Roadmap.
 
-1. `create_release` with `version`, `release_date`, and, when it will be
-   shown, a `public_name` and `summary` written as client copy. It
-   starts Workspace only.
-2. `set_release_promises` with every promise it carries. The call
-   replaces the whole list, so read `list_releases` first and pass the
-   full set.
-3. `set_release_gate`, when the release should wait: on a whole promise
-   (`milestone`), which stays open until the promise's health is
-   `shipped`, or on one criterion (`milestone` plus `done_when`), which
-   stays open until that criterion is true. The optional `text` is what
-   the client reads while it waits.
-4. `set_release_state` `cutting` while it is being cut, and `shipped`
-   when it is out. Shipping is refused while the gate is open. Close the
-   gate by keeping the promise or marking the criterion true; never
-   clear the gate, or delete the promise, to get past it.
+- **Promises are carried, not completed.** `set_release_promises` lists
+  the promises a release carries, and replaces the whole list, so read
+  `list_releases` first and pass the full set. A release may carry none,
+  or move several forward without finishing any. Carrying a promise
+  doesn't keep it, gate on it, or show it to a wider audience: readers
+  see only the carried promises their audience may already see.
+- **A gate holds a release back.** `set_release_gate` waits on a whole
+  promise (`milestone`), until its health is `shipped`, or on one
+  criterion (`milestone` plus `done_when`), until that criterion is
+  true. The optional `text` is what the client reads while it waits.
+  `list_releases` returns each gate's configuration only; whether it is
+  open, and whether it is late (open, with the promise due after the
+  release date), comes from `get_timeline`.
+- **Shipping is refused while the gate is open.** Close the gate by
+  keeping the promise or marking the criterion true, with evidence;
+  never clear the gate, or delete the promise, to get past it.
 
-`list_releases` returns each gate's configuration only. Whether a gate
-is open, and whether it is late (open, with the promise due after the
-release date), comes from `get_timeline`.
-
-Every release write asks for `confirm_irreversible`, except moving a
-release to `planned` or `cutting`. Shipping one tells its partners or
-public that it shipped. Say who will read it
-before you ask.
+Every release write asks for `confirm_irreversible` except
+`set_release_state`, which asks only when shipping tells partners or the
+public. The notes are never shown to a client, whatever the audience
+(`update_release`'s `notes` field says so); the version, public name,
+summary, gate text, and carried promises are. Say who will read a
+change before you ask.
 
 ## The public link
 
@@ -236,8 +239,9 @@ so the user can check them.
 - **Take releases and promises from how the project ships.** Release
   tags, the CHANGELOG, version fields in manifests, and roadmap
   documents show what the project calls a release, a beta, or a launch.
-  Each tag is a release; each beta or launch is a promise. Take target
-  dates from a planned release or from the pace in the git history.
+  Match each tag to a release record, and ask whether each beta or
+  launch is a promise rather than assuming it. Take target dates from a
+  planned release or from the pace in the git history.
   When neither exists, say the date is a guess.
 - **Take criteria from what can be checked.** A criterion the code can
   prove (a page exists, an endpoint answers, a setting is enforced) is

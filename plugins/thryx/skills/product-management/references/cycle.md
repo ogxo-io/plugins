@@ -133,3 +133,10 @@ Each of these is a proposal first (see "Routines propose" in SKILL.md).
    criteria, and outcomes (`references/roadmap.md`), the "where it stands" part of the
    project description (`references/project-doc.md`), and then the next
    cycle's plan.
+
+Closing a cycle ships nothing. When a release goes out with it, run
+[release.md](release.md) as its own step, and keep the cycle's
+operations and research work in the retrospective even though no
+release carries it. If shipping is still waiting on an answer when you
+write the retrospective, say so, and append the outcome once it is
+settled.
