@@ -20,7 +20,7 @@ expect() {
 
 sys="$tmp/sys"
 mkdir -p "$sys"
-for b in bash sh env jq cat grep mv head paste; do
+for b in bash sh env jq cat grep mv head paste python3 dirname; do
   p=$(command -v "$b") && ln -sf "$p" "$sys/$b"
 done
 
@@ -36,13 +36,26 @@ case "$1 $2" in
   "mcp add-json") printf '%s\n' "$6" >"$STUB_DIR/json"; printf '%s\n' "$5" >>"$STUB_DIR/servers" ;;
 esac
 STUB
-# Codex stores the variable name, not a headers helper or token.
+# Codex writes a canonical TOML entry, as mcp add does in the real CLI.
 cat >"$stubs/codex" <<'STUB'
 #!/usr/bin/env bash
 printf '%s\n' "codex $*" >>"$STUB_DIR/calls"
 case "$1 $2" in
   "mcp get") grep -qxF "$3" "$STUB_DIR/servers" ;;
-  "mcp add") [ -z "${CODEX_ADD_FAIL:-}" ] || exit 1; printf '%s\n' "$*" >"$STUB_DIR/codex-config" ;;
+  "mcp add")
+    [ -z "${CODEX_ADD_FAIL:-}" ] || exit 1
+    printf '%s\n' "$*" >"$STUB_DIR/codex-config"
+    python3 - "$3" "$5" <<'PYCONFIG'
+import os, pathlib, re, sys
+home = pathlib.Path(os.environ.get("CODEX_HOME", str(pathlib.Path.home() / ".codex")))
+home.mkdir(parents=True, exist_ok=True)
+p = home / "config.toml"
+s = p.read_text() if p.exists() else ""
+s = re.sub(r"(?ms)^\[mcp_servers\." + re.escape(sys.argv[1]) + r"\]\n.*?(?=^\[|\Z)", "", s)
+p.write_text(s.rstrip() + "\n\n[mcp_servers." + sys.argv[1] + ']\nurl = "' + sys.argv[2] + '"\n')
+PYCONFIG
+    ;;
+
 esac
 STUB
 # security find-generic-password -s S -a A [-w]; add-generic-password -U -s S -a A -l L -w T
@@ -76,6 +89,7 @@ chmod +x "$stubs"/*
 envmode="$tmp/envmode"
 mkdir -p "$envmode"
 ln -sf "$stubs/claude" "$envmode/claude"
+ln -sf "$stubs/codex" "$envmode/codex"
 
 # run <mode: keychain|env> <VAR=value ...> -- <args...>: sets $out and $code.
 # SEED_SERVERS and SEED_KC preload the stubs' state.
@@ -83,7 +97,8 @@ run() {
   local mode=$1
   shift
   rm -rf "$tmp/stub"
-  mkdir -p "$tmp/stub"
+  mkdir -p "$tmp/stub/codex-home"
+  printf '%s' "${SEED_CONFIG:-}" >"$tmp/stub/codex-home/config.toml"
   : >"$tmp/stub/calls"
   printf '%s' "${SEED_SERVERS:-}" >"$tmp/stub/servers"
   printf '%s' "${SEED_KC:-}" >"$tmp/stub/kc"
@@ -92,7 +107,7 @@ run() {
   shift
   local path="$stubs:$sys"
   [ "$mode" = env ] && path="$envmode:$sys"
-  out=$(env -i HOME="$tmp" PATH="$path" STUB_DIR="$tmp/stub" "${envs[@]+"${envs[@]}"}" bash "$script" "$@" 2>&1)
+  out=$(env -i HOME="$tmp" PATH="$path" STUB_DIR="$tmp/stub" CODEX_HOME="$tmp/stub/codex-home" "${envs[@]+"${envs[@]}"}" bash "$script" "$@" 2>&1)
   code=$?
 }
 called() { grep -q "$1" "$tmp/stub/calls"; }
@@ -100,7 +115,17 @@ export tmp stubs sys
 helper_out() { # run the stored helper with the stubs and print the header
   env -i PATH="$stubs:$sys" STUB_DIR="$tmp/stub" "$@" sh -c "$(jq -r .headersHelper "$tmp/stub/json")" | jq -r .Authorization
 }
-export -f helper_out
+codex_helper_out() {
+  env -i PATH="$stubs:$sys" STUB_DIR="$tmp/stub" python3 - "$tmp/stub/codex-home/config.toml" "${1:-ogxo}" <<'PYHELPER'
+import json, pathlib, subprocess, sys, tomllib
+server = tomllib.loads(pathlib.Path(sys.argv[1]).read_text())["mcp_servers"]["thryx-" + sys.argv[2]]
+assert "bearer_token_env_var" not in server
+assert server["url"] == "https://app.thryx.io/api/v1/mcp/" + sys.argv[2]
+result = subprocess.run(server["http_headers_helper"], shell=True, check=True, text=True, capture_output=True)
+print(json.loads(result.stdout)["Authorization"])
+PYHELPER
+}
+export -f helper_out codex_helper_out
 
 # --- keychain mode (macOS) ---
 run keychain DIALOG_ANSWER=tok-shared -- ogxo
@@ -159,24 +184,47 @@ expect "bad variable name: exit 2" [ "$code" -eq 2 ]
 run env THRYX_TOKEN=s --
 expect "no workspace: exit 2, nothing called" bash -c '[ "$2" -eq 2 ] && [ ! -s "$1/stub/calls" ]' _ "$tmp" "$code"
 
-# --- Codex: environment references, including on macOS ---
-run keychain -- ogxo --client codex
-expect "codex: registers even before token is set" [ "$code" -eq 0 ]
-expect "codex: workspace URL and bearer variable" grep -qxF 'mcp add thryx-ogxo --url https://app.thryx.io/api/v1/mcp/ogxo --bearer-token-env-var THRYX_TOKEN' "$tmp/stub/codex-config"
-expect "codex: no Claude or Keychain calls" bash -c '! grep -qE "^(claude|security|osascript) " "$1/stub/calls"' _ "$tmp"
-expect "codex: explains environment setup" grep -qF 'THRYX_TOKEN' <<<"$out"
-run keychain THRYX_TOKEN_KLEVER=secret-codex -- klever --client codex --token-var THRYX_TOKEN_KLEVER
-expect "codex: custom variable" grep -qF -- '--bearer-token-env-var THRYX_TOKEN_KLEVER' "$tmp/stub/codex-config"
-expect "codex: no token in output or registration" bash -c '! grep -q secret-codex "$1/stub/calls" && ! grep -q secret-codex <<<"$2"' _ "$tmp" "$out"
+# --- Codex: Keychain by default on macOS ---
+run keychain DIALOG_ANSWER=tok-codex -- ogxo --client codex
+expect "codex keychain: exit 0" [ "$code" -eq 0 ]
+expect "codex keychain: helper authenticates without token environment" bash -c '[ "$(codex_helper_out)" = "Bearer tok-codex" ]'
+expect "codex keychain: no token in config or output" bash -c '! grep -q tok-codex "$1/stub/codex-home/config.toml" && ! grep -q tok-codex <<<"$2"' _ "$tmp" "$out"
+SEED_KC=$'thryx-mcp/shared=tok-shared\n' run keychain -- ogxo --client codex
+expect "codex keychain: reuses the shared token without a dialog" bash -c '[ "$2" -eq 0 ] && ! grep -q osascript "$1/stub/calls" && [ "$(codex_helper_out)" = "Bearer tok-shared" ]' _ "$tmp" "$code"
+run keychain DIALOG_ANSWER=tok-own -- klever --client codex --own-token
+expect "codex keychain: workspace token" bash -c '[ "$1" -eq 0 ] && [ "$(codex_helper_out klever)" = "Bearer tok-own" ]' _ "$code"
 SEED_SERVERS=$'thryx-ogxo\n' run keychain -- ogxo --client codex
-expect "codex: preserves an existing server" bash -c '[ "$2" -eq 0 ] && ! grep -q "mcp add" "$1/stub/calls"' _ "$tmp" "$code"
-SEED_SERVERS=$'thryx-ogxo\n' run keychain -- ogxo --client codex --replace
-expect "codex: replaces by adding without removing first" bash -c '[ "$2" -eq 0 ] && grep -q "codex mcp add" "$1/stub/calls" && ! grep -q "mcp remove" "$1/stub/calls"' _ "$tmp" "$code"
-run keychain CODEX_ADD_FAIL=1 -- ogxo --client codex
-expect "codex: reports registration failure" [ "$code" -eq 1 ]
+expect "codex keychain: preserves existing entry without asking for token" bash -c '[ "$2" -eq 0 ] && ! grep -qE "mcp add|security|osascript" "$1/stub/calls"' _ "$tmp" "$code"
+SEED_SERVERS=$'thryx-ogxo\n' SEED_KC=$'thryx-mcp/shared=tok-old\n' run keychain DIALOG_ANSWER=tok-new -- ogxo --client codex --set-token
+expect "codex keychain: rotation updates Keychain without replacing config" bash -c '[ "$2" -eq 0 ] && grep -qx "thryx-mcp/shared=tok-new" "$1/stub/kc" && ! grep -q "mcp add" "$1/stub/calls"' _ "$tmp" "$code"
+SEED_CONFIG=$'model = "test-model"\n\n[mcp_servers.other]\nurl = "https://example.com/mcp"\n\n[mcp_servers.thryx-ogxo]\nurl = "https://old.example/mcp"\nbearer_token_env_var = "OLD_TOKEN"\n' SEED_SERVERS=$'thryx-ogxo\n' SEED_KC=$'thryx-mcp/shared=tok-replaced\n' run keychain -- ogxo --client codex --replace
+expect "codex keychain: replaces old authentication" bash -c '[ "$1" -eq 0 ] && [ "$(codex_helper_out)" = "Bearer tok-replaced" ]' _ "$code"
+expect "codex keychain: preserves unrelated configuration" python3 -c 'import pathlib, sys, tomllib; c=tomllib.loads(pathlib.Path(sys.argv[1]).read_text()); assert c["model"] == "test-model"; assert c["mcp_servers"]["other"]["url"] == "https://example.com/mcp"' "$tmp/stub/codex-home/config.toml"
+SEED_KC=$'thryx-mcp/shared=token-"quoted"\\slash\n' run keychain -- ogxo --client codex
+expect "codex keychain: escapes token as JSON" bash -c '[ "$(codex_helper_out)" = "$1" ]' _ 'Bearer token-"quoted"\slash'
+: >"$tmp/stub/kc"
+expect "codex keychain: missing credential fails rather than emitting an empty bearer" bash -c '! codex_helper_out'
+SEED_CONFIG=$'model = "unchanged"\n' run keychain DIALOG_ANSWER=tok-codex CODEX_ADD_FAIL=1 -- ogxo --client codex
+expect "codex keychain: registration failure preserves config" bash -c '[ "$2" -eq 1 ] && [ "$(cat "$1/stub/codex-home/config.toml")" = "$3" ]' _ "$tmp" "$code" 'model = "unchanged"'
+run keychain -- ogxo --client codex
+expect "codex keychain: cancellation adds nothing" bash -c '[ "$2" -eq 1 ] && ! grep -q "mcp add" "$1/stub/calls"' _ "$tmp" "$code"
+
+# --- Codex: environment references as an explicit option or without Keychain ---
+run env -- ogxo --client codex
+expect "codex env: registers even before token is set" [ "$code" -eq 0 ]
+expect "codex env: workspace URL and bearer variable" grep -qxF 'mcp add thryx-ogxo --url https://app.thryx.io/api/v1/mcp/ogxo --bearer-token-env-var THRYX_TOKEN' "$tmp/stub/codex-config"
+run keychain THRYX_TOKEN_KLEVER=secret-codex -- klever --client codex --token-var THRYX_TOKEN_KLEVER
+expect "codex env: custom variable bypasses Keychain" bash -c 'grep -qF -- "--bearer-token-env-var THRYX_TOKEN_KLEVER" "$1/stub/codex-config" && ! grep -qE "^(security|osascript) " "$1/stub/calls"' _ "$tmp"
+expect "codex env: no token in output or registration" bash -c '! grep -q secret-codex "$1/stub/calls" && ! grep -q secret-codex <<<"$2"' _ "$tmp" "$out"
+SEED_SERVERS=$'thryx-ogxo\n' run env -- ogxo --client codex
+expect "codex env: preserves an existing server" bash -c '[ "$2" -eq 0 ] && ! grep -q "mcp add" "$1/stub/calls"' _ "$tmp" "$code"
+SEED_SERVERS=$'thryx-ogxo\n' run env -- ogxo --client codex --replace
+expect "codex env: replaces without removing first" bash -c '[ "$2" -eq 0 ] && grep -q "codex mcp add" "$1/stub/calls" && ! grep -q "mcp remove" "$1/stub/calls"' _ "$tmp" "$code"
+run env CODEX_ADD_FAIL=1 -- ogxo --client codex
+expect "codex env: reports registration failure" [ "$code" -eq 1 ]
 for flag in --own-token --set-token; do
-  run keychain -- ogxo --client codex "$flag"
-  expect "codex: rejects $flag before any calls" bash -c '[ "$2" -eq 2 ] && [ ! -s "$1/stub/calls" ]' _ "$tmp" "$code"
+  run env -- ogxo --client codex "$flag"
+  expect "codex env: rejects $flag before any calls" bash -c '[ "$2" -eq 2 ] && [ ! -s "$1/stub/calls" ]' _ "$tmp" "$code"
 done
 run keychain -- ogxo --client unknown
 expect "unknown client: rejects before any calls" bash -c '[ "$2" -eq 2 ] && [ ! -s "$1/stub/calls" ]' _ "$tmp" "$code"

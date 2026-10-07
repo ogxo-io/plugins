@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Connect a ThryX workspace to Claude Code or Codex as its own MCP server.
 #   connect.sh <workspace> [--client claude|codex] [--own-token] [--set-token] [--token-var NAME] [--replace]
-# In Claude mode, adds a user-scope HTTP server named thryx-<workspace> for
-# https://app.thryx.io/api/v1/mcp/<workspace>. Its headersHelper builds the
+# Adds an HTTP server named thryx-<workspace> for
+# https://app.thryx.io/api/v1/mcp/<workspace>. A header helper builds the
 # Authorization header each time the server connects, so the token is never
-# written to Claude Code's config and never printed here.
+# written to the client's config and never printed here.
 #
 # Where the helper reads the token from:
 # - macOS (the `security` tool exists), unless --token-var is given: the login
@@ -13,10 +13,10 @@
 #   <workspace>). When the item is missing, or with --set-token, a dialog
 #   with hidden input asks for the token and stores it.
 # - Otherwise: an environment variable, THRYX_TOKEN or the one --token-var
-#   names, which must be set in the environment Claude Code started with.
+#   names, which must be set in the environment the client started with.
 #
-# Codex (--client codex) uses --bearer-token-env-var without reading the token
-# and does not use the Keychain or require jq.
+# Codex uses http_headers_helper for the Keychain (requires Python 3), or
+# --bearer-token-env-var for environment mode, without reading the token.
 #
 # In Claude mode, --replace removes an existing server first (for example
 # one added with the token in plaintext). Codex mode updates it with mcp add.
@@ -50,11 +50,10 @@ case $client in
   *) echo "thryx: --client must be claude or codex" >&2; exit 2 ;;
 esac
 
-# Codex's HTTP MCP configuration stores a bearer token variable name.
-# Register it without reading the variable; the user sets it before starting Codex.
-if [ "$client" = codex ]; then
+# Keep the environment option for Codex; default to Keychain where available.
+if [ "$client" = codex ] && { [ -n "$var" ] || ! command -v security >/dev/null 2>&1; }; then
   if $own || $set_token; then
-    echo "thryx: Codex uses environment tokens; use --token-var NAME for a workspace-specific token and rotate its value outside the chat" >&2
+    echo "thryx: --own-token and --set-token require Keychain mode; use --token-var NAME for a workspace-specific environment token" >&2
     exit 2
   fi
   command -v codex >/dev/null 2>&1 || { echo "thryx: the codex command was not found" >&2; exit 1; }
@@ -75,8 +74,17 @@ if [ "$client" = codex ]; then
   exit 0
 fi
 
-command -v claude >/dev/null 2>&1 || { echo "thryx: the claude command was not found" >&2; exit 1; }
-command -v jq >/dev/null 2>&1 || { echo "thryx: jq is required" >&2; exit 1; }
+if [ "$client" = codex ]; then
+  command -v codex >/dev/null 2>&1 || { echo "thryx: the codex command was not found" >&2; exit 1; }
+  command -v python3 >/dev/null 2>&1 || { echo "thryx: Python 3 is required for Codex Keychain authentication" >&2; exit 1; }
+  if codex mcp get "thryx-$ws" >/dev/null 2>&1 && ! $replace && ! $set_token; then
+    echo "thryx-$ws is already configured in Codex; use --replace to change its authentication or URL."
+    exit 0
+  fi
+else
+  command -v claude >/dev/null 2>&1 || { echo "thryx: the claude command was not found" >&2; exit 1; }
+  command -v jq >/dev/null 2>&1 || { echo "thryx: jq is required" >&2; exit 1; }
+fi
 
 name="thryx-$ws"
 url="https://app.thryx.io/api/v1/mcp/$ws"
@@ -122,6 +130,21 @@ else
   fi
   helper="printf '{\"Authorization\": \"Bearer %s\"}' \"\$$var\""
   source_desc="\$$var"
+fi
+
+if [ "$client" = codex ]; then
+  if codex mcp get "$name" >/dev/null 2>&1 && ! $replace; then
+    echo "$name is already configured; its configuration was kept. The Keychain token was updated."
+    echo "Start a new Codex session to use the new token; use --replace to switch an existing environment or OAuth configuration to Keychain authentication."
+    exit 0
+  fi
+  script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+  python3 "$script_dir/codex-keychain.py" "$name" "$url" "$(command -v security)" "$account" || exit 1
+  echo "Configured $name ($url) in Codex; its token comes from $source_desc."
+  echo "Start a new Codex session; /mcp shows whether the server connected."
+  echo "Saved OAuth credentials take precedence over the helper; if previously logged in, run 'codex mcp logout $name'."
+  echo "For each repository using it, add 'ThryX workspace: $ws' to AGENTS.md."
+  exit 0
 fi
 
 if claude mcp get "$name" >/dev/null 2>&1; then

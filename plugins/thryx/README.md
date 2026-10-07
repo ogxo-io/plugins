@@ -10,7 +10,8 @@ and `replan`. Connect each ThryX workspace as its own MCP server, so one
 install covers every company you work with. Every tool call is an HTTP
 request to `app.thryx.io`, authenticated with your API token. Claude Code
 uses a header helper to read the token from your Keychain or environment;
-Codex uses its bearer-token environment variable setting.
+Codex uses `http_headers_helper` for the Keychain and its bearer-token
+environment variable setting for environment tokens.
 
 ## What's in it
 
@@ -121,23 +122,42 @@ Ask Codex to "connect ThryX workspace ogxo". The `connect` skill runs:
 bash "<plugin-path>/scripts/connect.sh" ogxo --client codex
 ```
 
-It configures the same endpoint as this manual command:
+On macOS, it configures `http_headers_helper` to read your login Keychain
+(item `thryx-mcp`, account `shared`), so the desktop app does not need to
+inherit a shell token variable. Python 3 is required. A hidden-input dialog
+asks for the token if it is missing; the token is shared with Claude Code's
+Keychain flow. The generated helper uses absolute executable paths and
+prints JSON headers without storing the token in `config.toml`.
+
+Use `--own-token` for a workspace-specific Keychain account and
+`--set-token` to enter a replacement token. Use `--replace` to migrate an
+existing environment-based entry to Keychain authentication:
+
+```bash
+bash "<plugin-path>/scripts/connect.sh" ogxo --client codex --replace
+```
+
+Saved OAuth credentials take precedence over helper headers. If you
+previously logged in with OAuth, run `codex mcp logout thryx-ogxo` when
+switching to the API-token helper. See [OpenAI's configuration reference](https://learn.chatgpt.com/docs/config-file/config-reference)
+for `http_headers_helper` and authentication precedence.
+
+Elsewhere, or with `--token-var NAME`, it uses an environment variable.
+For example:
 
 ```bash
 codex mcp add thryx-ogxo --url https://app.thryx.io/api/v1/mcp/ogxo --bearer-token-env-var THRYX_TOKEN
 ```
 
-Set `THRYX_TOKEN` outside the chat in the environment of the process that
-starts Codex, then start a new session and check `/mcp`. Registration only
-configures the server; a successful tool call verifies authentication.
-A shell export applies to clients launched from that shell; make sure the
-desktop app receives the variable too if that is the client you use.
+Set the variable outside the chat in the environment of the process that
+starts Codex. A shell export applies to clients launched from that shell;
+it does not set the variable for a desktop app launched elsewhere.
+Use `--token-var THRYX_TOKEN_OGXO` for a separate workspace environment
+token. `--own-token` and `--set-token` require Keychain mode; environment
+mode does not require `jq`, `security`, `osascript`, or Python.
 
-Use `--token-var THRYX_TOKEN_OGXO` for a separate workspace token and
-`--replace` to update an existing server. For rotation, change the variable
-outside the chat and restart Codex. `--own-token` and `--set-token` apply
-only to the Claude Keychain flow. Codex connection does not require `jq`,
-`security`, or `osascript`.
+Start a new session and check `/mcp`. Registration configures the server;
+a successful tool call verifies authentication.
 
 See [OpenAI's plugin packaging guidance](https://developers.openai.com/plugins/build/plugins)
 for local marketplaces and plugin skill discovery.

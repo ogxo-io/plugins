@@ -1,6 +1,6 @@
 ---
 name: connect
-description: Connect or reconnect a ThryX workspace to Codex or Claude Code over MCP, configure a workspace token variable, or rotate the Claude Keychain token. Use when ThryX tools are missing or the user asks to set up a workspace connection.
+description: Connect or reconnect a ThryX workspace to Codex or Claude Code over MCP, configure a workspace token variable, or rotate its Keychain token. Use when ThryX tools are missing or the user asks to set up a workspace connection.
 ---
 
 # Connect a ThryX workspace
@@ -27,22 +27,30 @@ Run the bundled script with the explicit client:
 bash "<absolute-plugin-path>/scripts/connect.sh" "<workspace>" --client codex
 ```
 
-Optional flags: `--token-var NAME` chooses a variable instead of
-`THRYX_TOKEN`; `--replace` updates an existing `thryx-<workspace>` entry.
-An existing entry is kept unless replacement was requested. The script
-registers the HTTP endpoint and variable name; Codex reads the token from
-its environment when connecting. Registration does not verify authentication.
+On macOS, the script uses `http_headers_helper` to read the token from
+the login Keychain (item `thryx-mcp`, account `shared`). No shell token
+variable is needed. Python 3 is required; the generated helper stores
+absolute executable paths so it also works in the desktop app. When no
+token is stored, a hidden-input dialog asks for one; tell the user to look
+for the dialog. The same Keychain token can be shared with Claude Code.
 
-Tell the user to set the variable outside the chat before starting Codex,
-then start a new session and check `/mcp`. For the desktop app, the variable
-must be available to the app process; a terminal export affects processes
-launched from that terminal. Do not claim that editing a shell profile
-sets a variable for an already running app.
+Flags: `--own-token` uses this workspace's Keychain account;
+`--set-token` opens the dialog again to rotate the token; `--replace`
+updates an existing `thryx-<workspace>` entry. Existing entries are kept
+unless replacement was requested; use `--replace` to migrate an existing
+environment-based entry to the Keychain helper. Saved OAuth credentials
+also take precedence over the helper; if previously logged in, run
+`codex mcp logout "thryx-<workspace>"` when switching to API-token auth.
 
-Codex does not use this script's Claude Keychain flow. For separate
-workspace tokens, use separate variable names. For rotation, change the
-variable's value outside the chat and restart the client; `--own-token`
-and `--set-token` are Claude-only flags.
+Elsewhere, or with `--token-var NAME`, the script registers a bearer-token
+environment variable (`THRYX_TOKEN` by default) without reading it.
+Tell the user to set it outside the chat in the environment of the process
+that starts Codex. A terminal export only affects clients launched from
+that terminal; editing a shell profile does not configure an already
+running app. `--own-token` and `--set-token` require Keychain mode.
+
+Start a new Codex session and check `/mcp`. Registration configures the
+server but does not verify authentication; a successful tool call does.
 
 ## Claude Code
 
