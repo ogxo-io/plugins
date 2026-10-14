@@ -155,7 +155,7 @@ order:
 
 1. Work under a promise due before a cycle ends (`get_timeline`) goes
    into that cycle, or the promise date moves. Say which. The
-   `milestone_work_outside_target_cycle` signal lists the misses.
+   `promise_work_outside_target_cycle` signal lists the misses.
 2. Tickets whose blockers are all `settled` (the `settled_blockers`
    signal). A ticket goes into a cycle only when its blocker is done or
    comes earlier in the plan.

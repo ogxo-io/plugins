@@ -19,7 +19,7 @@ full count when a signal needs action.
 | A ticket in progress or in review with no one assigned | `unassigned_started` |
 | A ticket inside the live cycle still in Backlog or Triage | `backlog_in_active_cycle` |
 | A gap between one scheduled cycle's end and the next one's start | `cycle_gap` |
-| A promise whose open tickets sit in no cycle ending by its date | `milestone_work_outside_target_cycle` |
+| A promise whose open tickets sit in no cycle ending by its date | `promise_work_outside_target_cycle` |
 | An outcome or promise at 100% whose status is still open | `completed_progress_open_status` |
 
 The report doesn't find these, so check them yourself:

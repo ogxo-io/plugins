@@ -36,7 +36,7 @@ Most release mistakes come from treating one of these as another.
 | `update_issue`, `update_issues` | Set `release` to a version or id, or `null` to clear it. At most 20 tickets per batch. `create_issues` has no per-ticket `release`: create, then assign. |
 | `update_release` | Send only the fields that change. `notes` replaces the whole body (at most 50,000 characters) and may name only tickets this release carries or shipped. An empty string clears a field; `null` clears the date. ThryX keeps no revision. |
 | `set_release_promises` | Replaces the whole list. An empty list clears it. |
-| `set_release_gate` | `milestone` alone gates on a whole promise; `milestone` plus `done_when` on one criterion; neither clears the gate. `text` (300 characters) is the line a client reads. |
+| `set_release_gate` | `promise` alone gates on a whole promise; `promise` plus `criterion` on one criterion; neither clears the gate. `text` (300 characters) is the line a client reads. |
 | `set_release_state` | `planned`, `cutting`, or `shipped`. Only with `shipped`: `release_date` to record the actual date, `notes_seed`, and `unfinished`. Refused while the gate is open. A shipped release cannot be reopened. |
 | `archive_release` | Takes the release off the active timeline and keeps its shipment history. An unshipped release with open tickets needs `unfinished`. |
 | `delete_release` | Nothing over MCP brings it back. Archive a release that has history instead. |

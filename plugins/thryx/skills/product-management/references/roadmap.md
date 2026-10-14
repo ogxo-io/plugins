@@ -13,11 +13,9 @@ sit on it, above the tickets:
 - A **promise** is a date the team commits to (a dot on the timeline).
   It has a title, a description, a target date, a health, an audience,
   and a list of **criteria**: "what has to be true" when the promise is
-  kept. The API still calls a promise a milestone and its criteria
-  done-when rows.
+  kept.
 - An **outcome** is a result the client watches move. It usually
-  hangs off a promise and counts the tickets linked to it ("2 of 4 linked"). The
-  API still calls an outcome a macro item.
+  hangs off a promise and counts the tickets linked to it ("2 of 4 linked").
 - A **release** is a version you ship (a diamond on the timeline). It
   carries promises, can wait on a gate, and moves from `planned` to
   `cutting` to `shipped`.
@@ -34,8 +32,8 @@ criteria, and for visibility **Workspace only**, **Partners**, and
 
 ## Who sees what
 
-- **Everything starts Workspace only.** `create_milestone`,
-  `create_macro_item`, and `create_release` all create the row hidden
+- **Everything starts Workspace only.** `create_promise`,
+  `create_outcome`, and `create_release` all create the row hidden
   unless you name an audience. Widening an audience is showing it to a
   client: treat it as the user's decision, one object at a time.
 - **Partners** are the client organisations invited to the project.
@@ -65,7 +63,7 @@ criteria, and for visibility **Workspace only**, **Partners**, and
   in only for the workspace view. Use them for internal context. They
   are still refused if they name a ticket key.
 - Clients can comment on a shown outcome only when
-  `partner_comments_enabled` is on. `list_macro_item_comments` reads
+  `partner_comments_enabled` is on. `list_outcome_comments` reads
   the thread oldest first, each comment marked `partner` (the client)
   or `team`. It returns an empty list when comments are off or the
   outcome is canceled, so an empty list doesn't always mean the client
@@ -85,13 +83,13 @@ first.
 
 Delete is for a mistake, and it takes more with it than the row:
 
-- `delete_milestone` deletes the promise's criteria, takes the promise
+- `delete_promise` deletes the promise's criteria, takes the promise
   off every release that carries it, and clears any release gate that
   waited on it or on one of its criteria, so a release held back by it
   can then ship. Its outcomes stay, detached from any promise.
-- `delete_macro_item` deletes the outcome's comments, the client's
+- `delete_outcome` deletes the outcome's comments, the client's
   included, and its ticket links. The tickets stay.
-- `delete_done_when` deletes the criterion and its history of when it
+- `delete_criterion` deletes the criterion and its history of when it
   became true.
 
 Before asking, list what the delete will take with it, as you would for
@@ -107,12 +105,12 @@ A promise has two progress readings, and the client sees both:
   counts the same way across the promises it carries. An outcome's own
   count is its linked tickets ("2 of 4 linked").
 - **Criteria**, claimed: each criterion is true or not, and someone
-  marks it by hand with `update_done_when` `is_true`. Nothing marks a
+  marks it by hand with `update_criterion` `is_true`. Nothing marks a
   criterion true when tickets finish.
 
 Health is claimed too: `on_track`, `watch`, `later`, or `shipped`.
 Marking a promise `completed` sets its health to `shipped`, unless the
-same call names a health. `list_milestones` still returns a
+same call names a health. `list_promises` still returns a
 `progress_percent`, but the client reads counts, not a percentage, so
 don't quote percentages in client copy.
 
@@ -121,16 +119,16 @@ That leaves the agent these jobs:
 - **Give every promise criteria.** A promise with no criteria shows
   "No criteria yet" and gives the client nothing to check. Write each
   criterion as one thing a client could verify ("A failed deploy pages
-  someone"), not a ticket and not a percentage. `create_milestone`
-  takes the first one as `done_when`; `add_done_when` adds the rest.
+  someone"), not a ticket and not a percentage. `create_promise`
+  takes the first one as `criterion`; `add_criterion` adds the rest.
 - **Link every outcome.** An outcome with no tickets stays at zero no
-  matter how much work ships. `link_macro_item_issues` returns the new
+  matter how much work ships. `link_outcome_issues` returns the new
   count, so report it.
 - **Link new scope.** A ticket filed under an epic that backs an
   outcome doesn't count until you link it, and until then the outcome
   looks further along than it is. `list_issues` with `project_key` and
-  `macro_item` lists what an outcome already counts, and `get_issue`
-  shows a ticket's `macro_items`.
+  `outcome` lists what an outcome already counts, and `get_issue`
+  shows a ticket's `outcomes`.
 - **Reconcile the claims with the counts.** A promise whose work is all
   done but whose criteria are still false, a criterion marked true
   while the work behind it is open, an outcome at 100% still
@@ -155,8 +153,8 @@ on the Roadmap.
   doesn't keep it, gate on it, or show it to a wider audience: readers
   see only the carried promises their audience may already see.
 - **A gate holds a release back.** `set_release_gate` waits on a whole
-  promise (`milestone`), until its health is `shipped`, or on one
-  criterion (`milestone` plus `done_when`), until that criterion is
+  promise (`promise`), until its health is `shipped`, or on one
+  criterion (`promise` plus `criterion`), until that criterion is
   true. The optional `text` is what the client reads while it waits.
   `list_releases` returns each gate's configuration only; whether it is
   open, and whether it is late (open, with the promise due after the
@@ -309,13 +307,13 @@ ever been tracked internally.
    would move under a different epic, with its current parent. The user
    may regroup, rename, or drop anything in their answer; write what
    they approved, not the first draft.
-3. Once the user agrees, write in order: `create_milestone` (with the
-   first criterion as `done_when`), then `add_done_when` for the rest;
-   `create_macro_item` with `milestone_title`; the new epics and tickets
+3. Once the user agrees, write in order: `create_promise` (with the
+   first criterion as `criterion`), then `add_criterion` for the rest;
+   `create_outcome` with `promise`; the new epics and tickets
    with `create_issues` (epics first, then their tickets with
    `parent_issue_key`, each written as `references/ticket.md` says);
    `set_issue_parent` for the existing tickets the user agreed to move;
-   `link_macro_item_issues` for the existing and the new tickets (at most
+   `link_outcome_issues` for the existing and the new tickets (at most
    20 keys per call); then `create_release`, `set_release_promises`, and
    `set_release_gate`. Leave every audience unset, so everything is
    still Workspace only at this point. The release calls ask for
@@ -334,11 +332,11 @@ no criteria, outcomes at zero, and releases the tags have already cut.
 ## Checking the Roadmap's health
 
 When asked for status, before a client meeting, or after a release,
-read `get_timeline`, plus `list_macro_item_comments` on shown outcomes
+read `get_timeline`, plus `list_outcome_comments` on shown outcomes
 that take comments, and lead with what is wrong. `project_structure`
 and `project_report` flag missing promises and outcomes and the
 100%-but-open ones, but nothing about criteria, releases, or gates, so
-check those yourself. The server's `roadmap` and `macro_board` prompts
+check those yourself. The server's `roadmap` and `outcomes` prompts
 run similar passes. Look for:
 
 - a promise with no criteria;
@@ -373,13 +371,13 @@ delivered.
 
 ## Writing what the client reads
 
-Before rewriting an outcome, call `get_macro_item` and read the tickets
+Before rewriting an outcome, call `get_outcome` and read the tickets
 behind it. A summary written from the old description repeats whatever
 has gone stale. Write about results in the client's terms: what they
 can do now, and what is waiting on them. Mention only work that is
 theirs. Draft the copy in your message, say who already reads it
-(`publication` on `list_macro_items`; the result of
-`update_macro_item_summary` carries only `partner_visible`), and wait.
+(`publication` on `list_outcomes`; the result of
+`update_outcome_summary` carries `publication` too), and wait.
 
 Filling an empty description, or changing status, health, dates, the
 promise, or the partner flags, goes through without confirmation, and

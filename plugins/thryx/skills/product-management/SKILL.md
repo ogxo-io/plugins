@@ -58,7 +58,7 @@ guess about the code as something you read.
 | The Roadmap (releases, promises, criteria, outcomes, the public link), anything a client reads, or a Roadmap built from the repository | `references/roadmap.md` |
 
 The server also ships prompts for some of this work (`write_ticket`,
-`plan_cycle`, `organize_project`, `roadmap`, `macro_board`,
+`plan_cycle`, `organize_project`, `roadmap`, `outcomes`,
 `project_status`; the
 thryx skill lists them). They are the procedures ThryX's own assistant
 follows, written from the tracker alone. Use a prompt when it fits and

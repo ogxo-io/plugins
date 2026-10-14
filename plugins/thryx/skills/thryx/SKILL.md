@@ -80,7 +80,7 @@ way or through another tool.
 **Doing the work.** Your tickets are `list_issues` with `assignee_email`
 set to the token owner's address, which `whoami` returns. `get_issue` for
 the whole ticket, including the Roadmap outcomes it counts toward
-(`macro_items`); `list_relations` for what blocks it. Call
+(`outcomes`); `list_relations` for what blocks it. Call
 `list_statuses` for the project before `update_issue` changes a status:
 workflow state names are per project, not a fixed vocabulary, so read
 them rather than assume. `update_issue` refuses fields it does not take
@@ -289,27 +289,27 @@ product-management skill.
 The Roadmap is one timeline of releases (versions you ship), promises
 (dates you commit to, each with criteria: "what has to be true"), and
 outcomes (results the client watches move, counted from the tickets
-linked to them). The app speaks those words; the tools kept their old
-names:
+linked to them). The app and the tools speak those words:
 
 | The person says | The tools say | Visibility field and values |
 | --- | --- | --- |
-| Promise | milestone (`*_milestone`, param `milestone`: title or id) | `audience`: `internal`, `partners`, `public` |
-| Criteria, "what has to be true" | done-when row (`*_done_when`, param `row`: text or id) | follows its promise |
-| Outcome | macro item (`*_macro_item*`, param `macro_item` on update and delete, `title` on the others) | `publication`: `draft`, `partners`, `public` |
+| Promise | promise (`*_promise*`, param `promise`: title or id) | `audience`: `internal`, `partners`, `public` |
+| Criteria, "what has to be true" | criterion (`*_criterion`, `reorder_criteria`, `list_criteria`; param `criterion`: text or id) | follows its promise |
+| Outcome | outcome (`*_outcome*`, param `outcome`: title or id) | `publication`: `draft`, `partners`, `public` |
 | Release | release (`*_release*`, param `release`: version or id) | `audience`: `internal`, `partners`, `public` |
 | The whole Roadmap | `get_timeline` | `audience`: `workspace`, `partners`, `public` (whose reading to return) |
 
 "Workspace only" is `internal` on a promise or release and `draft` on an
-outcome. `partner_visible` is the older flag: create no longer takes it,
-and update takes it but `audience` or `publication` wins, so pass those
-instead. It still appears in `list_*` results and behind
-`project_structure`'s `no_partner_milestones`.
+outcome. Say who reads a row with `audience` on a promise or release and
+`publication` on an outcome; those are the names on both the writes and the
+`list_*` and `get_*` results. `project_structure` counts the promises and
+outcomes shown to partners, and its finding `no_partner_promises` says when
+there are none.
 
 One fact matters even when you are only working a ticket: an outcome
 counts only the tickets linked to it. When a follow-up lands under an
-epic that backs an outcome, check `list_macro_items` and offer to link
-it with `link_macro_item_issues`. Until then, the outcome looks further
+epic that backs an outcome, check `list_outcomes` and offer to link
+it with `link_outcome_issues`. Until then, the outcome looks further
 along than it is. `get_issue` shows which outcomes a ticket already
 counts toward.
 
@@ -342,7 +342,7 @@ product-management skill's [release reference](../product-management/references/
 Prefer `create_issues` and `update_issues` over calling the singular tool
 in a loop. The ceilings differ: `create_issues` takes at most 12 per call,
 while `update_issues`, `set_issue_parent`, `remove_issue_parent`, and
-`link_macro_item_issues` take 20, and `set_release_promises` takes 100
+`link_outcome_issues` take 20, and `set_release_promises` takes 100
 (it replaces the release's whole list, so pass every promise it should
 carry). Plan a large write to the limit rather
 than discovering it by rejection — over the ceiling is a schema error, not
@@ -383,8 +383,8 @@ ordinary writes at scale, not from the gated few.
 ## Irreversible calls have a contract
 
 `move_issue`, `update_document`, `send_feedback`,
-`reply_to_my_feedback`, the three deletes (`delete_milestone`,
-`delete_macro_item`, `delete_done_when`), the release writes
+`reply_to_my_feedback`, the three deletes (`delete_promise`,
+`delete_outcome`, `delete_criterion`), the release writes
 (`create_release`, `update_release`, `delete_release`,
 `set_release_promises`, `set_release_gate`, `archive_release`), and the public link
 (`set_timeline_share`, `rotate_timeline_share`, `revoke_timeline_share`)
@@ -392,9 +392,9 @@ ordinary writes at scale, not from the gated few.
 ticket and drops its parent, children, live cycle membership, and
 outcome links, and the deletes take more than their row (the roadmap
 reference lists what), so list what will be lost before asking.
-`update_project`, `create_milestone`, `update_milestone`,
-`add_done_when`, `update_done_when`, `create_macro_item`,
-`update_macro_item`, `update_macro_item_summary`, `set_release_state`,
+`update_project`, `create_promise`, `update_promise`,
+`add_criterion`, `update_criterion`, `create_outcome`,
+`update_outcome`, `update_outcome_summary`, `set_release_state`,
 and `tag_document` require it only when the specific call would actually
 destroy something or show something — the server checks the current
 state before deciding.
@@ -524,7 +524,7 @@ they are maintained alongside the tools.
 | `project_status` | `project_key` | What moved, what is at risk, and which `project_report` signals need action |
 | `plan_cycle` | `project_key`, `cycle` | Plans a cycle from the backlog and current workload |
 | `organize_project` | `project_key` | Finds and fixes gaps in a project's structure |
-| `macro_board` | `project_key` | Maintains the outcomes clients read (the old macro board) |
+| `outcomes` | `project_key` | Maintains the outcomes clients read |
 | `roadmap` | `project_key` | Runs the Roadmap: promises, criteria, releases, and the public link |
 
 They are the web agent's guides, already adapted for MCP: where the web
