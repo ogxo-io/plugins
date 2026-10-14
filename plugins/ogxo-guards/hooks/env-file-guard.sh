@@ -4,11 +4,16 @@
 # the command, and for broad adds (-A, -u, ., a directory, a glob) asks
 # `git status` which paths they would pick up. The hooks.json entry checks
 # for jq before running this script.
+#
+# No here-strings (<<<): bash writes one into a pipe from the process that
+# then reads it, which blocks forever once the text outgrows the pipe
+# buffer (macOS shrinks pipe buffers under load). Every value is fed from a
+# separate writer instead: a printf pipe or < <(printf ...).
 
 input=$(cat)
-cmd=$(jq -r '.tool_input.command // empty' <<<"$input")
+cmd=$(printf '%s' "$input" | jq -r '.tool_input.command // empty')
 [ -n "$cmd" ] || exit 0
-base=$(jq -r '.cwd // empty' <<<"$input")
+base=$(printf '%s' "$input" | jq -r '.cwd // empty')
 [ -n "$base" ] || base=$PWD
 
 # Default names, matched against a path's last component.
@@ -18,7 +23,7 @@ template_re='^\.env\.(example|sample|template|dist)$'
 sensitive() {
   local path=$1 name extra line
   name=${path##*/}
-  if grep -qE "$default_re" <<<"$name" && ! grep -qE "$template_re" <<<"$name"; then
+  if printf '%s\n' "$name" | grep -qE "$default_re" && ! printf '%s\n' "$name" | grep -qE "$template_re"; then
     return 0
   fi
   # Per-repository additions: .claude/ogxo-guards-sensitive, one ERE per
@@ -27,7 +32,7 @@ sensitive() {
   if [ -n "$root" ] && [ -f "$extra" ]; then
     while IFS= read -r line; do
       case "$line" in '' | '#'*) continue ;; esac
-      grep -qE -- "$line" <<<"$path" && return 0
+      printf '%s\n' "$path" | grep -qE -- "$line" && return 0
     done <"$extra"
   fi
   return 1
@@ -41,7 +46,7 @@ block() {
 # Split into command segments at shell separators, then look at each one.
 segments=$(printf '%s\n' "$cmd" | tr ';&|()\n' '\n\n\n\n\n\n')
 while IFS= read -r seg; do
-  read -r -a words <<<"$seg" || continue
+  read -r -a words < <(printf '%s\n' "$seg") || continue
   i=0
   n=${#words[@]}
   # Skip leading env assignments and find `git`.
@@ -103,6 +108,6 @@ while IFS= read -r seg; do
     path=${path//\"/}
     [ "$update_only" -eq 1 ] && [ "$code" = '??' ] && continue
     sensitive "$path" && block "$path"
-  done <<<"$status"
-done <<<"$segments"
+  done < <(printf '%s\n' "$status")
+done < <(printf '%s\n' "$segments")
 exit 0
