@@ -11,18 +11,28 @@ exists.
 
 ## Resolve the workspace first
 
-Every call is company-scoped by the workspace slug in its server's URL,
-not by anything said in the conversation. Each workspace is its own MCP
-server, usually named `thryx-<workspace>`, and its tools carry that name:
-`mcp__thryx-ogxo__get_issue` in Claude Code, `mcp__thryx_ogxo__get_issue`
-in Codex, which turns the hyphen into an underscore. Each server's
-instructions name its workspace ("ThryX workspace \"ogxo\""). With none
-connected, there are no ThryX tools: say so and use the sibling
-`../connect/SKILL.md` when the user asks to connect (in Codex, ask for
-the connect skill; in Claude Code, `/thryx:connect <workspace>`). Don't
-stand in for the tracker some other way. With
-one server connected, that is the workspace. With several, pick one before
-any write, in this order:
+ThryX is one MCP server, `thryx`, and its tools carry that name:
+`mcp__thryx__get_issue` in Claude Code and in Codex alike. It reaches every
+workspace the connection can reach: the person's memberships, narrowed by a
+token minted for one workspace or by what an OAuth grant allows. Which
+workspace a call acts in is its `workspace` argument (the slug), not the
+connection. With no ThryX tools at all, say so and use the sibling
+`../connect/SKILL.md` when the user asks to connect (in Codex, ask for the
+connect skill; in Claude Code, `/thryx:connect`). Don't stand in for the
+tracker some other way. A server still named `thryx-<workspace>` is the
+older per-workspace form: it works, its tools carry that name
+(`mcp__thryx-ogxo__get_issue` in Claude Code, `mcp__thryx_ogxo__get_issue`
+in Codex), and `workspace` is optional there.
+
+Call `list_workspaces` once per session. It returns each reachable
+workspace's slug, name, the person's role, whether agents are on, which tool
+groups and tiers the owners switched off, and whether the token meets the
+workspace's sign-in rules (`ok`, `sso_required`, `two_step_required`). When
+the connection reaches one workspace, `workspace` may be left out. When it
+reaches several, pass it on every call except `whoami`, `list_workspaces`,
+and `discover_tools`; a call without it is refused with the reachable slugs
+listed, before anything runs. Pick the workspace in this order before any
+write:
 
 1. The repository says so: a `ThryX workspace: <slug>` line in its
    `CLAUDE.md` or `AGENTS.md`.
@@ -31,8 +41,23 @@ any write, in this order:
 3. Otherwise ask which workspace, and suggest adding that line.
 
 Reads can look across workspaces; writes go to the one you picked, and
-every call for the task goes to that same server. If you are unsure,
-`list_projects` on the candidate before mutating anything.
+every call for the task passes that same `workspace`. Never guess a
+workspace for a write. If you are unsure, `list_projects` on the candidate
+before mutating anything. A slug the connection can't reach answers that no
+such workspace is reachable, whether it doesn't exist, the person isn't a
+member, or the token was minted for another workspace. A workspace whose
+standing is `sso_required` or `two_step_required` needs a token minted from
+a session signed in that way: tell the person so. A refusal
+that says owners switched agents, a tool group, or a tier off, or blocked
+this token, names what is off; report it and don't try another route.
+`list_workspaces` does not show a block.
+
+Prompts that take a ticket or project key also take `workspace`. Resources
+are `thryx://<workspace>/project/<key>`, `thryx://<workspace>/issue/<issue_key>`,
+and `thryx://<workspace>/doc/<document_id>`. On the single server,
+`resources/list` shows up to 100 projects across workspaces and
+`_meta.thryx.left_out` counts the rest, so read a project outside the list
+by filling in the URI.
 
 ## Starting a ticket: mark it before you touch the code
 
@@ -42,7 +67,8 @@ code, not after the change is done. This applies whenever a ticket key
 meets a request to do the work: "work on", "pick up", "implement", "fix",
 "continue", "let's do". It also applies in the two cases where nobody
 says "start": the key is only in the branch name, and you have just filed
-a ticket that you are now going to do.
+a ticket that you are now going to do. A ticket a person handed to this
+connection starts with `claim_handoff` instead; see the next section.
 
 1. `get_issue` for the ticket's status and assignee.
 2. `list_statuses` for the project. Statuses carry a `category`; the
@@ -63,6 +89,89 @@ a ticket that you are now going to do.
 Status and assignee go in one `update_issue` call. Say in one line what
 you changed ("THRY-12 → In Progress, assigned to you"), then start.
 
+## Work a person handed to this connection
+
+A person can hand a ticket to one of their own tokens or connected apps,
+from the ticket's "···" menu or by asking Elix (`hand_to_agent`, undone
+with `cancel_handoff`; both take an optional `kind`, default `work`). A
+hand-off is its own record with a `kind`, which decides what claiming does
+and how it ends:
+
+- **`work`**: do the ticket. Claiming moves a Triage or unstarted ticket
+  to the project's first started status that is not its review status.
+  It ends when the ticket completes under the project's PR rules, or by
+  release or cancel.
+- **`review`**: review the ticket's change on your side. Claiming moves
+  nothing. It ends with `finish_handoff` and an `outcome`, `pass` or
+  `changes_needed`.
+- **`investigate`**: a root cause, a plan, or a refinement, with no code.
+  Claiming moves nothing. It ends with `finish_handoff` and a summary
+  only.
+
+A ticket has at most one active hand-off per kind, and a token at most one
+per ticket, so a work and a review go to two agents. A review is refused
+to the token of the ticket's most recent claimed work hand-off. The agent
+is never the assignee: the person stays accountable, and a work hand-off
+assigns them when the ticket has none.
+
+At the start of a session, check `list_handoffs` for work handed to this
+connection, across every workspace it reaches or in one with `workspace`.
+Each row carries its `kind`, the ticket's description, its done-when
+rows, `needs_pr`, the person's instructions, `created_at`, and
+`pull_requests` (repo, number, title, state, url). Act only on the kinds
+you handle, and leave any other kind for the person. The agent's tools
+name the ticket, never the kind: the server finds this token's hand-off
+from the key. Claude Code lists the five agent tools with the rest. On the
+default list (Codex) they are not there: find them with `discover_tools`,
+then run `list_handoffs` through `execute_read` and `claim_handoff`,
+`report_handoff_progress`, `finish_handoff`, and `release_handoff`
+through `execute_write`. `get_issue` carries `handoffs`, one entry per kind
+the ticket has had (`kind`, state, disconnected, agent name, who handed
+it, instructions, `claimed_at`, `outcome`, `summary`).
+
+Every kind starts the same way:
+
+1. **Claim before you start.** `claim_handoff` marks the hand-off claimed;
+   for `work` it also moves the status as above, and a started ticket
+   stays where it is. Don't move the status or change the assignee
+   yourself. A hand-off that is no longer active refuses the claim, and
+   so does a done or canceled ticket for `work`; a review or an
+   investigation still runs on a done ticket.
+2. **Work from the row.** The instructions and done-when rows say what
+   the person wants.
+3. **Report at milestones.** `report_handoff_progress` posts a comment
+   marked as the agent's, after the claim: a plan, a blocker, a PR
+   opened. It notifies nobody, so a question that needs an answer goes to
+   the user or in `add_comment` with a mention.
+
+Then, by kind:
+
+- **`work`: finish with `[KEY]`.** Put the ticket key in square brackets
+  in the branch name or the PR title; that PR links itself to the ticket.
+  Don't complete the ticket yourself: the project's PR rules and a person
+  do, and `finish_handoff` refuses a work hand-off.
+- **`review`: read, review, give a verdict.** Read the ticket and the
+  row's `pull_requests` and review the change on your side, then
+  `finish_handoff` with `outcome` (`pass` or `changes_needed`) and a
+  `summary` of what you found.
+- **`investigate`: report what you found.** Investigate, then
+  `finish_handoff` with a `summary` and no `outcome`.
+
+A review or an investigation doesn't move the ticket's status and doesn't
+open a PR for the ticket. `finish_handoff` posts the summary as an agent
+comment and tells the person who handed it over, and the assignee if
+that is someone else. If you can't finish any kind, `release_handoff`
+with a reason gives it back unfinished, and tells the same people.
+
+A revoked or blocked credential shows the hand-off as disconnected; it
+can't be claimed, and the person cancels it. A read-only credential is
+refused as a hand-off target.
+
+When the host, not ThryX, refuses one of these calls (a Claude Code
+permission prompt the user declined, or auto mode holding the write),
+say so and point the user to the allow rules in the connect skill's
+"Letting handed work run"; don't send the call another way.
+
 ## Which hat you are wearing
 
 ThryX is the team's tracker, and this server has two kinds of caller: the
@@ -70,10 +179,14 @@ person doing a ticket, and the person running the project. Decide which
 you are before you act. It changes what a good turn looks like.
 
 The request decides the hat; your role in the workspace decides what the
-server lets you do. `whoami` returns that role (owner, for example) along
-with your email, so before project-running work (cycles, the Roadmap,
-projects, team changes) read it once per session. When a write is refused
-for permissions, report the refusal and your role from `whoami`, and
+server lets you do. `whoami` returns your email and that role (owner,
+for example): with `workspace`, or on a connection that reaches one
+workspace, as `role` there; without `workspace`, as `workspaces`, your
+role in each workspace the connection reaches. Read the role for the
+workspace you are about to act in. Before project-running work (cycles,
+the Roadmap, projects, team changes) read it once per session.
+When a write is refused for permissions, report the refusal and your role
+in that workspace, and
 leave the change to someone whose role allows it; don't retry it another
 way or through another tool.
 
@@ -476,16 +589,39 @@ only files that are evidence for that ticket, such as the screenshot the
 user shared or the log that shows the failure, and never a file fetched
 from the web. Still describe in the description what the file shows,
 because not everyone opens attachments. Private notes never
-cross an API token — the notes endpoint requires a signed-in session, and
-MCP credentials are a separate token type that cannot satisfy it. If the
+cross an MCP connection — every notes tool is withheld over MCP, and the
+notes endpoint requires a signed-in session, which an MCP credential
+(personal token or OAuth grant) is not. If the
 user needs one, say so and point at the web app.
 
-**`load_tools` is unnecessary, not missing.** MCP lists the catalog up
-front rather than in groups, so there is no group to load — ignore any
-instruction to load one. It is not quite everything: `suggest_duplicates`
+**`load_tools` is unnecessary, not missing, and the list you see may be the
+core.** By default the server lists a core of twenty tools: the orientation
+reads (`list_workspaces`, `whoami`, `list_projects`, `project_brief`,
+`list_statuses`, `list_cycles`, `list_assignable_people`, `list_issues`,
+`get_issue`, `search_issues`, `search_documents`, `get_document`), the batch
+ticket writes (`create_issues`, `update_issues`, `add_comment`,
+`link_issues`), and `discover_tools` with the three `execute_*` tools.
+There is no group to load, so ignore any instruction to call `load_tools`.
+Before you conclude that ThryX cannot do something, call `discover_tools`
+with a `group` (`planning`, `documents`, `security`, `notes`, `partner`,
+`feedback`, or `all`), a `query` in plain words ("set release gate"), or
+exact `names`. It returns each match with its full schema, including
+`confirm_irreversible`, and its `tier`, filtered to what this token and the
+workspace's owners allow (a read-only token finds only reads), at most 25 a
+call. Run what it finds through the execute tool of that tier:
+`execute_read` for `read`, `execute_write` for `write`,
+`execute_irreversible` for `irreversible`, passing `tool` and `arguments`
+(the inner tool's own arguments, `confirm_irreversible` included).
+`discover_tools` takes no `workspace`; the `execute_*` tools take
+`workspace` like every other tool. A wrapper given a tool of another tier
+names the right one. Otherwise a wrapped call is a direct call: the same
+confirmation, the same refusals, the same activity record. A tool already
+in the list needs no discovery. Claude Code connects with `?tools=all` and
+sees every tool natively, so it needs neither `discover_tools` nor the
+wrappers. Even the full list is not quite everything: `suggest_duplicates`
 and `semantic_search_issues` appear only when the workspace has semantic
-search configured. Trust the tool list you actually
-have over this file or over a tool description that names a neighbour.
+search configured. Trust the tool list you actually have over this file or
+over a tool description that names a neighbour.
 
 **`propose_actions` is the staging tool** described above. Its absence is
 why you confirm in conversation instead.

@@ -13,7 +13,7 @@
     {
       "name": "ogxo",
       "description": "The ogxo plugin set in one install: code review, git and GitHub workflows, browser debugging, decision and planning skills, color-system design, safety hooks, specialist subagents, the status line, and model routing. Installing it installs each of those plugins; thryx (needs a ThryX account) and ogxo-format (rewrites every file Claude edits) are left out and install on their own. In Codex, a setup skill installs the members one at a time.",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -29,7 +29,7 @@
     {
       "name": "thryx",
       "description": "Skills for ThryX project management over MCP: issues, projects, cycles, the client-facing Roadmap (releases, promises, outcomes, and its public link), and documents in the ThryX workspaces you connect, plus a product-management skill for writing tickets, PRDs, ADRs, and project docs and running follow-ups.",
-      "version": "0.7.0",
+      "version": "0.8.0",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"

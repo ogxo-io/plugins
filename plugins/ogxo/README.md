@@ -35,7 +35,7 @@ Use `ogxo-statusline:setup-codex` for Codex's native terminal status line.
 
 Two plugins are left out on purpose. Install them by name when you want them:
 
-- `thryx`: needs a ThryX account, and one MCP server per workspace, added with `/thryx:connect`
+- `thryx`: needs a ThryX account and its MCP server, added with `/thryx:connect`
 - `ogxo-format`: reformats every file Claude edits
 
 ## Updating and removing

@@ -1,6 +1,6 @@
 {
   "name": "ogxo",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Set up the ogxo collection in Codex: install individual workflow, review, debugging, design, guard, specialist, routing, and status-line plugins.",
   "author": { "name": "ogxo", "url": "https://github.com/ogxo-io" },
   "homepage": "https://github.com/ogxo-io/plugins",
