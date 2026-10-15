@@ -28,21 +28,29 @@ def main():
     helper = shlex.join([sys.executable, "-c", code])
     # mcp add has no helper option. Let Codex serialize the entry in a private
     # copy, then insert the helper in its canonical table before publishing it.
+    # Without a bearer variable, mcp add starts an OAuth login against a server
+    # that offers one and waits for a browser; a placeholder variable skips it
+    # and is replaced by the helper below.
+    placeholder = "THRYX_CONNECT_PLACEHOLDER"
     with tempfile.TemporaryDirectory(prefix=".thryx-connect-", dir=home) as staging:
         candidate = Path(staging) / "config.toml"
         if original is not None:
             candidate.write_bytes(original)
         subprocess.run(
-            ["codex", "mcp", "add", name, "--url", url],
+            ["codex", "mcp", "add", name, "--url", url, "--bearer-token-env-var", placeholder],
             env=dict(os.environ, CODEX_HOME=staging),
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
             check=True,
+            timeout=60,
         )
         text = candidate.read_text()
         header = "[mcp_servers." + name + "]\n"
-        if text.count(header) != 1:
+        bearer = "bearer_token_env_var = " + json.dumps(placeholder) + "\n"
+        if text.count(header) != 1 or text.count(bearer) != 1:
             raise RuntimeError("could not locate the generated MCP entry")
+        text = text.replace(bearer, "", 1)
         text = text.replace(header, header + "http_headers_helper = " + json.dumps(helper) + "\n", 1)
         candidate.write_text(text.rstrip("\n") + "\n")
         current = config.read_bytes() if config.exists() else None
@@ -64,7 +72,7 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (OSError, RuntimeError, subprocess.CalledProcessError) as error:
+    except (OSError, RuntimeError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
         # Exceptions do not contain tokens; do not print subprocess output or config.
         print("thryx: could not configure Codex Keychain authentication: " + str(error), file=sys.stderr)
         sys.exit(1)

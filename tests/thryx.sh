@@ -54,16 +54,18 @@ case "$1 $2" in
   "mcp remove") grep -vxF "$3" "$STUB_DIR/servers" >"$STUB_DIR/s.tmp"; mv "$STUB_DIR/s.tmp" "$STUB_DIR/servers" ;;
   "mcp add")
     [ -z "${CODEX_ADD_FAIL:-}" ] || exit 1
+    # Without a bearer variable the real CLI starts an OAuth login and waits.
+    [ "$6" = --bearer-token-env-var ] || { echo "stub: mcp add without a bearer variable would start an OAuth login" >&2; exit 9; }
     printf '%s\n' "$*" >"$STUB_DIR/codex-config"
     grep -qxF "$3" "$STUB_DIR/servers" 2>/dev/null || printf '%s\n' "$3" >>"$STUB_DIR/servers"
-    python3 - "$3" "$5" <<'PYCONFIG'
+    python3 - "$3" "$5" "$7" <<'PYCONFIG'
 import os, pathlib, re, sys
 home = pathlib.Path(os.environ.get("CODEX_HOME", str(pathlib.Path.home() / ".codex")))
 home.mkdir(parents=True, exist_ok=True)
 p = home / "config.toml"
 s = p.read_text() if p.exists() else ""
 s = re.sub(r"(?ms)^\[mcp_servers\." + re.escape(sys.argv[1]) + r"\]\n.*?(?=^\[|\Z)", "", s)
-p.write_text(s.rstrip() + "\n\n[mcp_servers." + sys.argv[1] + ']\nurl = "' + sys.argv[2] + '"\n')
+p.write_text(s.rstrip() + "\n\n[mcp_servers." + sys.argv[1] + ']\nurl = "' + sys.argv[2] + '"\nbearer_token_env_var = "' + sys.argv[3] + '"\n')
 PYCONFIG
     ;;
 
