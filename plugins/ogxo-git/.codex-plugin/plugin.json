@@ -1,6 +1,6 @@
 {
   "name": "ogxo-git",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "description": "Git and GitHub skills for commits, PR descriptions, review thread resolution, changelogs, release notes, branch catchup, focused fixes, feature shipping, and releases.",
   "author": {
     "name": "ogxo",

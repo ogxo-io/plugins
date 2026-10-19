@@ -1,7 +1,10 @@
 ---
 name: changelog-generator
 description: Generate CHANGELOG.md from Conventional Commits with semantic grouping and Keep a Changelog format. Use when the user wants to generate, write, or update a CHANGELOG.md, see what changed since the last tag, or prepare the changelog portion of a release.
-allowed-tools: Bash(git describe:*), Bash(git tag:*), Bash(git log:*), Bash(git rev-list:*), Bash(git remote:*), Read, Write, Glob, Grep
+allowed-tools: Bash(git describe:*), Bash(git tag:*), Bash(git log:*), Bash(git rev-list:*), Bash(git remote:*), Read, Glob, Grep
+context: fork
+background: false
+model: sonnet
 effort: low
 ---
 
@@ -11,6 +14,8 @@ effort: low
 
 Build every entry from the actual git log for the chosen range (Steps 1–2), not from memory or the conversation — the changelog is a record of what the commits contain.
 
+Draft only: do not write or edit any file. This skill runs as a subagent so the commit log stays out of the main conversation; it returns the entry, and the session that invoked it shows the entry to the user and writes CHANGELOG.md only after they confirm (Step 6). Run inline, follow the same split: draft, present, confirm, then write.
+
 For curated GitHub release notes, use the release-notes skill instead.
 
 ## Workflow Decision Tree
@@ -18,57 +23,54 @@ For curated GitHub release notes, use the release-notes skill instead.
 ```
 Is the user asking to:
 ├─ Generate changelog for a NEW release?
-│  └─ Detect last tag → parse commits since tag → generate entry → prepend to CHANGELOG.md
+│  └─ Detect last tag → parse commits since tag → draft the entry to prepend to CHANGELOG.md
 │
 ├─ Generate FULL changelog from scratch?
-│  └─ List all tags → generate entry per tag → write complete CHANGELOG.md
+│  └─ List all tags → draft an entry per tag → draft the complete CHANGELOG.md
 │
 ├─ Show what changed since last release?
-│  └─ Detect last tag → parse commits → display summary (don't write file)
+│  └─ Detect last tag → parse commits → return a summary (no file to write)
 │
 ├─ Generate changelog between TWO versions?
 │  └─ Parse commits between the two tags → generate entry
 │
 └─ Update existing CHANGELOG.md with new version?
-   └─ Read existing file → generate new entry → prepend below header
+   └─ Read existing file → draft the new entry to prepend below its header
 ```
 
 **Default path:** Generate changelog for the next release (last tag → HEAD).
 
 ## Step 1: Determine Version Range
 
-Establish the commit range before parsing.
+Establish the commit range before parsing. Run each git command as its own Bash call from the repository root, with no `cd`, pipe, or `$(...)`: this skill's `allowed-tools` lists plain `git` calls, and a compound command does not match them. Put the tag you found into the next command yourself; shell variables do not persist between calls.
 
 ```bash
-# Get the most recent tag
-git describe --tags --abbrev=0 2>/dev/null
+# The most recent tag
+git describe --tags --abbrev=0
 
-# List recent tags with dates
-git tag --sort=-creatordate | head -10
+# Recent tags, newest first (the first ten lines are enough)
+git tag --sort=-creatordate
 
-# Get commit count since last tag
-git rev-list $(git describe --tags --abbrev=0 2>/dev/null)..HEAD --count 2>/dev/null
+# Commits since that tag (put the tag in place of <tag>)
+git rev-list <tag>..HEAD --count
 ```
 
-**Caution:** when no tags exist, the range commands above succeed with empty output (`0` commits) instead of erroring. Empty output with no tag means fall back to the full history (`git log --oneline`) and treat everything as the first release — it does not mean "no changes".
+**Caution:** with no tags, `git describe` fails with "No names found". That means fall back to the full history and treat everything as the first release — it does not mean "no changes".
 
 ## Step 2: Parse Commits
 
 ```bash
-# One call: resolve the range, then list commits with subject AND body.
+# Subject AND body for every commit since the tag (with no tag, use HEAD instead of <tag>..HEAD).
 # The body carries BREAKING CHANGE details and migration notes — %s alone misses them.
 # %x1e emits a record separator so multi-line bodies stay parseable.
-TAG=$(git describe --tags --abbrev=0 2>/dev/null); RANGE=${TAG:+$TAG..}HEAD
-git log $RANGE --pretty=format:"%h%x09%s%x09%b%x1e" --no-merges
+git log <tag>..HEAD --pretty=format:"%h%x09%s%x09%b%x1e" --no-merges
 
 # Variant with author (for PR credit lines)
-git log $RANGE --pretty=format:"%h %s (%an)" --no-merges
+git log <tag>..HEAD --pretty=format:"%h %s (%an)" --no-merges
 
 # For full changelog (all tags)
 git log --pretty=format:"%h %s" --no-merges --decorate
 ```
-
-Run the `TAG=`/`RANGE=` line in the **same Bash call** as the `git log` that uses it — shell variables do not persist between calls.
 
 **Parse each commit line into:**
 - **Type**: feat, fix, refactor, perf, docs, test, chore, ci, build
@@ -84,9 +86,10 @@ Merge commits are already excluded by `--no-merges`. Group commits that don't fo
 Detect GitHub repository for PR/issue linking:
 
 ```bash
-# Get GitHub remote URL
-git remote get-url origin 2>/dev/null | sed -E 's/.*github\.com[:/](.+)(\.git)?$/\1/' | sed 's/\.git$//'
+git remote get-url origin
 ```
+
+Take `owner/repo` from a GitHub URL yourself: drop everything up to `github.com/` or `github.com:`, and a trailing `.git`. A failure or a non-GitHub URL means no links.
 
 If a GitHub remote is detected, generate links:
 - Commit hashes: `[abc1234](https://github.com/owner/repo/commit/abc1234)`
@@ -148,24 +151,18 @@ If the user hasn't specified a version, suggest one based on commits:
 - **MINOR** (0.X.0): Any `feat` commit exists (no breaking changes)
 - **PATCH** (0.0.X): Only `fix`, `refactor`, `perf`, `docs`, etc.
 
-```bash
-# Current version from last tag
-current=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
+The current version is the last tag from Step 1 without a leading `v`, or the `version` field of `package.json` (read it with Read).
 
-# Or from package.json
-grep '"version"' package.json | head -1 | sed 's/.*"\([0-9.]*\)".*/\1/'
-```
+**Return the suggested version with the reason for it; the user confirms it before anything is written.**
 
-**Always present the suggested version and ask the user to confirm before writing.**
+## Step 6: Return the Entry
 
-## Step 6: Write or Update CHANGELOG.md
+Read the existing CHANGELOG.md, if there is one, only to match its style and to check that this version is not already listed. Do not write it. End the reply with:
 
-**When updating an existing CHANGELOG.md:**
-1. Read the existing file
-2. Insert the new version entry after the `# Changelog` header
-3. Preserve all existing entries below
+1. The range used (for example `v1.2.0..HEAD`) and the number of commits.
+2. The suggested version and why (Step 5).
+3. The entry in one fenced `markdown` block, ready to paste. For a file created from scratch, the block is the whole file, starting with this header:
 
-**When creating from scratch:**
 ```markdown
 # Changelog
 
@@ -173,14 +170,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
-
-## [X.Y.Z] - YYYY-MM-DD
-
-### Added
-- ...
 ```
 
-**Present the changelog entry to the user before writing the file.**
+4. This line for the invoking session: "Show this entry and version to the user. Only after they confirm, insert the entry below the `# Changelog` header of CHANGELOG.md (or create the file from the block), keeping every existing entry."
 
 ## Quick Reference Checklist
 
@@ -190,5 +182,5 @@ When generating a changelog, complete these steps in order:
 - [ ] **Step 2:** Parse git log for conventional commits
 - [ ] **Step 3:** Detect GitHub remote for linking
 - [ ] **Step 4:** Group by type with Keep a Changelog sections
-- [ ] **Step 5:** Suggest version number (confirm with user)
-- [ ] **Step 6:** Write/update CHANGELOG.md (present entry first)
+- [ ] **Step 5:** Suggest version number (the user confirms it)
+- [ ] **Step 6:** Return the entry; the invoking session writes CHANGELOG.md after the user confirms

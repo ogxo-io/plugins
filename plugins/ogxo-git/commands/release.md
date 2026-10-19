@@ -71,9 +71,9 @@ Invoke the **changelog-generator** skill (`ogxo-git:changelog-generator`) to:
 1. Parse commits since the last tag
 2. Group by type (Added, Fixed, Changed, etc.)
 3. Generate a changelog entry in Keep a Changelog format
-4. Present the entry for review
+4. Return the entry and a suggested version (it runs as a subagent and writes nothing)
 
-**Ask the user to approve the changelog before writing.**
+Show the entry, using the version confirmed in Step 2. **Ask the user to approve the changelog, then write it to CHANGELOG.md as the skill's reply describes.**
 
 ### Step 4: Bump Version in Project Files
 

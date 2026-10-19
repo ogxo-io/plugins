@@ -10,6 +10,14 @@ Core-risk work and every mandatory review stay at Opus or above; contained
 risk may run on Sonnet or grok and then gets the Opus review. This is an
 instruction set; the hooks only warn and log.
 
+Some steps send you to a reference file: `references/<name>.md` means
+`${CLAUDE_PLUGIN_ROOT}/skills/routing/references/<name>.md` (if that path is
+not filled in, the `references` folder next to this SKILL.md). Read it with
+the Read tool at the point the step says, and again after a compaction
+dropped it. Those files write ogxo-route's folder as `<plugin-root>` (here
+`${CLAUDE_PLUGIN_ROOT}`) and its data folder as `<plugin-data>` (here
+`${CLAUDE_PLUGIN_DATA}`).
+
 ## Step 0: repository overrides
 
 If `.claude/ogxo-route.md` exists in the project, read it first. It may add
@@ -48,9 +56,9 @@ mistake there is costly and tests may not show it, so the task runs on the
 session model. **Contained risk** is trigger 5 (a public contract that stays
 compatible: a new field, endpoint, or flag) and 7 (untested code): tests and
 the risky-task review on Opus catch a mistake, so the task can run on a
-cheaper model. Both tiers get that review. Sonnet costs about half of Opus per
-token for writes and output, and the same for cache reads, so the saving is
-largest on short tasks.
+cheaper model. Both tiers get that review. At list prices Sonnet 5.5 costs
+half of Opus 5.5 in every token class, cache reads included, so moving a task
+down halves its cost whatever its length.
 
 Breadth threshold: more than 5 files, or more than one top-level package
 (unless `.claude/ogxo-route.md` sets another value). Breadth is not a risk
@@ -64,22 +72,12 @@ the standard implementer as its own task. A long risky task is the most
 expensive thing to route: every tool call re-reads the agent's whole
 context at Opus prices.
 
-Worked example: a ticket adds a field to a public user payload, a migration
-for it, and a language picker in the UI. The new field is a compatible
-change to a public contract (trigger 5), so it is the risky part, in the
-contained tier: one small task for grok or `implementer-risky` with
-`model: "sonnet"`, with the call cap from Step 7, and then the risky-task
-review. Had it renamed or removed a field clients read, or changed who may
-read it, it would be core risk on the session model. An additive migration
-for it is not a trigger by itself. The picker, the translations, and the tests
-around them are standard work for `ogxo-route:implementer`, dispatched after
-the risky part returns, with its RESULT in the brief. A new dependency, UI work,
-translations, and the number of files touched are not triggers. A risky brief
-names one trigger and one deliverable; one that lists several triggers, or an
-API and its UI together, is two or more tasks. In a real session, whole
-tickets briefed as "risky (migration, authorization, wide UI breadth, new
-dependency)" ran 2 to 3 hours on one Opus worker and cost the most of any
-dispatch. The parts moved down still pass the verifier, which marks a diff RISKY when
+A worked split of a mixed ticket (a public payload field, a migration, and a
+UI picker) is in `references/classify-example.md`: read it the first time a
+ticket mixes a trigger with standard work and the split is not obvious. A
+risky brief names one trigger and one deliverable; one that lists several
+triggers, or an API and its UI together, is two or more tasks. The parts
+moved down still pass the verifier, which marks a diff RISKY when
 a path matches `scripts/risky-paths.sh` (migration, auth, and similar path
 segments), and a RISKY path gets the risky-task review.
 
@@ -96,19 +94,15 @@ agent inherits the session model.
 | Bulk logs: pull and filter | — | `ogxo-route:log-extractor`, then `ogxo-specialists:log-analyst` |
 | Small logs, interpretation | — | `ogxo-specialists:log-analyst` |
 | E2E run and failure interpretation | — | `ogxo-route:e2e-runner` |
-| Implement, standard | grok through its bridge (see below) or `codex:codex-rescue` | `ogxo-route:implementer` |
-| Implement, contained risk | grok through its bridge (see below) or `codex:codex-rescue` | `ogxo-route:implementer-risky` with `model: "sonnet"` |
+| Implement, standard | grok through its bridge (read `references/grok-bridge.md` first) or `codex:codex-rescue` | `ogxo-route:implementer` |
+| Implement, contained risk | grok through its bridge (read `references/grok-bridge.md` first) or `codex:codex-rescue` | `ogxo-route:implementer-risky` with `model: "sonnet"` |
 | Implement, core risk | — (native only) | `ogxo-route:implementer-risky` (Opus rule) |
 | Per-task check | — | tests (`ogxo-route:test-runner`) and `ogxo-route:verifier` |
 | Risky-task review | — | `ogxo-review:code-review-agent` (Opus rule) |
 | Pre-PR review of the branch | — | `ogxo-review:code-review-agent` (Opus rule) |
 | Explore, general-purpose, Plan | — | always pass `model`: `haiku` to list files, `sonnet` for judgement |
 
-To run grok, call its bridge from Bash rather than dispatching the `grok-build:grok-delegate` agent: in auto mode the agent's nested write can be denied by the permission check. Find the script with `ls -d "${CLAUDE_CONFIG_DIR:-$HOME/.claude}"/plugins/cache/*/grok-build/*/scripts/grok-bridge.mjs | tail -1`, then run `CLAUDE_PLUGIN_DATA=<data> node <path>/grok-bridge.mjs run --background --write --fresh "<brief>"` from the directory the task works in (`--write` is required; without it grok runs read-only and leaves only a patch). `<data>` is grok-build's own data folder, `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/data/grok-build-<marketplace>`, where `<marketplace>` is the folder after `plugins/cache/` in the bridge's path (`xai-grok-build` for xAI's own marketplace). Set it on every bridge call (`run`, `runs`, `show`, `stop`): the bridge records its runs in whatever folder `CLAUDE_PLUGIN_DATA` names, and the shell can carry another plugin's, so without it `/grok-build:runs` does not list the run. Follow up with `show <run-id>`, and `run --background --write --resume-last` for a fix round. The user can still ask for the agent or `/grok-build:delegate` by name.
-
-While a grok run is in flight:
-- **Check that it is moving, not only whether it ended.** A wait loop that only checks for completion waits out a hung run until its time limit. Get the run's Grok session id from `CLAUDE_PLUGIN_DATA=<data> node <path>/grok-bridge.mjs runs <job-id>` (the "Grok session ID" line, or the session column of the table), then run `bash "${CLAUDE_PLUGIN_ROOT}/scripts/grok-progress.sh" <session id>`. It reports `working`, `idle` (the turn ended: fetch the result with `show`), or `stalled` (a turn is open and nothing was written for 10 minutes). On `stalled`, stop the run with `CLAUDE_PLUGIN_DATA=<data> node <path>/grok-bridge.mjs stop <job-id>`, restore the files it touched, and dispatch it again with the same brief.
-- **Never type into a running bridge session.** `grok -r <session id>` loads the saved history but not the live output of the bridge's headless process, so a busy run looks idle there, and a message typed into it starts a second agent in the same session and working tree, editing alongside the first. To watch a run, use `runs`, `grok-progress.sh`, or `tail -f` on the session's `updates.jsonl`. `grok-progress.sh` with no argument lists every grok session running on the machine (from any Claude session) with its state, its folder, and the start of its brief. Join with `grok -r` only after `grok-progress.sh` says idle, or after `stop`. Tell the user the same when they ask how to look at a grok run.
+**grok:** run it through its bridge script from Bash, not the `grok-build:grok-delegate` agent: in auto mode the agent's nested write can be denied by the permission check. Before the first bridge call in a session, read `references/grok-bridge.md`: it gives the bridge path, the `CLAUDE_PLUGIN_DATA` setting every call needs, why `--write` is required, and how to watch, stop, and resume a run, and why you never type into one. The user can still ask for the agent or `/grok-build:delegate` by name.
 
 `/codex:review` and `/grok-build:review` set `disable-model-invocation: true`, so only the user can run them. Before
 a PR, suggest the user runs them as an extra pass if they have them; the
@@ -123,7 +117,7 @@ native review above is still required.
 5. Failure on a routing-chosen external run: show the diff it left, restore the files it touched (`git restore <files>`), and re-dispatch natively with the failure attached: a standard task to `ogxo-route:implementer`, a contained-risk task to `ogxo-route:implementer-risky` on the session model.
 6. A return that is unfinished with no blocker named is a continuation: dispatch a fresh worker at the same tier with the first one's RESULT in the brief. A `RESULT: PARTIAL` return names a handoff file: dispatch a fresh worker with the original brief and that path, not a follow-up message to the first worker.
 7. The pre-PR review is the backstop for any per-task misclassification.
-8. Review fix rounds: re-review a fix with the reviewer's re-review mode (the prior findings plus the range since the last review), not a fresh full review. After two fix rounds whose re-reviews report nothing above WARNING, stop looping: list the remaining items as follow-ups (the reviewer's Deferred section drafts them) and move on.
+8. Review fix rounds: re-review a fix with the reviewer's re-review mode (the prior findings plus the range since the last review), not a fresh full review. After two fix rounds whose re-reviews report nothing above WARNING, stop looping: list the remaining items as follow-ups (the reviewer's Deferred section drafts them) and move on. When instead each round finds a new bypass or race of the kind the last fix closed, the design is the problem: after two such rounds stop patching, consult the advisor (Step 6), and brief the simplest structural design (a whitelist over a blacklist, one lock or claim over coordination).
 
 ## Step 5: external agents
 
@@ -134,32 +128,19 @@ native review above is still required.
 
 ## Running under Grok Build
 
-Grok Build loads this plugin, its agents, and its hooks, but it runs them
-differently, as observed with Grok 1.0.46:
-
-- Workers run on the session's model. Grok does not read the `model:` line
-  in the agent files, so `scout` or `test-runner` cost what the main session
-  costs per token. In that setup `spawn_subagent` offers no `model`
-  argument either. Routing still pays off through scope: a worker starts
-  with a small context, so each of its calls re-reads less than the main
-  session would. Keep dispatching the same way; the live board shows what
-  each worker cost, from Grok's own totals.
-- A user-level `[subagents.models]` entry in Grok's `config.toml` does send
-  an agent to another model (`"ogxo-route:test-runner" = "<model>"`); a
-  project-level one had no effect in a test. `grok-4.7-build-fast` is not
-  the cheap tier it sounds like: on the same task it cost about 1.5 times
-  what `grok-4.7-build` did. Compare models on the board before pinning one.
-- Do not route to grok's bridge from inside Grok; the session is already
-  Grok. There is no advisor, so Step 6 does not apply.
-- Grok ignores what a SessionStart hook prints, so the routing summary
-  does not appear at session start. Load this skill before dispatching.
+If the host's tools are `spawn_subagent` and `run_terminal_command` rather
+than `Agent` and `Bash`, this is Grok Build: read `references/grok-host.md`
+before the first dispatch. Workers run on the session model there, no
+session-start summary was shown, and the grok bridge and the advisor do not
+apply.
 
 ## Step 6: advisor
 
 Only when the `advisor` tool is available. Consult it:
 - before choosing an approach on risky or one-way work,
 - before declaring a risky task or a branch done,
-- when stuck after an escalation.
+- when stuck after an escalation,
+- when review rounds keep opening new holes (Step 4.8).
 
 Do not consult it for standard work. A teammate working on a Sonnet session
 can enable an Opus advisor for risky work; keep that session at its default
@@ -169,7 +150,7 @@ effort, because the advisor is consulted less often at low effort.
 
 - Pass paths, `file:line` ranges, and commit SHAs, not pasted file content.
 - Map before dispatching an implementer into code this session has not read, and always before `ogxo-route:implementer-risky`: have `ogxo-route:scout` list the files, functions, and existing patterns the task touches (where the guard helpers, the closest similar endpoint, the test fixtures live), and put that map in the brief as `file:line` references. The worker starts from the map instead of searching, and exploration runs on the cheaper model.
-- Give each worker a self-contained task: goal, files, acceptance checks.
+- Give each worker a self-contained task: goal, files, acceptance checks. Paste a ticket's acceptance text verbatim, not paraphrased, and mark your own decisions as yours.
 - Size each implementation task to about 60 tool calls: one coherent change in one area. A larger ticket is several tasks, run one after another, each brief carrying the previous task's RESULT and handoff path. Every call re-reads the worker's whole context, so cost grows faster than the number of calls, and a worker that explores for hours pays for that context on every call.
 - Give each implementer a handoff path outside the repository (the session scratchpad directory when you have one, else `${TMPDIR:-/tmp}/ogxo-handoff/<task>.md`). It writes progress there when it stops at its call cap, and the next worker starts from that file and the map, with a small context of its own.
 - Share context through the brief and the handoff file, not by forking or by continuing a worker with a follow-up message. A fork inherits the main context and re-reads it on every call, so use one only for a short task that needs the whole conversation. A worker's cache expires after 5 minutes idle, so a follow-up to a worker that has finished rewrites its whole context.
@@ -179,6 +160,7 @@ effort, because the advisor is consulted less often at low effort.
 - Every ogxo-route worker ends with `RESULT`, `CHECKS-RUN`, `UNCERTAINTIES`; read them before accepting the work.
 
 Every implementation brief also says:
+- You are the implementer: do the task yourself even if your own global instructions route work elsewhere, and make no writes to MCP servers, trackers, or other external systems.
 - If an action is denied, skip it, record it under UNCERTAINTIES, and continue with the rest of the task.
 - Start from the map in this brief; search only for what it does not cover.
 - Stop at about 60 tool calls with the task unfinished and write progress to the handoff file at <path>; end with `RESULT: PARTIAL <path>: <what remains>`.
@@ -188,98 +170,20 @@ Every implementation brief also says:
 - Do not launch browsers or run E2E suites; write or update the specs and say which to run. The main session runs them, or dispatches `ogxo-route:e2e-runner`.
 - The project's own `CLAUDE.md` or build and test docs take precedence over this brief on how to build, test, and migrate.
 
-A long main session costs more with every message, because each one re-reads all of it. At a boundary (a ticket merged, a batch landed, before the user steps away) with a long context, suggest `/ogxo-route:handoff` and then `/compact` or a fresh session, instead of carrying on; `/ogxo-route:handoff resume` picks it up.
+A long main session costs more with every message, because each one re-reads all of it. At a boundary (a ticket merged, a batch landed, before the user steps away) with a long context, suggest `/ogxo-route:handoff` and then, instead of carrying on, `/clear` when the next task is unrelated (it costs nothing) or `/compact` when the next task builds on this one (compacting sends the whole conversation once more, as one large request); `/ogxo-route:handoff resume` picks it up. To drop a dead end without losing the rest, suggest `/rewind` to the turn before it: that returns to a prefix that is already cached.
 
 A background worker's permission prompt waits in the main session until someone answers it, and the worker makes no progress meanwhile. Claude Code has no documented stalled-subagent signal, so when a background worker has been quiet for much longer than its task should take, check the session for a pending prompt.
 
 ## Step 8: parallel batches
 
-**Project policy first.** Before choosing a mode, read the project's
-`CLAUDE.md`, `AGENTS.md` and `.claude/ogxo-route.md` for a parallel-work or
-worktree rule (for example "one worktree per ticket"). A rule there wins
-over the defaults below and needs no extra confirmation; name it in the
-Batch table's mode column.
-
-Before dispatching more than one implementation task at a time, write a
-**Batch table** in the conversation, one row per task: task, writer (grok,
-codex, implementer), files it may edit, files that are off-limits because
-another task owns them, mode (shared or isolated), and anything created for
-it outside the repository files (a build directory, test database,
-container, or port), so it can be removed when the task is done.
-
-Build outputs and dependency caches are shared by default. Honour the
-machine's and project's existing settings (for example Cargo `target-dir`,
-`GOCACHE`, the pnpm store, the uv cache, `GRADLE_USER_HOME`) and do not
-override them in briefs. Most toolchains lock or queue on a shared cache,
-and that wait costs far less than rebuilding every dependency per task,
-which multiplies build time and disk use. Give a task its own build output
-only when it builds with different flags or features, or when a
-long-running process (a watcher or dev server) holds the shared build lock;
-list that output in the Batch table. The project's own `CLAUDE.md` or build
-docs take precedence.
-
-Tasks that append to the same file (a test file, changelog, route or
-registry table, fixture list) always conflict when merged. Tell each worker
-to add its entries in one contiguous block headed by the task id, not
-interleaved with others.
-
-**Live board.** Before the first batch in a session, offer the user
-`/ogxo-route:dashboard` once: a local HTML page, updated by hooks, showing
-this session's agents, their tool calls, and the batch. When the board is
-on, record the Batch table on it and use each row's task name in that
-task's dispatch description, so the board can link rows to agents:
-
-```bash
-CLAUDE_PLUGIN_DATA="${CLAUDE_PLUGIN_DATA}" bash "${CLAUDE_PLUGIN_ROOT}/scripts/dash.sh" batch <<'JSON'
-[{"task": "<task>", "writer": "<grok|codex|implementer>", "files": ["<path>"], "mode": "shared"}]
-JSON
-```
-
-For an isolated task, set `"mode": "isolated"` and add `"worktree": ".claude/worktrees/<task>"`.
-
-When the board is off, the script prints a note and writes nothing.
-
-### Shared tree (default)
-
-All writers edit the user's checkout. This is cheap and needs no setup.
-
-- Run tasks in parallel only when their file sets do not overlap. A task that shares a file with a running task waits for it.
-- At most two concurrent writers, and this cap is hard. When the user asks for more speed or more workers, the answer is an isolated batch, not a third writer in the shared tree. grok's run state also contends beyond two runs.
-- Watchers, hot reloaders, and dev servers that compile, apply, or generate from the working tree act on half-finished work: they can apply a draft migration (sqlx, Django, Prisma, goose, Alembic), run codegen or seeds, sync a schema, or rebuild bundles. On a shared database the damage outlives the task. Run tasks that touch migrations, schema, or generated artefacts in an isolated batch. Otherwise, before trusting E2E or integration results, check what was actually applied (the migration version table or checksums, with the project's own command).
-- Every worker brief lists the files it may edit and the off-limits files, says not to run git add, commit, stash, checkout, reset, or restore, and says to leave changes it did not make alone and report them.
-- A worker's own tests see the other runs' unfinished edits. Before committing a task, re-run typecheck, unit tests, and the relevant e2e specs on the combined tree.
-- Commit each task by explicit path (`git add -- <its files>`), and only when the user asks. If two tasks touched the same file, split the hunks so each commit carries only its task.
-
-### Isolated batch (opt-in)
-
-One git worktree per task, merged back one at a time. Suggest it when the
-user is editing the main checkout while the batch runs, when more than two
-writers should run at once, when tasks that overlap in files must still run
-in parallel, when a task touches migrations, schema, or generated artefacts
-while a watcher runs on the main checkout, or when the user wants the main
-tree untouched until a task is done. Ask before using it, unless the
-project's policy (above) already requires it or the user asked for more
-than two writers.
-
-1. Check free disk first: `df -Pk .`. Below 20 GiB free (20971520 in its Available column), stop and tell the user instead of creating the worktree (`.claude/ogxo-route.md` can set another threshold). One cold dependency build of a large project can take about 10 GiB; 20 GiB leaves room for one more build and test artefacts.
-2. Create the worktree from the current commit, so unpushed commits are included:
-   `git worktree add .claude/worktrees/<task> -b task/<task> HEAD`.
-   Uncommitted changes in the main checkout are not carried over; if the task depends on them, say so and stay in the shared tree. Keep worktrees under `.claude/worktrees/`, inside the project, and put that directory in `.gitignore`.
-3. Set up the worktree: dependencies (install, or symlink `node_modules`), and gitignored files the build needs (a `.worktreeinclude` file copies them for worktrees Claude Code creates; copy them yourself for this one). Keep the shared build cache (above). Worktrees isolate files only: test databases, ports, and containers are still shared, so keep per-task test databases and distinct ports, and list them in the Batch table.
-4. Point the writer at it: grok, from the worktree as the working directory (a plain `cd <worktree>` as its own command, then `CLAUDE_PLUGIN_DATA=<data> node <path>/grok-bridge.mjs run --background --write --fresh ...`); codex `codex exec -C <worktree> ...` or `codex:codex-rescue` with the path in its prompt; `ogxo-route:implementer` with the absolute worktree path in its brief and the instruction to edit only under it.
-5. Before a fix round in an existing worktree, run `git -C <worktree> status --porcelain` and stop on any file outside the task's scope. If the main branch has since changed files the task touches, recreate the worktree from the current `HEAD` and apply the task's diff as a patch (`git diff <base>..task/<task> > <patch>`, then `git -C <new-worktree> apply --3way <patch>`) rather than rebasing a long way.
-6. When the task is done: run tests and `ogxo-route:verifier` inside the worktree, commit the task on its throwaway branch (`git -C <worktree> add -A && git -C <worktree> commit -m "<task>"`), show the user `git diff HEAD...task/<task>`, and only after the user approves run `git merge --squash task/<task>` in the main checkout. That stages the task for the user to review and commit. `git merge --squash` suits a task branch with several commits; `git cherry-pick -n <sha>` brings over a single commit the same way. Merge tasks one at a time and re-run the combined-tree checks after each.
-7. Clean up: `git worktree remove .claude/worktrees/<task>` and `git branch -D task/<task>`. Removing the worktree deletes its directory, ignored files included, but nothing created outside it: also remove every build directory, test database, and container the Batch table lists for the task.
-
-Conflicts do not go away in an isolated batch; they move to merge time. A
-task that overlaps with one already merged is rebased onto the main branch
-(`git -C <worktree> rebase <main-branch>`) and re-tested before its merge.
-
-For a conflict in a file several tasks append to, keep one side whole and
-re-add the other: take the main branch's file and append the task's block,
-or take the task's file and re-apply the main branch's changes since the
-worktree's base. Then check that no entry was dropped or duplicated by
-comparing sorted test names before and after, extracted with the project's
-test declaration pattern (for example `#[test]` then `fn name`, `it(`/`test(`,
-`def test_`, `func Test`); `sort | uniq -d` shows duplicates, `comm -3`
-shows what is missing.
+Before dispatching more than one implementation task at a time, read
+`references/parallel-batches.md` and write its **Batch table** in the
+conversation (task, writer, files it may edit, off-limits files, mode, and
+anything created outside the repository). The rules it sets out: a
+parallel-work or worktree rule in the project's `CLAUDE.md`, `AGENTS.md`, or
+`.claude/ogxo-route.md` wins over the defaults; the shared tree is the
+default, with at most two concurrent writers, a hard cap; isolated per-task
+worktrees are opt-in, so ask first; build outputs and dependency caches stay
+shared; tasks that touch migrations, schema, or generated artefacts run
+isolated while a watcher runs on the checkout. Before the first batch in a
+session, offer `/ogxo-route:dashboard` once.

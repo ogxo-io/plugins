@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Every agent's frontmatter model/effort must match the routing design
 # (docs: ogxo-route spec). effort "-" means the agent must not pin effort.
+# Skills and commands must not pin a model or effort unless they fork (see the
+# check at the end).
 set -uo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
@@ -73,6 +75,35 @@ if grep -qE 'mcp__' <<<"$(field "$root/plugins/ogxo-route/agents/e2e-runner.md" 
 else
   pass=$((pass + 1))
 fi
+
+# Skills and commands run in the main session, where a frontmatter model
+# other than the session's is a model switch for that turn: the next request
+# re-reads the whole conversation with no cache hits
+# (code.claude.com/docs/en/prompt-caching, "Switching models"). `inherit`
+# is fine, and so is any model on a `context: fork` skill, which sets the
+# forked subagent's model instead.
+# An effort pin is a cache miss too on Bedrock, Google Cloud's Agent
+# Platform, a Claude apps gateway, a HIPAA configuration, or with
+# CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS ("Changing effort level" on the same
+# page), and these skills run late in long sessions, so they pin none.
+# A forked skill runs in the background unless it sets `background: false`
+# (code.claude.com/docs/en/skills); ours return a draft the invoking flow
+# waits for, so each one sets it.
+while IFS= read -r f; do
+  m=$(field "$f" model)
+  e=$(field "$f" effort)
+  if [ "$(field "$f" context)" = fork ]; then
+    if [ "$(field "$f" background)" = false ]; then
+      pass=$((pass + 1))
+    else
+      fail=$((fail + 1)); echo "FAIL: ${f#"$root"/} forks without background: false"
+    fi
+  elif { [ -z "$m" ] || [ "$m" = inherit ]; } && [ -z "$e" ]; then
+    pass=$((pass + 1))
+  else
+    fail=$((fail + 1)); echo "FAIL: ${f#"$root"/} pins model=${m:-<none>} effort=${e:-<none>} in the main session"
+  fi
+done < <(find "$root/plugins" \( -path '*/skills/*/SKILL.md' -o -path '*/codex-skills/*/SKILL.md' -o -path '*/commands/*.md' \) -type f | sort)
 
 echo "agent pin tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

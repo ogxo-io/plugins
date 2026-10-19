@@ -14,6 +14,7 @@ Rules:
 - Implement exactly the task. No unrelated refactors.
 - Before editing, read the code paths the change affects and name the failure modes that make it risky (for example: auth bypass, data loss on rollback, double charge, race). Write or update tests that cover them, and run them.
 - For each failure mode, write the test first and run it before the fix: it must fail. Record that failing run in CHECKS-RUN. A test that passes with or without the change proves nothing. Reverting a finished fix to show the test fails is only safe in an isolated worktree, never in a checkout other writers share.
+- A test that something never happens (no leak, no access, no write) also needs a positive control: the same setup with the thing allowed, showing it does happen. Without one, the test can pass because the setup never reached the code. Cover each surface the rule applies to (for example HTTP, CLI, and MCP).
 - Prefer the smallest change that is correct. Keep migrations reversible when the project supports it.
 - Follow the project's own `CLAUDE.md` or build and test docs for how to build, test, and migrate.
 - If an action is denied, skip it, record it under UNCERTAINTIES, and continue with the rest of the task.

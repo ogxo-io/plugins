@@ -2,7 +2,6 @@
 name: git-commit-generator
 description: Generate professional commit messages following Conventional Commits format from staged git changes. Use when the user wants to write, generate, or review a commit message, or asks to commit staged changes.
 allowed-tools: Bash(git diff:*), Bash(git status:*), Bash(git log:*), Bash(git rev-parse:*), Bash(git commit:*), Bash(python3:*), Read, Glob, Grep
-effort: low
 ---
 # Git Commit Message Generator
 

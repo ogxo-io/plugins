@@ -13,6 +13,13 @@ breadth threshold, splitting tickets, verification and escalation, the
 hand-off format, and parallel batches). Follow it, with these Codex
 substitutions.
 
+The shared skill sends some steps to reference files in its own directory.
+From this skill they are `../../skills/routing/references/classify-example.md`
+and `../../skills/routing/references/parallel-batches.md` (read each when the
+shared rules say to), and `../../skills/routing/references/grok-bridge.md`
+and `../../skills/routing/references/grok-host.md` (Claude Code and Grok Build
+material; see below).
+
 ## Host differences
 
 - **Step 0.** Read the project's `AGENTS.md` first. Read
@@ -34,20 +41,24 @@ substitutions.
   `codex:codex-rescue` does not apply inside Codex. A request naming Grok
   uses grok-build's real bridge when it is installed and authorized, not a
   Codex worker named Grok; if the bridge is unavailable or fails, report it
-  and do not substitute another worker. The bridge commands in the shared
-  rules assume Claude Code's plugin layout.
+  and do not substitute another worker. The bridge commands in
+  `../../skills/routing/references/grok-bridge.md` assume Claude Code's
+  plugin layout.
 - **Reviews.** `ogxo-review:code-review-agent` means ogxo-review's
   code-review-agent skill when it is installed, or a native review worker
   following `agents/code-review-agent.md` from ogxo-review.
 - **Step 4.** A retry "one tier up" is a focused retry with the failure
   evidence attached; a second failure returns to the main session.
 - **Not available in Codex:** Step 5 (the marked-off state and
-  `/ogxo-route:external`), the Grok Build section, Step 6 (advisor),
-  `/ogxo-route:handoff`, `/compact`, `run_in_background`, and the live board
-  (`/ogxo-route:dashboard` and `dash.sh`). Keep the Batch table in the
+  `/ogxo-route:external`), the Grok Build section and
+  `references/grok-host.md`, Step 6 (advisor),
+  `/ogxo-route:handoff`, `/clear`, `/compact`, `/rewind`, `run_in_background`, and the live board
+  (`/ogxo-route:dashboard` and `dash.sh`, including the live-board part of
+  `references/parallel-batches.md`). Keep the Batch table in the
   conversation instead.
-- **Paths.** Replace `${CLAUDE_PLUGIN_ROOT}` in the shared rules with the
-  plugin root's absolute path.
+- **Paths.** Replace `${CLAUDE_PLUGIN_ROOT}` in the shared rules, and
+  `<plugin-root>` in their reference files, with the plugin root's absolute
+  path.
 - **Git.** Every dispatch brief says to leave unrelated edits alone and not
   to stage, commit, push, stash, reset, checkout, or restore files. Inspect
   working-tree and staged diffs separately, plus untracked files; an empty

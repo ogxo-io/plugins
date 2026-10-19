@@ -173,8 +173,9 @@ expect "stats: bad days exit 2" [ "$code" -eq 2 ]
 
 # --- skill and anchor name only agents that exist ----------------------------
 skill="$plugin/skills/routing/SKILL.md"
+ref="$plugin/skills/routing/references"
 expect "skill: exists" [ -f "$skill" ]
-for f in "$skill" "$plugin/hooks/anchor.md"; do
+for f in "$skill" "$ref"/*.md "$plugin/hooks/anchor.md"; do
   for a in $(grep -oE 'ogxo-route:[a-z0-9-]+' "$f" 2>/dev/null | sort -u); do
     n=${a#ogxo-route:}
     [ "$n" = routing ] || [ "$n" = external ] || [ "$n" = stats ] || [ "$n" = dashboard ] || [ "$n" = handoff ] && continue
@@ -313,25 +314,47 @@ expect "external: status prints the state file" grep -qF "State: $data/external.
 # --- parallel batches ---------------------------------------------------------
 expect "skill: batch table before parallel work" grep -q 'Batch table' "$skill"
 expect "skill: at most two concurrent writers" grep -qi 'at most two' "$skill"
-expect "skill: forbids git state changes in worker briefs" grep -q 'git add, commit, stash, checkout, reset, or restore' "$skill"
-expect "skill: isolated worktrees start from HEAD" grep -qF 'git worktree add .claude/worktrees/<task> -b task/<task> HEAD' "$skill"
-expect "skill: worktrees do not isolate databases or ports" grep -qi 'test databases, ports' "$skill"
-expect "skill: grok via bridge with --write" grep -qF 'grok-bridge.mjs run --background --write' "$skill"
+expect "skill: forbids git state changes in worker briefs" grep -q 'git add, commit, stash, checkout, reset, or restore' "$ref/parallel-batches.md"
+expect "skill: isolated worktrees start from HEAD" grep -qF 'git worktree add .claude/worktrees/<task> -b task/<task> HEAD' "$ref/parallel-batches.md"
+expect "skill: worktrees do not isolate databases or ports" grep -qi 'test databases, ports' "$ref/parallel-batches.md"
+expect "skill: grok via bridge with --write" grep -qF 'grok-bridge.mjs run --background --write' "$ref/grok-bridge.md"
 expect "anchor: mentions parallel batches" grep -qi 'parallel' "$plugin/hooks/anchor.md"
 expect "README: parallel work section" grep -q '^## Parallel work' "$plugin/README.md"
 
 # --- self-review 2026-09: build cache, cleanup, blocked workers, review loops ---
-expect "skill: no per-task build output example" bash -c '! grep -qF "CARGO_TARGET_DIR=target/<task>" "$1"' _ "$skill"
-expect "skill: build caches shared by default" grep -q 'Build outputs and dependency caches are shared by default' "$skill"
-expect "skill: free-disk check before a worktree" grep -qF 'df -Pk .' "$skill"
-expect "skill: cleanup removes what was created outside the worktree" grep -q 'nothing created outside it' "$skill"
-expect "skill: watchers act on half-finished work" grep -q 'half-finished work' "$skill"
-expect "skill: append in a block headed by the task id" grep -q 'block headed by the task id' "$skill"
-expect "skill: fix-round drift check" grep -qF 'status --porcelain' "$skill"
+expect "skill: no per-task build output example" bash -c '! grep -qF "CARGO_TARGET_DIR=target/<task>" "$@"' _ "$skill" "$ref"/*.md
+expect "skill: dependency caches shared by default" grep -q 'Dependency caches are shared by default' "$ref/parallel-batches.md"
+# A Cargo target shared between worktrees runs another tree's binaries (ThryX, cargo 1.97).
+expect "skill: one Cargo target per isolated worktree" grep -q 'worktrees sharing one `target-dir`' "$ref/parallel-batches.md"
+expect "skill: full suite once per batch" grep -q 'Once per batch' "$ref/parallel-batches.md"
+expect "skill: recompute versions after each merge" grep -q 'recompute versions, digests' "$ref/parallel-batches.md"
+expect "skill: large grok fix rounds start fresh" grep -q 'starts `--fresh` instead' "$ref/grok-bridge.md"
+expect "skill: diverging review rounds stop for a redesign" grep -q 'the design is the problem' "$skill"
+expect "skill: briefs forbid delegating and external writes" grep -q 'You are the implementer' "$skill"
+expect "skill: ticket acceptance text pasted verbatim" grep -q 'acceptance text verbatim' "$skill"
+expect "implementer-risky: never-happens tests need a positive control" grep -q 'positive control' "$plugin/agents/implementer-risky.md"
+expect "skill: free-disk check before a worktree" grep -qF 'df -Pk .' "$ref/parallel-batches.md"
+expect "skill: cleanup removes what was created outside the worktree" grep -q 'nothing created outside it' "$ref/parallel-batches.md"
+expect "skill: watchers act on half-finished work" grep -q 'half-finished work' "$ref/parallel-batches.md"
+expect "skill: append in a block headed by the task id" grep -q 'block headed by the task id' "$ref/parallel-batches.md"
+expect "skill: fix-round drift check" grep -qF 'status --porcelain' "$ref/parallel-batches.md"
 expect "skill: external writes one call per message" grep -q 'one call per message' "$skill"
 expect "skill: denied actions are skipped and reported" grep -q 'If an action is denied, skip it' "$skill"
 expect "skill: no compound cd in briefs" grep -qF 'not `cd <dir> && ...`' "$skill"
 expect "skill: review stopping rule" grep -q 'After two fix rounds' "$skill"
+
+# --- routing skill split: SKILL.md stays small, the rest is read on demand ---
+for r in classify-example grok-bridge grok-host parallel-batches; do
+  expect "skill: reference $r exists" [ -f "$ref/$r.md" ]
+  expect "skill: points at references/$r.md" grep -qF "references/$r.md" "$skill"
+  expect "codex routing: points at references/$r.md" grep -qF "../../skills/routing/references/$r.md" "$plugin/codex-skills/routing/SKILL.md"
+done
+expect "skill: grok reference read before the first bridge call" grep -q 'Before the first bridge call in a session, read `references/grok-bridge.md`' "$skill"
+expect "skill: reference paths resolve from the plugin root" grep -qF '${CLAUDE_PLUGIN_ROOT}/skills/routing/references/<name>.md' "$skill"
+# Compaction re-attaches only the first 5,000 tokens of a skill
+# (code.claude.com/docs/en/skills); keep SKILL.md near that.
+expect "skill: SKILL.md stays under 17 KB" [ "$(wc -c <"$skill")" -le 17408 ]
+expect "skill: references carry no unsubstituted plugin variables" bash -c '! grep -qF "\${CLAUDE_PLUGIN_" "$@"' _ "$ref"/*.md
 for a in implementer implementer-risky; do
   expect "$a: denied actions are skipped" grep -q 'If an action is denied, skip it' "$plugin/agents/$a.md"
   expect "$a: failing test first" grep -q 'it must fail' "$plugin/agents/$a.md"
@@ -340,7 +363,10 @@ done
 for a in e2e-runner implementer implementer-risky log-extractor scout test-runner verifier; do
   expect "$a: shell note (zsh separators, globs, probes)" grep -qF "Quote separators (\`echo '===='\`" "$plugin/agents/$a.md"
 done
-expect "anchor: shared build cache" grep -q 'shared build cache' "$plugin/hooks/anchor.md"
+expect "anchor: dependency caches shared" grep -q 'dependency caches shared' "$plugin/hooks/anchor.md"
+# The anchor is printed into every session and again after each compaction:
+# it holds what is needed before the routing skill is loaded, not the skill.
+expect "anchor: stays under 2 KB" [ "$(wc -c <"$plugin/hooks/anchor.md")" -le 2048 ]
 
 # --- advisor ------------------------------------------------------------------
 expect "skill: advisor step" grep -q '^## Step 6: advisor' "$skill"
@@ -892,9 +918,10 @@ expect "grok-progress list: --all is the same list" [ "$(GROK_HOME="$gh" bash "$
 for p in $gpids; do kill "$p" 2>/dev/null; done
 sleep 0.3
 expect "grok-progress list: nothing running says so" has "$(GROK_HOME="$gh" bash "$gpp")" "no grok session is running"
-expect "skill: never type into a running bridge session" grep -q 'Never type into a running bridge session' "$plugin/skills/routing/SKILL.md"
-sk="$plugin/skills/routing/SKILL.md"
-expect "skill: every bridge call names grok-build's data folder" [ "$(grep -oF 'node <path>/grok-bridge.mjs' "$sk" | wc -l)" = "$(grep -oF 'CLAUDE_PLUGIN_DATA=<data> node <path>/grok-bridge.mjs' "$sk" | wc -l)" ]
+expect "skill: never type into a running bridge session" grep -q 'Never type into a running bridge session' "$ref/grok-bridge.md"
+for sk in "$plugin/skills/routing/SKILL.md" "$plugin/skills/routing/references"/*.md; do
+  expect "$(basename "$sk"): every bridge call names grok-build's data folder" [ "$(grep -oF 'node <path>/grok-bridge.mjs' "$sk" | wc -l)" = "$(grep -oF 'CLAUDE_PLUGIN_DATA=<data> node <path>/grok-bridge.mjs' "$sk" | wc -l)" ]
+done
 
 # dash.sh on runs it in the background; under Grok it does not.
 for s2 in bf2 bf3; do mkdir -p "$cc/projects/-r/$s2/subagents" && cp "$sub"/agent-w1.* "$cc/projects/-r/$s2/subagents/"; done
@@ -1315,7 +1342,7 @@ expect "dashboard: a stop with no start and no type is not a worker" grep -qF "i
 expect "dashboard: tool calls from an unstarted untyped agent are skipped" grep -qF "if (ev.a && !S.byId.has(ev.a) && !ev.at) break;" "$page"
 expect "dashboard: no finished cards when the row is full of running ones" grep -qF "room ? done.slice(-room) : []" "$page"
 expect "dashboard: agents are tagged with their worktree" grep -qF '.claude\/worktrees\/([^/\s]+)\/' "$page"
-expect "skill: isolated batch rows carry the worktree" grep -qF '"worktree": ".claude/worktrees/<task>"' "$skill"
+expect "skill: isolated batch rows carry the worktree" grep -qF '"worktree": ".claude/worktrees/<task>"' "$ref/parallel-batches.md"
 
 # --- dashboard: permission waits, advisor calls, drained stdin ---
 reset_data
