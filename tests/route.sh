@@ -1509,5 +1509,82 @@ for bad in 80 70000 abc; do
   expect "serve: rejects port '$bad' with exit 2" [ "$code" -eq 2 ]
 done
 
+# --- api.sh ------------------------------------------------------------------
+# A fake claude on a PATH without `security`, so the Keychain is never read.
+api="$plugin/scripts/api.sh"
+abin="$tmp/apibin"
+mkdir -p "$abin"
+for b in bash cat cp jq mktemp rm git env printf; do
+  p=$(command -v "$b") && ln -sf "$p" "$abin/$b"
+done
+cat >"$abin/claude" <<'FAKE'
+#!/usr/bin/env bash
+printf '%s\n' "$@" >"$FAKE_DIR/args"
+for a in "$@"; do
+  if [ "$prev" = --append-system-prompt-file ]; then cp "$a" "$FAKE_DIR/brief"; fi
+  prev=$a
+done
+{ echo "key=${ANTHROPIC_API_KEY:-}"; echo "auth=${ANTHROPIC_AUTH_TOKEN:-unset}"; echo "oauth=${CLAUDE_CODE_OAUTH_TOKEN:-unset}"; } >"$FAKE_DIR/env"
+ok='{"result":"worker report","total_cost_usd":0.42,"num_turns":3,"duration_ms":12000,"is_error":false,"terminal_reason":"completed"}'
+printf '%s' "${FAKE_JSON:-$ok}"
+FAKE
+chmod +x "$abin/claude"
+fake="$tmp/fake"
+mkdir -p "$fake"
+runapi() {
+  local input=$1
+  shift
+  rm -f "$fake"/*
+  out=$(printf '%s' "$input" | env PATH="$abin" FAKE_DIR="$fake" "$@" bash "$api" 2>"$tmp/err")
+  code=$?
+}
+argpair() { grep -qx -- "$1" "$fake/args" && [ "$(grep -A1 -x -- "$1" "$fake/args" | sed -n 2p)" = "$2" ]; }
+
+runapi "" OGXO_ROUTE_API_KEY=
+expect "api: status with no key says none" grep -q 'API key: none' <<<"$out"
+runapi "status" OGXO_ROUTE_API_KEY=sk-test
+expect "api: status names the env source" grep -q 'from OGXO_ROUTE_API_KEY' <<<"$out"
+runapi "review the auth flow" OGXO_ROUTE_API_KEY=
+expect "api: no key exits 1" [ "$code" -eq 1 ]
+expect "api: no key does not run claude" [ ! -f "$fake/args" ]
+runapi "review the auth flow" OGXO_ROUTE_API_KEY=sk-test ANTHROPIC_API_KEY=sk-parent ANTHROPIC_AUTH_TOKEN=tok CLAUDE_CODE_OAUTH_TOKEN=oat
+expect "api: run exits 0" [ "$code" -eq 0 ]
+expect "api: passes --bare" grep -qx -- '--bare' "$fake/args"
+expect "api: child gets the ogxo key, not the parent's" grep -qx 'key=sk-test' "$fake/env"
+expect "api: child has no ANTHROPIC_AUTH_TOKEN" grep -qx 'auth=unset' "$fake/env"
+expect "api: child has no CLAUDE_CODE_OAUTH_TOKEN" grep -qx 'oauth=unset' "$fake/env"
+expect "api: default model" argpair --model claude-opus-5-5
+expect "api: default effort" argpair --effort high
+expect "api: default budget" argpair --max-budget-usd 5
+expect "api: dontAsk mode" argpair --permission-mode dontAsk
+expect "api: default tools are read-only" bash -c "! grep -A1 -x -- --allowedTools '$fake/args' | grep -qE 'Edit|Write'"
+expect "api: task is the last argument" [ "$(tail -n 1 "$fake/args")" = "review the auth flow" ]
+expect "api: brief carries the project CLAUDE.md" grep -q 'CLAUDE.md' "$fake/brief"
+expect "api: prints the worker's result" grep -q 'worker report' <<<"$out"
+expect "api: prints the cost" grep -q '\$0.42 of a \$5 budget' <<<"$out"
+runapi "--model claude-sonnet-5-5 --effort medium --budget 1.5 --write -- fix it, don't \"break\" \$HOME" OGXO_ROUTE_API_KEY=sk-test
+expect "api: --model" argpair --model claude-sonnet-5-5
+expect "api: --effort" argpair --effort medium
+expect "api: --budget" argpair --max-budget-usd 1.5
+expect "api: --write adds Edit and Write" bash -c "grep -A1 -x -- --allowedTools '$fake/args' | sed -n 2p | grep -q 'Edit Write$'"
+expect "api: task text kept verbatim" [ "$(tail -n 1 "$fake/args")" = "fix it, don't \"break\" \$HOME" ]
+runapi '--tools "Read Bash(go test *)" run the tests' OGXO_ROUTE_API_KEY=sk-test
+expect "api: --tools replaces the list" argpair --allowedTools 'Read Bash(go test *)'
+expect "api: task after --tools" [ "$(tail -n 1 "$fake/args")" = "run the tests" ]
+runapi "--effort huge do it" OGXO_ROUTE_API_KEY=sk-test
+expect "api: bad effort exits 2" [ "$code" -eq 2 ]
+runapi "--budget lots do it" OGXO_ROUTE_API_KEY=sk-test
+expect "api: bad budget exits 2" [ "$code" -eq 2 ]
+runapi "--nope do it" OGXO_ROUTE_API_KEY=sk-test
+expect "api: unknown flag exits 2" [ "$code" -eq 2 ]
+runapi "--model opus" OGXO_ROUTE_API_KEY=sk-test
+expect "api: options with no task exit 2" [ "$code" -eq 2 ]
+runapi "do it" OGXO_ROUTE_API_KEY=sk-test FAKE_JSON='{"result":"","is_error":true,"terminal_reason":"api_error","total_cost_usd":0}'
+expect "api: an error result exits 1" [ "$code" -eq 1 ]
+expect "api: an error result names the reason" grep -q 'ended: api_error' <<<"$out"
+runapi "do it" OGXO_ROUTE_API_KEY=sk-test FAKE_JSON='not json'
+expect "api: non-JSON output exits 1" [ "$code" -eq 1 ]
+expect "command: api uses a quoted heredoc" grep -q "<<'OGXO_ROUTE_API_ARGS'" "$plugin/commands/api.md"
+
 echo "route tests: $pass passed, $fail failed"
 [ "$fail" -eq 0 ]
