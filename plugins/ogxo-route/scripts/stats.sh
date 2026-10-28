@@ -101,7 +101,19 @@ jq -s -r --argjson cut $((now - days * 86400)) --argjson days "$days" '
       | map({n: length, k: "\(.[0] | lbl)  \(.[0].requested_model // "pin/inherit")"})
       | sort_by(-.n)[] | "  \(.n)\t\(.k)"),
   "",
-  "Generic dispatches with no model: \($d | map(select(.subagent_type as $t | (["", "general-purpose", "Explore", "Plan"] | any(. == $t)) and .requested_model == null)) | length)"
+  "Generic dispatches with no model: \($d | map(select(.subagent_type as $t | (["", "general-purpose", "Explore", "Plan"] | any(. == $t)) and .requested_model == null)) | length)",
+  "",
+  # How much each implementation pulls in around it. grok bridge runs go
+  # through Bash, not a dispatch, so they are not counted.
+  def r2: . * 100 | round / 100;
+  ($d | map(.session_id // "?") | group_by(.) | map(length) | sort) as $s
+  | "Dispatches per session (\($s | length) sessions): median \($s[($s | length) / 2 | floor]), p90 \($s[($s | length) * 0.9 | floor]), max \($s | max)",
+  ($d | map(select(.subagent_type as $t | ["ogxo-route:implementer", "ogxo-route:implementer-risky", "codex:codex-rescue", "grok-build:grok-delegate"] | any(. == $t))) | length) as $i
+  | ($d | map(select(.subagent_type == "ogxo-review:code-review-agent")) | length) as $rv
+  | ($d | map(select(.subagent_type == "ogxo-route:verifier")) | length) as $vf
+  | if $i == 0 then "Implementation dispatches: 0"
+    else "Per implementation dispatch (\($i)): \($d | length / $i | r2) dispatches in all, \($rv / $i | r2) reviews (\($rv)), \($vf / $i | r2) verifier runs (\($vf))"
+    end
 ' "$file"
 echo ""
 echo "Log: $file"

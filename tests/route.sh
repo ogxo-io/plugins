@@ -167,9 +167,21 @@ expect "stats: exit 0" [ "$code" -eq 0 ]
 expect "stats: total counts valid recent lines" grep -q 'Dispatches in the last 7 days: 4 (1 from inside subagents)' <<<"$out"
 expect "stats: generic with no model" grep -q 'Generic dispatches with no model: 2' <<<"$out"
 expect "stats: bare dispatch labelled" grep -q '(none)' <<<"$out"
+expect "stats: no implementations" grep -q 'Implementation dispatches: 0' <<<"$out"
 expect "stats: old and malformed lines pruned" [ "$(lines "$data/dispatches.jsonl")" = 4 ]
 runx "$stats" x
 expect "stats: bad days exit 2" [ "$code" -eq 2 ]
+
+reset_data
+{
+  for t in ogxo-route:implementer ogxo-route:implementer-risky ogxo-review:code-review-agent ogxo-route:verifier ogxo-route:scout; do
+    jq -nc --argjson t "$now" --arg a "$t" '{ts:$t, session_id:"a", subagent_type:$a, requested_model:null, nested:false}'
+  done
+  jq -nc --argjson t "$now" '{ts:$t, session_id:"b", subagent_type:"ogxo-route:scout", requested_model:null, nested:false}'
+} >"$data/dispatches.jsonl"
+runx "$stats"
+expect "stats: dispatches per session" grep -q 'Dispatches per session (2 sessions): median 5, p90 5, max 5' <<<"$out"
+expect "stats: per implementation ratios" grep -q 'Per implementation dispatch (2): 3 dispatches in all, 0.5 reviews (1), 0.5 verifier runs (1)' <<<"$out"
 
 # --- skill and anchor name only agents that exist ----------------------------
 skill="$plugin/skills/routing/SKILL.md"

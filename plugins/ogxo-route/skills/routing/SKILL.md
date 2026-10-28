@@ -24,11 +24,23 @@ If `.claude/ogxo-route.md` exists in the project, read it first. It may add
 risky paths and change the breadth threshold or the free-disk threshold for
 worktrees. Do not treat it as removing any trigger below.
 
-## Step 1: do it inline when that is cheaper
+## Step 1: delegate only when it pays
 
-- Answer from the conversation, or from one known command (`git log`, `rg`, `jq`), in the main session.
-- The third search or read on the same question means you are exploring: hand the question to `ogxo-route:scout` with what you already know.
-- A standard task small enough to finish in a few edits with no exploration (roughly one file) is done inline. The implement, test, and verify chain costs more than it saves below that size.
+A dispatch costs a brief, a second read of what you already read, and a
+lossy summary back. Dispatch only for one of:
+- **Context protection:** bulky output the main session won't need (a long implementation, logs, a wide search), short result.
+- **Parallel:** independent pieces run at once.
+- **Cheaper model:** a worker below the session model, on a task bigger than a few edits.
+- **Fresh eyes:** an independent review.
+
+Otherwise work inline:
+- Answers from context or one known command (`git log`, `rg`).
+- A few known files. Use `ogxo-route:scout` when you can't name the files or the answer spans about ten.
+- A standard edit of about one file.
+- A core-risk task of a few edits in code this session has read (same model either way); it still gets the risky-task review.
+
+Split by context, not by role: the worker that writes a change writes its
+tests, and steps that need the previous step's detail stay in one context.
 
 ## Step 2: classify the task (before dispatch)
 
@@ -53,12 +65,12 @@ logic, crypto, secrets, trust-boundary validation), 2 (destructive or
 rewriting migrations, deletes, changes to existing data), 3 (money), 4
 (concurrency), 6 (infrastructure, irreversible operations), and 8 (unsure): a
 mistake there is costly and tests may not show it, so the task runs on the
-session model. **Contained risk** is trigger 5 (a public contract that stays
-compatible: a new field, endpoint, or flag) and 7 (untested code): tests and
-the risky-task review on Opus catch a mistake, so the task can run on a
-cheaper model. Both tiers get that review. At list prices Sonnet 5.5 costs
-half of Opus 5.5 in every token class, cache reads included, so moving a task
-down halves its cost whatever its length.
+session model and gets its own risky-task review. **Contained risk** is
+trigger 5 (a public contract that stays compatible: a new field, endpoint, or
+flag) and 7 (untested code): tests and the pre-PR review on Opus catch a
+mistake, so the task can run on a cheaper model and needs no per-task review.
+Sonnet 5.5 costs half of Opus 5.5 in
+every token class, so moving a task down halves its cost.
 
 Breadth threshold: more than 5 files, or more than one top-level package
 (unless `.claude/ogxo-route.md` sets another value). Breadth is not a risk
@@ -69,8 +81,7 @@ trigger (the migration, the authorization guard, the money calculation),
 split it out as a small risky task for `ogxo-route:implementer-risky` that
 runs first, and give the rest (services, routes, UI, tests around it) to
 the standard implementer as its own task. A long risky task is the most
-expensive thing to route: every tool call re-reads the agent's whole
-context at Opus prices.
+expensive dispatch.
 
 A worked split of a mixed ticket (a public payload field, a migration, and a
 UI picker) is in `references/classify-example.md`: read it the first time a
@@ -98,7 +109,7 @@ agent inherits the session model.
 | Implement, contained risk | grok through its bridge (read `references/grok-bridge.md` first) or `codex:codex-rescue` | `ogxo-route:implementer-risky` with `model: "sonnet"` |
 | Implement, core risk | — (native only) | `ogxo-route:implementer-risky` (Opus rule) |
 | Per-task check | — | tests (`ogxo-route:test-runner`) and `ogxo-route:verifier` |
-| Risky-task review | — | `ogxo-review:code-review-agent` (Opus rule) |
+| Risky-task review (core risk, or a RISKY path) | — | `ogxo-review:code-review-agent` (Opus rule) |
 | Pre-PR review of the branch | — | `ogxo-review:code-review-agent` (Opus rule) |
 | Explore, general-purpose, Plan | — | always pass `model`: `haiku` to list files, `sonnet` for judgement |
 
@@ -110,8 +121,8 @@ native review above is still required.
 
 ## Step 4: verify and escalate
 
-1. Run the check: tests, then `ogxo-route:verifier` with the task text and the diff range.
-2. `VERDICT: RISKY` on a path rule: the task becomes risky and gets the risky-task review.
+1. Run the check: tests, then the diff check. On an Opus or Fable session with a short diff, check it inline against the task and pipe `git diff --name-only <range>` to `${CLAUDE_PLUGIN_ROOT}/scripts/risky-paths.sh` (plus `.claude/ogxo-route.md` patterns): any output is `RISKY` on a path rule. Otherwise dispatch `ogxo-route:verifier` with the task text and the diff range.
+2. `VERDICT: RISKY` on a path rule: the task becomes risky and gets the risky-task review. Core-risk tasks landing together share one review of their combined range.
 3. `VERDICT: RISKY` on breadth only: no per-task review; the pre-PR review covers it.
 4. `VERDICT: FAIL` or failing tests on a native worker: retry once one tier up (`implementer` → `implementer-risky`; a contained-risk task that ran on `implementer-risky` with sonnet → `implementer-risky` on the session model) with the failed attempt's RESULT and UNCERTAINTIES attached. A second failure comes back to the main session.
 5. Failure on a routing-chosen external run: show the diff it left, restore the files it touched (`git restore <files>`), and re-dispatch natively with the failure attached: a standard task to `ogxo-route:implementer`, a contained-risk task to `ogxo-route:implementer-risky` on the session model.
@@ -149,9 +160,9 @@ effort, because the advisor is consulted less often at low effort.
 ## Step 7: hand-off format
 
 - Pass paths, `file:line` ranges, and commit SHAs, not pasted file content.
-- Map before dispatching an implementer into code this session has not read, and always before `ogxo-route:implementer-risky`: have `ogxo-route:scout` list the files, functions, and existing patterns the task touches (where the guard helpers, the closest similar endpoint, the test fixtures live), and put that map in the brief as `file:line` references. The worker starts from the map instead of searching, and exploration runs on the cheaper model.
+- Map before dispatching an implementer into code this session has not read and cannot name the files of: have `ogxo-route:scout` list the files, functions, and existing patterns the task touches (where the guard helpers, the closest similar endpoint, the test fixtures live), and put that map in the brief as `file:line` references. The worker starts from the map instead of searching, and exploration runs on the cheaper model.
 - Give each worker a self-contained task: goal, files, acceptance checks. Paste a ticket's acceptance text verbatim, not paraphrased, and mark your own decisions as yours.
-- Size each implementation task to about 60 tool calls: one coherent change in one area. A larger ticket is several tasks, run one after another, each brief carrying the previous task's RESULT and handoff path. Every call re-reads the worker's whole context, so cost grows faster than the number of calls, and a worker that explores for hours pays for that context on every call.
+- Size each implementation task to about 60 tool calls: one coherent change in one area. A larger ticket is several tasks, split where each part stands on its own, run one after another, each brief carrying the previous task's RESULT and handoff path.
 - Give each implementer a handoff path outside the repository (the session scratchpad directory when you have one, else `${TMPDIR:-/tmp}/ogxo-handoff/<task>.md`). It writes progress there when it stops at its call cap, and the next worker starts from that file and the map, with a small context of its own.
 - Share context through the brief and the handoff file, not by forking or by continuing a worker with a follow-up message. A fork inherits the main context and re-reads it on every call, so use one only for a short task that needs the whole conversation. A worker's cache expires after 5 minutes idle, so a follow-up to a worker that has finished rewrites its whole context.
 - Dispatch independent read-only work (scout, test-runner, log-extractor) in parallel, in one message. Parallel implementation follows Step 8.
