@@ -20,9 +20,10 @@ set -o pipefail
 MARKETPLACE=ogxo
 SOURCE=${OGXO_MARKETPLACE_SOURCE:-ogxo-io/plugins}
 # The bundle plugin --all installs, and the plugins it leaves out unless asked
-# for: thryx needs a ThryX account, ogxo-format rewrites every file Claude edits.
+# for: thryx needs a ThryX account, thryx-tasks is a ThryX panel built on it,
+# ogxo-format rewrites every file Claude edits.
 BUNDLE=ogxo
-OPT_IN=(thryx ogxo-format)
+OPT_IN=(thryx thryx-tasks ogxo-format)
 
 usage() {
   cat <<'EOF'
@@ -30,7 +31,8 @@ Usage: install.sh [--list] [--all [--include-thryx] [--include-format]] [PLUGIN.
 
   PLUGIN...          install these plugins, by name (for example ogxo-git)
   --all              install the ogxo bundle: every plugin except thryx
-                     (needs a ThryX account) and ogxo-format (reformats every
+                     (needs a ThryX account), thryx-tasks (a ThryX panel; name
+                     it to install it), and ogxo-format (reformats every
                      file Claude edits). Same as `claude plugin install ogxo@ogxo`,
                      and also updates every ogxo plugin already installed.
   --include-thryx    with --all, also install thryx
@@ -168,6 +170,7 @@ fi
 for p in "${done_list[@]}"; do
   case "$p" in
     thryx) say "thryx: connect each ThryX workspace with /thryx:connect <workspace> in Claude Code." ;;
+    thryx-tasks) say "thryx-tasks: with ThryX connected, run /thryx-tasks boards in Claude Code to pick the board it follows." ;;
     ogxo-statusline | "$BUNDLE") say "ogxo-statusline: run /ogxo-statusline:setup in Claude Code to turn the status line on." ;;
   esac
 done

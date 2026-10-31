@@ -1,0 +1,15 @@
+{
+  "name": "thryx-tasks",
+  "version": "0.2.0",
+  "author": {
+    "name": "ogxo",
+    "url": "https://github.com/ogxo-io"
+  },
+  "homepage": "https://github.com/ogxo-io/plugins",
+  "repository": "https://github.com/ogxo-io/plugins",
+  "license": "MIT",
+  "description": "Claude Code only: the ThryX task panel is a Claude Code hooks module, which Codex does not load. This Codex package has no skills and its hooks are turned off.",
+  "hooks": {
+    "hooks": {}
+  }
+}

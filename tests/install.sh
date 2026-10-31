@@ -30,7 +30,7 @@ case "$*" in
   "plugin list --available --json")
     installed=$(sed 's/.*/{"id":"&@ogxo"}/' "$STUB_DIR/installed" 2>/dev/null | paste -sd, -)
     available=""
-    for p in ogxo thryx ogxo-git ogxo-review ogxo-format ogxo-statusline; do
+    for p in ogxo thryx thryx-tasks ogxo-git ogxo-review ogxo-format ogxo-statusline; do
       grep -qxF "$p" "$STUB_DIR/installed" 2>/dev/null && continue
       available+="${available:+,}{\"name\":\"$p\",\"marketplaceName\":\"ogxo\"}"
     done
@@ -89,9 +89,11 @@ for sh_name in "${shells[@]}"; do
     expect_in "claude plugin install ogxo@ogxo" "$calls"
     expect_not_in "thryx@ogxo" "$calls"
     expect_not_in "ogxo-format@ogxo" "$calls"
+    expect_not_in "thryx-tasks@ogxo" "$calls"
     expect_not_in "ogxo-git@ogxo" "$calls"
     expect_in "Not in the bundle: ogxo-format" "$out"
     expect_in "Not in the bundle: thryx" "$out"
+    expect_in "Not in the bundle: thryx-tasks" "$out"
     expect_in "/ogxo-statusline:setup" "$out"
     expect_not_in "thryx: connect each ThryX workspace" "$out"
   fi

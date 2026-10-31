@@ -4,7 +4,7 @@
 set -uo pipefail
 
 root=$(cd "$(dirname "$0")/.." && pwd)
-excluded='["ogxo", "thryx", "ogxo-format"]'
+excluded='["ogxo", "thryx", "thryx-tasks", "ogxo-format"]'
 
 want=$(jq -r --argjson x "$excluded" '[.plugins[].name] - $x | sort[]' "$root/.claude-plugin/marketplace.json")
 have=$(jq -r '.dependencies | map(if type == "object" then .name else . end) | sort[]' "$root/plugins/ogxo/.claude-plugin/plugin.json")

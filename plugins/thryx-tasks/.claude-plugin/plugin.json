@@ -1,0 +1,74 @@
+{
+  "name": "thryx-tasks",
+  "version": "0.2.0",
+  "description": "A Claude Code panel beside the chat for your ThryX board: the active sprint or all open tasks, yours or everyone's, in Doing, Review and Up next with the sprint's progress; a card per task with its pull requests and checks; notices when tickets move; a summary on the hint line under the prompt; a board picker across your workspaces; and a /thryx-tasks command. Calls ThryX through the thryx plugin's MCP server, using a fixed list of read tools.",
+  "author": {
+    "name": "ogxo",
+    "url": "https://github.com/ogxo-io"
+  },
+  "homepage": "https://github.com/ogxo-io/plugins",
+  "repository": "https://github.com/ogxo-io/plugins",
+  "license": "MIT",
+  "keywords": [
+    "thryx",
+    "project-management",
+    "sprints",
+    "panel"
+  ],
+  "dependencies": [
+    "thryx"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "server": {
+      "type": "string",
+      "title": "ThryX MCP server",
+      "description": "The ThryX MCP server name as /mcp lists it: thryx (added by /thryx:connect), or claude.ai ThryX. Tried first; then thryx and claude.ai ThryX are tried, and the first that answers is kept.",
+      "default": "thryx"
+    },
+    "workspace": {
+      "type": "string",
+      "title": "Workspace slug",
+      "description": "Default workspace slug, as list_workspaces names it. Empty: the panel's Board picker or /thryx-tasks board <workspace>/<KEY> chooses one.",
+      "default": ""
+    },
+    "project": {
+      "type": "string",
+      "title": "Project key",
+      "description": "Default project (board) key. Empty: the panel asks you to pick a board on first open.",
+      "default": ""
+    },
+    "refreshMinutes": {
+      "type": "number",
+      "title": "Refresh interval (minutes)",
+      "description": "How often the open panel reloads; 0 turns the timer off.",
+      "default": 5
+    },
+    "issueUrlTemplate": {
+      "type": "string",
+      "title": "Ticket link template",
+      "description": "A ticket's web URL with {key} (and optionally {workspace}, {project}) as placeholders. Empty: a task card's Copy button copies the key only.",
+      "default": ""
+    },
+    "icons": {
+      "type": "string",
+      "title": "Icons",
+      "description": "emoji: status and priority emoji; plain: ASCII markers for terminals that draw emoji badly.",
+      "default": "emoji",
+      "options": [
+        "emoji",
+        "plain"
+      ]
+    },
+    "statusLine": {
+      "type": "string",
+      "title": "Status line",
+      "description": "on: your open work on the board (doing, review, up next) and the sprint's days left, dim at the end of the hint line under the prompt, reloaded on the refresh timer even with the panel closed; off: none.",
+      "default": "on",
+      "options": [
+        "on",
+        "off"
+      ]
+    }
+  }
+}

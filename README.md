@@ -11,7 +11,7 @@ claude plugin marketplace add ogxo-io/plugins
 claude plugin install ogxo@ogxo
 ```
 
-It installs every plugin in the table below except two, which you add by name when you want them: **thryx** needs a ThryX account and its MCP server, added with `/thryx:connect`, and **ogxo-format** reformats every file Claude edits. When a plugin joins the set, updating the bundle installs it. Updating the bundle does not update the plugins it already installed, because Claude Code updates each plugin on its own; see [Update](#update). To remove everything, uninstall `ogxo@ogxo` and then run `claude plugin prune`. **ogxo-statusline** turns on with `/ogxo-statusline:setup`.
+It installs every plugin in the table below except three, which you add by name when you want them: **thryx** needs a ThryX account and its MCP server, added with `/thryx:connect`; **thryx-tasks** is a ThryX panel that needs thryx; and **ogxo-format** reformats every file Claude edits. When a plugin joins the set, updating the bundle installs it. Updating the bundle does not update the plugins it already installed, because Claude Code updates each plugin on its own; see [Update](#update). To remove everything, uninstall `ogxo@ogxo` and then run `claude plugin prune`. **ogxo-statusline** turns on with `/ogxo-statusline:setup`.
 
 To pick plugins yourself instead, install them by name:
 
@@ -69,6 +69,7 @@ Current support:
 | Plugins | Codex support |
 |---|---|
 | `thryx` | Explicit Codex manifest and shared skills for both clients. |
+| `thryx-tasks` | Not supported: the panel is a Claude Code hooks module, which Codex does not load. Its Codex package is empty. |
 | `ogxo-git`, `ogxo-debug`, `ogxo-design`, `ogxo-decide` | Shared skills with installed-path resolution; git commands and architecture advice also have Codex skills. Browser checks require an available browser tool or Playwright. |
 | `ogxo-review`, `ogxo-specialists` | Review workflows and specialist procedures exported as skills. Use native workers when available; disclose sequential fallback otherwise. GitHub workflows require `gh` authentication. |
 | `ogxo-guards`, `ogxo-format` | Hooks parse native shell and multi-file patch inputs, including moves and deletes. Review and trust the hook definitions in Codex before use. Patch size checks count added text, not final file size; shell edits bypass file hooks. Formatting is optional and rewrites files. |
@@ -123,8 +124,9 @@ An open session keeps the versions it loaded: run `/reload-plugins` in it to app
 
 | Plugin | What it is | Status |
 |---|---|---|
-| `ogxo` | The collection: Claude dependency bundle; Codex setup skill installs members individually. Excludes `thryx` and `ogxo-format` by default. | 0.1.5 |
+| `ogxo` | The collection: Claude dependency bundle; Codex setup skill installs members individually. Excludes `thryx`, `thryx-tasks` and `ogxo-format` by default. | 0.1.6 |
 | `thryx` | Skills for the hosted ThryX MCP server, vendored in this repo (`plugins/thryx`): issues, projects, cycles, the client-facing Roadmap, and documents. `/thryx:connect` adds one MCP server, `thryx`, that reaches every workspace your token does (on macOS the token goes into your Keychain through a dialog), so one install covers several companies. `/thryx:replan` and `/thryx:release` run cycle replanning and release preparation. | 0.8.1 |
+| `thryx-tasks` | A panel beside the Claude Code chat for a ThryX board: the active sprint or all open tasks, yours or everyone's, in Doing, Review and Up next with sprint progress. Selecting a task opens a card with its pull requests, checks and description, and puts it in your prompt on request. Notices when tickets move, a status line entry, and a board picker across your workspaces; `/thryx-tasks` sets the same from the prompt. Claude Code only (a hooks module); needs `thryx`. See [its README](plugins/thryx-tasks/README.md). | 0.2.0 |
 | `ogxo-review` | Multi-agent code review: `/ogxo-review:full-review` cross-correlates reviewers and has finding-verifier check every finding; `/ogxo-review:code-review-git` posts line-level findings as a GitHub PR review and answers other reviewers' comments. Bundles the code-review-agent, security-auditor, code-metrics-analyst, dependency-auditor, and finding-verifier agents (code-review-git verifies every finding before it is shown); `/ogxo-review:security-check` for a focused security pass. | 0.4.1 |
 | `ogxo-git` | Conventional Commit messages, PR titles/descriptions with template detection, resolving PR review threads (its workflow instructs it to present its analysis and wait for approval before replying or resolving), `/ogxo-git:catchup` to restore branch context, plus release, quick-fix, and ship-feature workflows and changelog/release-notes skills. | 0.2.7 |
 | `ogxo-debug` | `live-debug`: reproduce a web-app bug in the browser, read console and network errors, fix, and verify in the page; `css-alignment-debug` injects temporary outline overlays and reads a screenshot to find stubborn layout bugs. Also `browser-testing` for Playwright test scripts. | 0.3.5 |

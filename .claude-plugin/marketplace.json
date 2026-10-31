@@ -12,8 +12,8 @@
   "plugins": [
     {
       "name": "ogxo",
-      "description": "The ogxo plugin set in one install: code review, git and GitHub workflows, browser debugging, decision and planning skills, color-system design, safety hooks, specialist subagents, the status line, and model routing. Installing it installs each of those plugins; thryx (needs a ThryX account) and ogxo-format (rewrites every file Claude edits) are left out and install on their own. In Codex, a setup skill installs the members one at a time.",
-      "version": "0.1.5",
+      "description": "The ogxo plugin set in one install: code review, git and GitHub workflows, browser debugging, decision and planning skills, color-system design, safety hooks, specialist subagents, the status line, and model routing. Installing it installs each of those plugins; thryx (needs a ThryX account), thryx-tasks (a ThryX panel built on thryx), and ogxo-format (rewrites every file Claude edits) are left out and install on their own. In Codex, a setup skill installs the members one at a time.",
+      "version": "0.1.6",
       "author": {
         "name": "ogxo",
         "url": "https://github.com/ogxo-io"
@@ -44,6 +44,24 @@
         "planning"
       ],
       "source": "./plugins/thryx"
+    },
+    {
+      "name": "thryx-tasks",
+      "description": "A Claude Code panel beside the chat for your ThryX board: the active sprint or all open tasks, yours or everyone's, in Doing, Review and Up next with the sprint's progress; a card per task with its pull requests and checks; notices when tickets move; a status line entry; a board picker across your workspaces; and a /thryx-tasks command. Calls ThryX through the thryx plugin's MCP server, using a fixed list of read tools.",
+      "version": "0.2.0",
+      "author": {
+        "name": "ogxo",
+        "url": "https://github.com/ogxo-io"
+      },
+      "homepage": "https://github.com/ogxo-io/plugins/tree/main/plugins/thryx-tasks",
+      "category": "productivity",
+      "keywords": [
+        "thryx",
+        "project-management",
+        "sprints",
+        "panel"
+      ],
+      "source": "./plugins/thryx-tasks"
     },
     {
       "name": "ogxo-review",
