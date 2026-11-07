@@ -191,7 +191,41 @@ leave the change to someone whose role allows it; don't retry it another
 way or through another tool.
 
 **Doing the work.** Your tickets are `list_issues` with `assignee_email`
-set to the token owner's address, which `whoami` returns. `get_issue` for
+set to the token owner's address, which `whoami` returns. To find
+tickets by any other trait, filter on the server instead of listing
+everything and sorting it yourself; a page stops at 200, so sorting by
+hand on a big project gives an incomplete answer. Both `list_issues` and
+`search_issues` take:
+
+- `assignee_email` or `unassigned: true` (not both), and `creator_email`
+  for who filed it; an unknown person is refused;
+- `status` (one name or a list, per project, from `list_statuses`) or
+  `status_category` (`triage`, `unstarted`, `started`, `completed`,
+  `canceled`);
+- `label` (any of, ignoring case), `issue_type` (one or a list),
+  `release` (version or id), and `source` (`member`,
+  `partner_feedback`, `partner_portal`, `slack`, `form`, `email`; one or
+  a list); `source: partner_feedback` with `status_category: triage` is
+  the queue of partner requests waiting for an answer;
+- `created_after` / `created_before` and `updated_after` /
+  `updated_before`, a date (UTC) or an RFC3339 time; a date-only
+  `_before` includes that day.
+
+Only `list_issues` takes `priority`, `keys` (up to 64 tickets by key),
+`parent_issue_key` (one epic's children), `unparented: true` (tickets
+under nothing), `outcome` (the tickets linked to one outcome, with
+`project_key`), `backlog_only: true` (open tickets in no planned or
+active cycle, with `project_key`), `group_by: "epic"` (answers `groups`
+and `no_epic` instead of `issues`), and `limit` (default 30, at most
+200). The defaults differ: `list_issues` leaves out done and archived
+tickets unless you pass `include_done` / `include_archived`;
+`search_issues`, which needs a `query`, includes both. A `status` or
+`status_category` that names only finished states includes done work
+unless you pass `include_done: false`. An unknown status, label or
+release is refused with the valid values. Rows and `get_issue` carry
+`creator` as `{name, email}`, the email null once the person has left.
+`total` appears only when the page was cut and counts the filtered rows
+you can see; otherwise `count` is complete. `get_issue` for
 the whole ticket, including the Roadmap outcomes it counts toward
 (`outcomes`); `list_relations` for what blocks it. Call
 `list_statuses` for the project before `update_issue` changes a status:
