@@ -85,6 +85,24 @@ approved: its status changes and its assignee stays. The claim is the status
 and the assignee; the branch or worktree name carries the key (for example
 `THRY-12-short-title`), which is how a later session finds the work.
 
+On a project with Relay on (see the thryx skill, "Relay: say what you will
+change"), the main session also calls `declare_intent` for each claimed
+ticket, with the paths from the scout map or the brief. Workers have no
+ThryX tools, so they cannot do this themselves. A reported conflict holds
+that ticket back: ask the holding agent with `ask_agent`, and start the
+ticket only after the answer. Call `release_intent` when the ticket is
+recorded (step 6), whether it finished or stopped. These calls are writes
+like any other, sent one per message.
+
+On a project with Project Memory on (see the thryx skill, "Project
+Memory"), the main session calls `memory_for_paths` for each claimed
+ticket with the same paths, and reads `project_brief.how_we_work` once
+per run. Workers can't call ThryX, so the brief carries what comes back:
+each approved entry's text and its citation, under a heading such as
+"Approved project rules", with a line saying they are rules the team
+agreed and that a conflict with the task is reported, not worked around.
+Known gotchas from `declare_intent` go in the same list.
+
 ## 5. Work the wave
 
 - **With ogxo-route and its worker agents available:** follow its routing
@@ -122,6 +140,12 @@ and the assignee; the branch or worktree name carries the key (for example
   leave it in progress. Add one comment: branch or commit, what changed, the
   checks run, anything left open. Comments are separate calls, one per
   message.
+- **Worth remembering:** when a ticket settled a convention, decision, or
+  gotcha the next agent needs (a worker's UNCERTAINTIES and the review
+  are where these show up), propose it with `propose_memory`, citing the
+  ticket or its commit's pull request, after the ticket's comment. Say in
+  the plan (step 3) that the run may propose memory, and list each
+  proposal in the summary so the user can review it in the Memory tab.
 - **Failed or stuck:** leave it in progress, comment what blocked it and
   what was tried, and say so in the run table. A ticket that waits on
   something that is not another ticket gets a `blocked_reason` through
